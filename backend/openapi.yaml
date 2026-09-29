@@ -1,0 +1,661 @@
+openapi: 3.0.3
+info:
+  title: College LMS Backend API
+  description: |
+    Phase 1 — Authentication & Account Setup
+
+    This API provides backend services for the College Learning Management System.
+    Firebase Authentication handles identity; this API handles authorization,
+    roles, tenancy, profiles, approvals, and security.
+  version: 1.0.0
+  contact:
+    name: LMS Backend Team
+
+servers:
+  - url: http://localhost:4000
+    description: Development server
+
+tags:
+  - name: Health
+    description: System health check
+  - name: Auth
+    description: Authentication, onboarding, sessions
+  - name: Profiles
+    description: User profile management
+  - name: Approvals
+    description: Account approval workflow
+  - name: Users
+    description: User administration (tenant-scoped)
+  - name: Colleges
+    description: College/tenant management
+  - name: Roles
+    description: Role and permission listing
+  - name: Audit
+    description: Audit log viewing
+
+components:
+  securitySchemes:
+    firebaseAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: Firebase ID Token
+      description: Firebase ID token obtained from Firebase Client SDK
+
+  schemas:
+    SuccessResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+          example: true
+        data:
+          type: object
+
+    ErrorResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+          example: false
+        error:
+          type: object
+          properties:
+            code:
+              type: string
+              example: VALIDATION_ERROR
+            message:
+              type: string
+              example: Validation failed
+            details:
+              type: array
+              items:
+                type: object
+                properties:
+                  field:
+                    type: string
+                  message:
+                    type: string
+
+    OnboardingRequest:
+      type: object
+      required:
+        - collegeId
+        - requestedRole
+      properties:
+        collegeId:
+          type: string
+          format: uuid
+        requestedRole:
+          type: string
+          enum: [STUDENT, FACULTY, TRAINER, HOD, TPO, COLLEGE_ADMIN]
+        email:
+          type: string
+          format: email
+        phone:
+          type: string
+
+    ProfileUpdate:
+      type: object
+      properties:
+        firstName:
+          type: string
+          maxLength: 100
+        lastName:
+          type: string
+          maxLength: 100
+        displayName:
+          type: string
+          maxLength: 200
+        phone:
+          type: string
+        dateOfBirth:
+          type: string
+          format: date-time
+        gender:
+          type: string
+          enum: [MALE, FEMALE, OTHER, PREFER_NOT_TO_SAY]
+        designation:
+          type: string
+        department:
+          type: string
+        employeeId:
+          type: string
+        studentId:
+          type: string
+        enrollmentYear:
+          type: integer
+        bio:
+          type: string
+          maxLength: 1000
+        address:
+          type: string
+        city:
+          type: string
+        state:
+          type: string
+        linkedinUrl:
+          type: string
+          format: uri
+        profilePhotoUrl:
+          type: string
+          format: uri
+
+    ReviewApproval:
+      type: object
+      required:
+        - status
+      properties:
+        status:
+          type: string
+          enum: [APPROVED, REJECTED]
+        rejectionReason:
+          type: string
+          description: Required when status is REJECTED
+        notes:
+          type: string
+
+    CreateCollege:
+      type: object
+      required:
+        - name
+        - code
+      properties:
+        name:
+          type: string
+        code:
+          type: string
+        domain:
+          type: string
+        address:
+          type: string
+        city:
+          type: string
+        state:
+          type: string
+        country:
+          type: string
+          default: India
+        phone:
+          type: string
+        email:
+          type: string
+          format: email
+        website:
+          type: string
+          format: uri
+        logoUrl:
+          type: string
+          format: uri
+
+    ProfileCompletion:
+      type: object
+      properties:
+        percentage:
+          type: integer
+          example: 80
+        completed:
+          type: boolean
+          example: false
+        missingFields:
+          type: array
+          items:
+            type: string
+          example: [department]
+
+    Pagination:
+      type: object
+      properties:
+        page:
+          type: integer
+        limit:
+          type: integer
+        total:
+          type: integer
+        totalPages:
+          type: integer
+
+paths:
+  /api/health:
+    get:
+      tags: [Health]
+      summary: Health check
+      responses:
+        '200':
+          description: Server is healthy
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessResponse'
+
+  /api/auth/onboarding:
+    post:
+      tags: [Auth]
+      summary: Onboard a new user
+      description: |
+        Creates an LMS user after Firebase authentication.
+        Firebase creates the identity; this endpoint creates the application record.
+        SUPER_ADMIN and SUPERINTENDENT roles cannot be self-assigned.
+      security:
+        - firebaseAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/OnboardingRequest'
+      responses:
+        '201':
+          description: User onboarded successfully
+        '400':
+          description: Validation error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: Missing/invalid Firebase token
+        '409':
+          description: User already onboarded
+
+  /api/auth/me:
+    get:
+      tags: [Auth]
+      summary: Get current user
+      security:
+        - firebaseAuth: []
+      responses:
+        '200':
+          description: Current user data with profile and roles
+        '401':
+          description: Unauthenticated
+        '403':
+          description: Account not active
+
+  /api/auth/logout:
+    post:
+      tags: [Auth]
+      summary: Logout
+      security:
+        - firebaseAuth: []
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                sessionId:
+                  type: string
+                  format: uuid
+      responses:
+        '200':
+          description: Logged out
+
+  /api/auth/refresh:
+    post:
+      tags: [Auth]
+      summary: Refresh session
+      description: Creates a new session record. Actual token refresh via Firebase Client SDK.
+      security:
+        - firebaseAuth: []
+      responses:
+        '200':
+          description: Session created
+
+  /api/auth/password-changed:
+    post:
+      tags: [Auth]
+      summary: Record password change
+      description: Records a password change audit event. Actual change in Firebase.
+      security:
+        - firebaseAuth: []
+      responses:
+        '200':
+          description: Password change recorded
+
+  /api/auth/sessions:
+    get:
+      tags: [Auth]
+      summary: List active sessions
+      security:
+        - firebaseAuth: []
+      responses:
+        '200':
+          description: List of active sessions
+
+  /api/auth/sessions/{id}:
+    delete:
+      tags: [Auth]
+      summary: Revoke a session
+      security:
+        - firebaseAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Session revoked
+        '403':
+          description: Cannot revoke another user's session
+        '404':
+          description: Session not found
+
+  /api/profiles/me:
+    get:
+      tags: [Profiles]
+      summary: Get own profile
+      security:
+        - firebaseAuth: []
+      responses:
+        '200':
+          description: User profile
+    put:
+      tags: [Profiles]
+      summary: Update own profile
+      security:
+        - firebaseAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ProfileUpdate'
+      responses:
+        '200':
+          description: Profile updated with completion status
+
+  /api/profiles/me/completion:
+    get:
+      tags: [Profiles]
+      summary: Get profile completion status
+      security:
+        - firebaseAuth: []
+      responses:
+        '200':
+          description: Profile completion data
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/SuccessResponse'
+                  - type: object
+                    properties:
+                      data:
+                        $ref: '#/components/schemas/ProfileCompletion'
+
+  /api/profiles/{userId}:
+    get:
+      tags: [Profiles]
+      summary: View another user's profile
+      description: Requires profiles:read permission and same tenant.
+      security:
+        - firebaseAuth: []
+      parameters:
+        - name: userId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: User profile
+        '403':
+          description: Insufficient permission or tenant mismatch
+
+  /api/approvals:
+    get:
+      tags: [Approvals]
+      summary: List approval requests
+      description: Tenant-scoped. Requires approvals:read permission.
+      security:
+        - firebaseAuth: []
+      parameters:
+        - name: status
+          in: query
+          schema:
+            type: string
+            enum: [PENDING, APPROVED, REJECTED]
+        - name: page
+          in: query
+          schema:
+            type: integer
+            default: 1
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            default: 20
+      responses:
+        '200':
+          description: Paginated approval list
+
+  /api/approvals/{id}:
+    get:
+      tags: [Approvals]
+      summary: Get approval details
+      security:
+        - firebaseAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Approval details
+
+  /api/approvals/{id}/review:
+    post:
+      tags: [Approvals]
+      summary: Approve or reject an account
+      description: Requires approvals:manage permission and same tenant.
+      security:
+        - firebaseAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ReviewApproval'
+      responses:
+        '200':
+          description: Review recorded
+        '403':
+          description: Tenant mismatch or insufficient permission
+        '409':
+          description: Already reviewed
+
+  /api/users:
+    get:
+      tags: [Users]
+      summary: List users
+      description: Tenant-scoped. Requires users:read permission.
+      security:
+        - firebaseAuth: []
+      parameters:
+        - name: status
+          in: query
+          schema:
+            type: string
+            enum: [PENDING, ACTIVE, REJECTED, SUSPENDED, DISABLED]
+        - name: search
+          in: query
+          schema:
+            type: string
+        - name: page
+          in: query
+          schema:
+            type: integer
+        - name: limit
+          in: query
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: Paginated user list
+
+  /api/users/{id}:
+    get:
+      tags: [Users]
+      summary: Get user details
+      security:
+        - firebaseAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: User details
+
+  /api/users/{id}/status:
+    patch:
+      tags: [Users]
+      summary: Update user account status
+      description: Suspend, disable, or reactivate a user. Requires users:write.
+      security:
+        - firebaseAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [status]
+              properties:
+                status:
+                  type: string
+                  enum: [ACTIVE, SUSPENDED, DISABLED]
+      responses:
+        '200':
+          description: Status updated
+
+  /api/colleges:
+    get:
+      tags: [Colleges]
+      summary: List colleges
+      description: Public endpoint (no auth required). Used during onboarding.
+      parameters:
+        - name: page
+          in: query
+          schema:
+            type: integer
+        - name: limit
+          in: query
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: Paginated college list
+    post:
+      tags: [Colleges]
+      summary: Create a college
+      description: Super Admin only.
+      security:
+        - firebaseAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateCollege'
+      responses:
+        '201':
+          description: College created
+        '409':
+          description: College code already exists
+
+  /api/colleges/{id}:
+    get:
+      tags: [Colleges]
+      summary: Get college details
+      description: Public endpoint.
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: College details
+    put:
+      tags: [Colleges]
+      summary: Update a college
+      description: Super Admin only.
+      security:
+        - firebaseAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateCollege'
+      responses:
+        '200':
+          description: College updated
+
+  /api/roles:
+    get:
+      tags: [Roles]
+      summary: List roles with permissions
+      security:
+        - firebaseAuth: []
+      responses:
+        '200':
+          description: List of roles with permission mappings
+
+  /api/audit:
+    get:
+      tags: [Audit]
+      summary: List audit logs
+      description: Tenant-scoped. Requires audit:read permission.
+      security:
+        - firebaseAuth: []
+      parameters:
+        - name: action
+          in: query
+          schema:
+            type: string
+        - name: page
+          in: query
+          schema:
+            type: integer
+        - name: limit
+          in: query
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: Paginated audit logs

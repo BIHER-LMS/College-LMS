@@ -1,0 +1,399 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Sign In — Aura Academia</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Space+Grotesk:wght@500;600;700&display=swap" rel="stylesheet">
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          fontFamily: {
+            sans: ['Inter', 'sans-serif'],
+            heading: ['Space Grotesk', 'sans-serif'],
+          },
+          colors: {
+            brand: {
+              900: '#071224',
+              800: '#0a192f',
+              700: '#0f2442',
+              600: '#1e3a5f',
+              accent: '#38bdf8',
+            },
+            surface: {
+              DEFAULT: '#f8fafc',
+              subtle: '#eff3f8',
+              card: '#ffffff',
+            }
+          }
+        }
+      }
+    }
+  </script>
+  <style>
+    /* Clean micro-transitions */
+    .transition-subtle {
+      transition: all 0.15s cubic-bezier(0.16, 1, 0.3, 1);
+    }
+  </style>
+</head>
+<body class="bg-surface text-slate-800 antialiased min-h-screen flex flex-col justify-between font-sans selection:bg-brand-800 selection:text-white">
+
+  <main class="w-full min-h-screen flex flex-col lg:flex-row">
+    
+    <!-- LEFT SIDE: Academic Brand Showcase (40% desktop) -->
+    <aside class="relative hidden lg:flex lg:w-[42%] bg-brand-800 text-white flex-col justify-between p-12 xl:p-16 border-r border-brand-700/60 overflow-hidden">
+      
+      <!-- Subtle geometric background grid pattern -->
+      <div class="absolute inset-0 opacity-[0.035] pointer-events-none" style="background-image: radial-gradient(#ffffff 1px, transparent 1px); background-size: 24px 24px;"></div>
+      
+      <!-- Top: Brand Header -->
+      <div class="relative z-10">
+        <a href="#" class="inline-flex items-center gap-3 group focus:outline-none focus:ring-2 focus:ring-brand-accent/50 rounded-lg p-1">
+          <!-- Geometric Book Logo matching app icon -->
+          <div class="w-10 h-10 rounded-lg bg-brand-700/80 border border-white/15 flex items-center justify-center shadow-sm">
+            <svg class="w-5 h-5 text-brand-accent" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M4 19.5v-15A2.5 2.5 0 0 1 6.5 2H20v20H6.5a2.5 2.5 0 0 1-2.5-2.5Z"></path>
+              <path d="M6 6h10"></path>
+              <path d="M6 10h10"></path>
+            </svg>
+          </div>
+          <div class="flex flex-col">
+            <span class="font-heading font-bold text-lg tracking-wider uppercase text-white">Aura Academia</span>
+            <span class="text-[11px] font-medium tracking-widest text-slate-400 uppercase -mt-0.5">Higher Education Workspace</span>
+          </div>
+        </a>
+      </div>
+
+      <!-- Center: Abstract Educational Illustration & Academic Value Proposition -->
+      <div class="relative z-10 my-auto py-10">
+        
+        <!-- Institutional Badge -->
+        <div class="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-white/[0.08] border border-white/10 text-xs font-medium text-slate-300 mb-6">
+          <span class="w-1.5 h-1.5 rounded-full bg-brand-accent"></span>
+          Institutional Single Sign-On Ready
+        </div>
+
+        <h1 class="font-heading text-3xl xl:text-4xl font-semibold tracking-tight text-white leading-tight">
+          Learn smarter.<br>
+          Stay organized.<br>
+          <span class="text-brand-accent">Achieve more.</span>
+        </h1>
+        
+        <p class="mt-4 text-slate-300 text-sm xl:text-base leading-relaxed max-w-md">
+          Centralize lecture streams, verify problem sets, and synchronize coursework across department archives with empirical precision.
+        </p>
+
+        <!-- Minimal Abstract Academic Visual Card -->
+        <div class="mt-8 bg-brand-900/60 rounded-xl border border-white/10 p-5 max-w-md shadow-2xl backdrop-blur-sm">
+          <div class="flex items-center justify-between pb-3.5 border-b border-white/10">
+            <div class="flex items-center gap-2.5">
+              <div class="w-2.5 h-2.5 rounded-full bg-emerald-400"></div>
+              <span class="font-mono text-xs text-slate-300 font-medium">Session STU-9402 • Active Term</span>
+            </div>
+            <span class="text-[11px] font-mono uppercase tracking-wider text-slate-400">Fall 2024</span>
+          </div>
+
+          <div class="mt-4 space-y-3">
+            <div class="flex items-center justify-between text-xs">
+              <span class="text-slate-300">Cumulative GPA Target</span>
+              <span class="font-mono font-semibold text-white">3.88 / 4.00</span>
+            </div>
+            <div class="w-full bg-white/10 h-1.5 rounded-full overflow-hidden">
+              <div class="bg-brand-accent h-full rounded-full" style="width: 88%;"></div>
+            </div>
+
+            <div class="pt-2 flex items-center justify-between text-xs text-slate-400">
+              <span>Verified Courses: 5 Enrolled</span>
+              <span class="text-emerald-400 font-medium flex items-center gap-1">
+                <svg class="w-3.5 h-3.5" viewBox="0 0 20 20" fill="currentColor">
+                  <path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"/>
+                </svg>
+                Sync Current
+              </span>
+            </div>
+          </div>
+        </div>
+
+      </div>
+
+      <!-- Bottom: Trust Footer & Consortium Endorsement -->
+      <div class="relative z-10 pt-6 border-t border-white/10 flex items-center justify-between text-xs text-slate-400">
+        <span class="flex items-center gap-1.5">
+          <svg class="w-4 h-4 text-slate-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
+          </svg>
+          256-bit AES Cryptographic Vault
+        </span>
+        <span class="font-mono text-[11px] text-slate-400">v2.4-edu</span>
+      </div>
+
+    </aside>
+
+    <!-- RIGHT SIDE: Clean Sign In Form & Authentication Form (60% desktop) -->
+    <section class="flex-1 flex flex-col justify-between p-6 sm:p-10 lg:p-16 xl:p-20 bg-surface">
+      
+      <!-- Top Mobile Brand Header (Visible only on mobile/tablet) -->
+      <div class="lg:hidden flex items-center justify-between pb-8">
+        <a href="#" class="inline-flex items-center gap-2.5">
+          <div class="w-9 h-9 rounded-lg bg-brand-800 flex items-center justify-center text-white shadow-sm">
+            <svg class="w-4.5 h-4.5 text-brand-accent" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M4 19.5v-15A2.5 2.5 0 0 1 6.5 2H20v20H6.5a2.5 2.5 0 0 1-2.5-2.5Z"></path>
+              <path d="M6 6h10"></path>
+            </svg>
+          </div>
+          <span class="font-heading font-bold text-base tracking-wider uppercase text-brand-800">Aura Academia</span>
+        </a>
+
+        <a href="#" class="text-xs font-semibold text-brand-800 hover:underline">Help & Docs</a>
+      </div>
+
+      <!-- Desktop Top Auxiliary Navigation -->
+      <div class="hidden lg:flex justify-end items-center gap-6 text-xs text-slate-500 font-medium">
+        <span>Need campus IT assistance?</span>
+        <a href="#" class="text-brand-800 font-semibold hover:text-brand-600 transition-subtle">Help Center &rarr;</a>
+      </div>
+
+      <!-- Vertical Centered Authentication Card -->
+      <div class="w-full max-w-[440px] mx-auto my-auto py-4">
+        
+        <!-- Form Header -->
+        <div class="mb-8">
+          <div class="inline-flex items-center gap-2 px-2.5 py-1 rounded bg-slate-200/70 text-[11px] font-semibold tracking-wider uppercase text-slate-600 mb-3">
+            Academic Portal
+          </div>
+          <h2 class="font-heading text-2xl sm:text-3xl font-bold tracking-tight text-slate-900">
+            Welcome Back
+          </h2>
+          <p class="mt-2 text-sm text-slate-600 leading-normal">
+            Sign in to continue your learning journey and coursework.
+          </p>
+        </div>
+
+        <!-- Social / Single Sign-On Buttons -->
+        <div class="space-y-3">
+          <button type="button" class="w-full h-11 px-4 border border-slate-300 rounded-lg bg-white hover:bg-slate-50 text-slate-700 text-sm font-medium flex items-center justify-center gap-3 transition-subtle focus:outline-none focus:ring-2 focus:ring-brand-800/20 active:bg-slate-100 shadow-sm">
+            <!-- Google G SVG -->
+            <svg class="w-4 h-4" viewBox="0 0 24 24">
+              <path fill="#4285F4" d="M23.745 12.27c0-.7-.06-1.4-.19-2.07H12v4.51h6.6c-.29 1.52-1.14 2.8-2.4 3.66v3.05h3.88c2.27-2.09 3.66-5.17 3.66-9.15z"/>
+              <path fill="#34A853" d="M12 24c3.24 0 5.95-1.08 7.93-2.91l-3.88-3.05c-1.08.72-2.45 1.16-4.05 1.16-3.12 0-5.77-2.1-6.72-4.93H1.24v3.15C3.26 21.4 7.33 24 12 24z"/>
+              <path fill="#FBBC05" d="M5.28 14.27c-.25-.72-.38-1.49-.38-2.27s.13-1.55.38-2.27V6.58H1.24C.45 8.15 0 9.92 0 12s.45 3.85 1.24 5.42l4.04-3.15z"/>
+              <path fill="#EA4335" d="M12 4.75c1.77 0 3.35.61 4.6 1.8l3.42-3.42C17.95 1.19 15.24 0 12 0 7.33 0 3.26 2.6 1.24 6.58l4.04 3.15c.95-2.83 3.6-4.98 6.72-4.98z"/>
+            </svg>
+            <span>Continue with Google</span>
+          </button>
+
+          <button type="button" class="w-full h-11 px-4 border border-slate-300 rounded-lg bg-white hover:bg-slate-50 text-slate-700 text-sm font-medium flex items-center justify-center gap-3 transition-subtle focus:outline-none focus:ring-2 focus:ring-brand-800/20 active:bg-slate-100 shadow-sm">
+            <!-- Apple SVG -->
+            <svg class="w-4 h-4 fill-current text-slate-900" viewBox="0 0 24 24">
+              <path d="M18.71 19.5c-.83 1.24-1.71 2.45-3.05 2.47-1.34.03-1.77-.79-3.29-.79-1.53 0-2 .77-3.27.82-1.31.05-2.3-1.32-3.14-2.53C4.25 17 2.94 12.45 4.7 9.39c.87-1.52 2.43-2.48 4.12-2.51 1.28-.02 2.5.87 3.29.87.78 0 2.26-1.07 3.81-.91.65.03 2.47.26 3.64 1.98-.09.06-2.17 1.28-2.15 3.81.03 3.02 2.65 4.03 2.68 4.04-.03.07-.42 1.44-1.38 2.83M15.97 6.38c.62-.75 1.04-1.8 0.92-2.85-.9.04-1.99.6-2.61 1.35-.55.63-.99 1.68-.86 2.7.99.08 2.02-.45 2.55-1.2"/>
+            </svg>
+            <span>Continue with Apple</span>
+          </button>
+        </div>
+
+        <!-- Minimalist Divider -->
+        <div class="relative my-7">
+          <div class="absolute inset-0 flex items-center" aria-hidden="true">
+            <div class="w-full border-t border-slate-200"></div>
+          </div>
+          <div class="relative flex justify-center text-xs uppercase tracking-wider">
+            <span class="bg-surface px-3 text-slate-400 font-semibold font-mono">OR</span>
+          </div>
+        </div>
+
+        <!-- Form Elements -->
+        <form id="signinForm" onsubmit="event.preventDefault(); handleSignInSubmit();" class="space-y-4">
+          
+          <!-- Email Field -->
+          <div>
+            <label for="email" class="block text-xs font-semibold text-slate-700 tracking-wide uppercase mb-1.5">
+              Institutional Email
+            </label>
+            <div class="relative">
+              <input 
+                type="email" 
+                id="email" 
+                name="email" 
+                required 
+                autocomplete="email"
+                placeholder="e.vance@university.edu"
+                class="w-full h-11 px-3.5 text-sm bg-white border border-slate-300 rounded-lg text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-brand-800 focus:border-brand-800 transition-subtle shadow-xs"
+              />
+              <div class="absolute inset-y-0 right-0 pr-3.5 flex items-center pointer-events-none text-slate-400">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M16 12a4 4 0 10-8 0 4 4 0 008 0zm0 0v1.5a2.5 2.5 0 005 0V12a9 9 0 10-9 9m4.5-1.206a8.959 8.959 0 01-4.5 1.207" />
+                </svg>
+              </div>
+            </div>
+            <p id="emailError" class="hidden text-xs text-rose-600 mt-1 font-medium">Please enter a valid academic or institution email.</p>
+          </div>
+
+          <!-- Password Field -->
+          <div>
+            <div class="flex items-center justify-between mb-1.5">
+              <label for="password" class="block text-xs font-semibold text-slate-700 tracking-wide uppercase">
+                Password
+              </label>
+              <a href="#" class="text-xs font-medium text-brand-800 hover:text-brand-600 transition-subtle focus:outline-none focus:underline">
+                Forgot password?
+              </a>
+            </div>
+            <div class="relative">
+              <input 
+                type="password" 
+                id="password" 
+                name="password" 
+                required 
+                autocomplete="current-password"
+                placeholder="••••••••••••"
+                class="w-full h-11 pl-3.5 pr-11 text-sm bg-white border border-slate-300 rounded-lg text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-brand-800 focus:border-brand-800 transition-subtle shadow-xs"
+              />
+              <!-- Password Toggle Button -->
+              <button 
+                type="button" 
+                id="togglePasswordBtn" 
+                onclick="togglePasswordVisibility()" 
+                class="absolute inset-y-0 right-0 pr-3 flex items-center text-slate-400 hover:text-slate-600 focus:outline-none focus:text-slate-900 transition-subtle"
+                aria-label="Toggle password visibility">
+                <!-- Eye Open Icon -->
+                <svg id="eyeIcon" class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+                </svg>
+                <!-- Eye Closed Icon (Hidden by default) -->
+                <svg id="eyeOffIcon" class="w-5 h-5 hidden" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.543-7a9.97 9.97 0 011.563-3.029m5.858.908a3 3 0 114.243 4.243M9.878 9.878l4.242 4.242M9.88 9.88l-3.29-3.29m7.532 7.532l3.29 3.29M3 3l18 18" />
+                </svg>
+              </button>
+            </div>
+            <p id="passwordError" class="hidden text-xs text-rose-600 mt-1 font-medium">Password must be at least 8 characters.</p>
+          </div>
+
+          <!-- Remember Me Checkbox -->
+          <div class="flex items-center pt-1 pb-1">
+            <input 
+              id="remember" 
+              name="remember" 
+              type="checkbox" 
+              checked
+              class="w-4 h-4 rounded text-brand-800 border-slate-300 focus:ring-brand-800/30 cursor-pointer accent-brand-800"
+            />
+            <label for="remember" class="ml-2.5 block text-xs font-medium text-slate-600 cursor-pointer select-none">
+              Remember me on this authorized workstation (30 days)
+            </label>
+          </div>
+
+          <!-- Primary Sign In Submit Button -->
+          <div class="pt-2">
+            <button 
+              type="submit" 
+              id="submitBtn" 
+              class="w-full h-11 px-4 bg-brand-800 hover:bg-brand-700 active:bg-brand-900 text-white font-medium text-sm rounded-lg shadow-sm hover:shadow flex items-center justify-center gap-2 transition-subtle focus:outline-none focus:ring-2 focus:ring-brand-800/40 focus:ring-offset-2">
+              <span id="btnText">Sign In</span>
+              <svg id="btnArrow" class="w-4 h-4 text-slate-300" viewBox="0 0 20 20" fill="currentColor">
+                <path fill-rule="evenodd" d="M10.293 3.293a1 1 0 011.414 0l6 6a1 1 0 010 1.414l-6 6a1 1 0 01-1.414-1.414L14.586 11H3a1 1 0 110-2h11.586l-4.293-4.293a1 1 0 010-1.414z" clip-rule="evenodd" />
+              </svg>
+              <!-- Hidden spinner for submitting state -->
+              <svg id="btnSpinner" class="hidden animate-spin h-4 w-4 text-white" fill="none" viewBox="0 0 24 24">
+                <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+              </svg>
+            </button>
+          </div>
+
+        </form>
+
+        <!-- Bottom Sign-Up Link Callout -->
+        <div class="mt-8 pt-6 border-t border-slate-200/80 text-center">
+          <p class="text-xs text-slate-600">
+            Don't have an account? 
+            <a href="#" class="font-semibold text-brand-800 hover:text-brand-600 transition-subtle underline underline-offset-2 focus:outline-none">
+              Create an account
+            </a>
+          </p>
+        </div>
+
+      </div>
+
+      <!-- Footer Compliance / Privacy -->
+      <footer class="pt-6 border-t border-slate-200/60 flex flex-col sm:flex-row items-center justify-between text-[11px] text-slate-500 gap-2">
+        <p>&copy; 2024 Aura Academia Inc. Institutional Single Sign-On (SAML / EduGAIN Compatible).</p>
+        <div class="flex items-center gap-4">
+          <a href="#" class="hover:text-slate-800 transition-subtle">Privacy Policy</a>
+          <span>&bull;</span>
+          <a href="#" class="hover:text-slate-800 transition-subtle">Terms of Service</a>
+          <span>&bull;</span>
+          <a href="#" class="hover:text-slate-800 transition-subtle">Security Status</a>
+        </div>
+      </footer>
+
+    </section>
+
+  </main>
+
+  <!-- Interactive JavaScript logic for password visibility and validation states -->
+  <script>
+    function togglePasswordVisibility() {
+      const pwdInput = document.getElementById('password');
+      const eyeIcon = document.getElementById('eyeIcon');
+      const eyeOffIcon = document.getElementById('eyeOffIcon');
+
+      if (pwdInput.type === 'password') {
+        pwdInput.type = 'text';
+        eyeIcon.classList.add('hidden');
+        eyeOffIcon.classList.remove('hidden');
+      } else {
+        pwdInput.type = 'password';
+        eyeIcon.classList.remove('hidden');
+        eyeOffIcon.classList.add('hidden');
+      }
+    }
+
+    function handleSignInSubmit() {
+      const emailInput = document.getElementById('email');
+      const pwdInput = document.getElementById('password');
+      const submitBtn = document.getElementById('submitBtn');
+      const btnText = document.getElementById('btnText');
+      const btnArrow = document.getElementById('btnArrow');
+      const btnSpinner = document.getElementById('btnSpinner');
+
+      // Validation
+      let isValid = true;
+      if (!emailInput.value || !emailInput.value.includes('@')) {
+        document.getElementById('emailError').classList.remove('hidden');
+        isValid = false;
+      } else {
+        document.getElementById('emailError').classList.add('hidden');
+      }
+
+      if (!pwdInput.value || pwdInput.value.length < 4) {
+        document.getElementById('passwordError').classList.remove('hidden');
+        isValid = false;
+      } else {
+        document.getElementById('passwordError').classList.add('hidden');
+      }
+
+      if (!isValid) return;
+
+      // Loading State feedback
+      submitBtn.disabled = true;
+      submitBtn.classList.add('opacity-90', 'cursor-not-allowed');
+      btnText.textContent = "Authenticating Credentials...";
+      btnArrow.classList.add('hidden');
+      btnSpinner.classList.remove('hidden');
+
+      setTimeout(() => {
+        btnText.textContent = "Redirecting to Dashboard...";
+        btnSpinner.classList.add('hidden');
+        submitBtn.classList.remove('bg-brand-800', 'hover:bg-brand-700');
+        submitBtn.classList.add('bg-emerald-600');
+      }, 1200);
+    }
+  </script>
+</body>
+</html>
