@@ -7,8 +7,8 @@ const firebaseConfig = {
   projectId: import.meta.env.VITE_FIREBASE_PROJECT_ID || "lms-college-5975a",
   storageBucket: import.meta.env.VITE_FIREBASE_STORAGE_BUCKET || "lms-college-5975a.firebasestorage.app",
   messagingSenderId: import.meta.env.VITE_FIREBASE_MESSAGING_SENDER_ID || "470720333100",
-  appId: import.meta.env.VITE_FIREBASE_APP_ID || "1:470720333100:web:2ea322bbacc0a12bc45889",
-  measurementId: import.meta.env.VITE_FIREBASE_MEASUREMENT_ID || "G-XB651TRPY3",
+  appId: import.meta.env.VITE_FIREBASE_APP_ID || "1:470720333100:web:6e5c6ef06ddadbc5c45889",
+  measurementId: import.meta.env.VITE_FIREBASE_MEASUREMENT_ID || "G-619F1G8NWS",
 };
 
 // Initialize Firebase for client side
