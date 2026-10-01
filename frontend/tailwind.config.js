@@ -13,6 +13,8 @@ export default {
           800: '#0a192f',
           700: '#0f2442',
           600: '#1e3a5f',
+          500: '#2a5288',
+          400: '#3a72ba',
           accent: '#38bdf8',
         },
         "tertiary-fixed-dim": "#68dba9",
