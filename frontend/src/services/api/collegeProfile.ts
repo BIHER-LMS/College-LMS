@@ -14,18 +14,39 @@ async function getAuthHeaders() {
   };
 }
 
+async function parseResponse(response: Response) {
+  const contentType = response.headers.get('content-type') || '';
+  let data: any = null;
+
+  if (contentType.includes('application/json')) {
+    try {
+      data = await response.json();
+    } catch {
+      data = null;
+    }
+  }
+
+  if (!response.ok) {
+    if (data?.error?.message) {
+      throw new Error(data.error.message);
+    }
+    if (data?.message) {
+      throw new Error(data.message);
+    }
+    const rawText = await response.text().catch(() => '');
+    throw new Error(`Server returned error (${response.status}): ${rawText.slice(0, 150) || response.statusText}`);
+  }
+
+  return data?.data ?? data;
+}
+
 export async function getCollegeProfile() {
   const headers = await getAuthHeaders();
   const response = await fetch(`${API_BASE_URL}/api/college-admin/college/profile`, {
     headers
   });
   
-  const data = await response.json();
-  if (!response.ok) {
-    throw new Error(data?.error?.message || 'Failed to fetch college profile');
-  }
-  
-  return data.data;
+  return parseResponse(response);
 }
 
 export async function updateCollegeProfile(profileData: any) {
@@ -36,10 +57,5 @@ export async function updateCollegeProfile(profileData: any) {
     body: JSON.stringify(profileData)
   });
   
-  const data = await response.json();
-  if (!response.ok) {
-    throw new Error(data?.error?.message || 'Failed to update college profile');
-  }
-  
-  return data.data;
+  return parseResponse(response);
 }

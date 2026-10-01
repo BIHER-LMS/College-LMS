@@ -8,11 +8,11 @@ async function start() {
     // Verify database connection
     try {
       await prisma.$connect();
-      logger.info('✅ Database connected');
+      logger.info('Database connected');
     } catch (dbError: any) {
       if (env.NODE_ENV === 'development') {
-        logger.warn('⚠️ Database connection warning: ' + (dbError?.message || dbError));
-        logger.warn('⚠️ Server running. Update DATABASE_URL in backend/.env with your real Supabase password when ready.');
+        logger.warn('Database connection warning: ' + (dbError?.message || dbError));
+        logger.warn('Server running. Update DATABASE_URL in backend/.env with your real Supabase password when ready.');
       } else {
         throw dbError;
       }
@@ -20,13 +20,13 @@ async function start() {
 
     // Start server
     app.listen(env.PORT, () => {
-      logger.info(`🚀 Server running on port ${env.PORT}`, {
+      logger.info(`Server running on port ${env.PORT}`, {
         env: env.NODE_ENV,
         port: env.PORT,
       });
     });
   } catch (error) {
-    logger.error('❌ Failed to start server', {
+    logger.error('Failed to start server', {
       error: error instanceof Error ? error.message : 'Unknown',
     });
     process.exit(1);
@@ -46,4 +46,8 @@ process.on('SIGTERM', async () => {
   process.exit(0);
 });
 
-start();
+if (!process.env.VERCEL) {
+  start();
+}
+
+export default app;

@@ -107,8 +107,11 @@ model College {
   createdAt DateTime @default(now()) @map("created_at")
   updatedAt DateTime @updatedAt @map("updated_at")
 
-  users     User[]
-  approvals AccountApproval[]
+  users         User[]
+  approvals     AccountApproval[]
+  authedUsers   AuthedUser[]
+  departments   Department[]
+  academicYears AcademicYear[]
 
   @@map("colleges")
 }
@@ -297,4 +300,148 @@ model AuditLog {
   @@index([collegeId])
   @@index([createdAt])
   @@map("audit_logs")
+}
+
+// ═══════════════════════════════════════════════════════════════
+// Additional tables (from Supabase — managed separately)
+// ═══════════════════════════════════════════════════════════════
+
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model AuthedUser {
+  uid            String        @id
+  email          String        @unique
+  display_name   String?
+  photo_url      String?
+  provider       String?       @default("google")
+  role           String?       @default("USER")
+  last_login     DateTime?     @default(now()) @db.Timestamptz(6)
+  created_at     DateTime?     @default(now()) @db.Timestamptz(6)
+  college_id     String?
+  department_id  String?       @db.Uuid
+  class_id       String?       @db.Uuid
+  register_number String?
+
+  college    College?    @relation(fields: [college_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  department Department? @relation("AuthedUserDepartment", fields: [department_id], references: [id], onUpdate: NoAction)
+  class      Class?      @relation("AuthedUserClass", fields: [class_id], references: [id], onUpdate: NoAction)
+
+  facultyClasses    Class[]      @relation("ClassFaculty")
+  hodDepartments    Department[] @relation("DepartmentHOD")
+
+  @@map("authed_users")
+}
+
+/// This model contains row level security and requires additional setup for migrations.
+model Department {
+  id          String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  college_id  String
+  name        String
+  code        String
+  hod_uid     String?
+  is_active   Boolean?  @default(true)
+  created_at  DateTime? @default(now()) @db.Timestamptz(6)
+  updated_at  DateTime? @default(now()) @db.Timestamptz(6)
+
+  college      College      @relation(fields: [college_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  hod          AuthedUser?  @relation("DepartmentHOD", fields: [hod_uid], references: [uid], onUpdate: NoAction)
+  authedUsers  AuthedUser[] @relation("AuthedUserDepartment")
+  programs     Program[]
+  subjects     Subject[]
+
+  @@unique([college_id, code])
+  @@map("departments")
+}
+
+/// This model contains row level security and requires additional setup for migrations.
+model AcademicYear {
+  id          String      @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  college_id  String
+  name        String
+  start_date  DateTime    @db.Date
+  end_date    DateTime    @db.Date
+  is_current  Boolean?    @default(false)
+  created_at  DateTime?   @default(now()) @db.Timestamptz(6)
+
+  college   College     @relation(fields: [college_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  semesters Semester[]
+
+  @@map("academic_years")
+}
+
+/// This model contains row level security and requires additional setup for migrations.
+model Program {
+  id             String      @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  department_id  String      @db.Uuid
+  name           String
+  type           String
+  duration_years Int
+  is_active      Boolean?    @default(true)
+  created_at     DateTime?   @default(now()) @db.Timestamptz(6)
+
+  department Department @relation(fields: [department_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  batches    Batch[]
+
+  @@map("programs")
+}
+
+/// This model contains row level security and requires additional setup for migrations.
+model Batch {
+  id         String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  program_id String    @db.Uuid
+  start_year Int
+  end_year   Int
+  is_active  Boolean?  @default(true)
+  created_at DateTime? @default(now()) @db.Timestamptz(6)
+
+  program Program @relation(fields: [program_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  classes Class[]
+
+  @@map("batches")
+}
+
+/// This model contains row level security and requires additional setup for migrations.
+model Class {
+  id               String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  batch_id         String    @db.Uuid
+  name             String
+  current_semester Int?      @default(1)
+  faculty_uid      String?
+  is_active        Boolean?  @default(true)
+  created_at       DateTime? @default(now()) @db.Timestamptz(6)
+
+  batch      Batch        @relation(fields: [batch_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  faculty    AuthedUser?  @relation("ClassFaculty", fields: [faculty_uid], references: [uid], onUpdate: NoAction)
+  students   AuthedUser[] @relation("AuthedUserClass")
+
+  @@map("classes")
+}
+
+/// This model contains row level security and requires additional setup for migrations.
+model Semester {
+  id               String       @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  academic_year_id String       @db.Uuid
+  term_number      Int
+  start_date       DateTime     @db.Date
+  end_date         DateTime     @db.Date
+  created_at       DateTime?    @default(now()) @db.Timestamptz(6)
+
+  academicYear AcademicYear @relation(fields: [academic_year_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@map("semesters")
+}
+
+/// This model contains row level security and requires additional setup for migrations.
+model Subject {
+  id              String      @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  department_id   String      @db.Uuid
+  name            String
+  code            String
+  credits         Int?        @default(3)
+  semester_number Int
+  is_active       Boolean?    @default(true)
+  created_at      DateTime?   @default(now()) @db.Timestamptz(6)
+
+  department Department @relation(fields: [department_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@map("subjects")
 }
