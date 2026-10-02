@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Clock, LogOut } from 'lucide-react';
+import { Clock, LogOut, XCircle } from 'lucide-react';
 import { auth } from '../config/firebase';
 import { 
   recordAuthedUser, 
