@@ -51,6 +51,12 @@ function Login() {
           navigate('/super-admin');
         } else if (isCollegeAdmin) {
           navigate('/college-admin');
+        } else if (authedRecord.role === 'HOD') {
+          navigate('/hod');
+        } else if (authedRecord.role === 'FACULTY') {
+          navigate('/faculty');
+        } else if (authedRecord.role === 'STUDENT') {
+          navigate('/student');
         } else {
           navigate('/waiting-approval');
         }

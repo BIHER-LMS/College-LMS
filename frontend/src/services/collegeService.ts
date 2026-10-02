@@ -201,10 +201,13 @@ export async function recordAuthedUser(user: AuthedUserRecord): Promise<AuthedUs
 
   if (!upsertError) {
     // Fetch the user back to get their server-side role and college_id
-    const { data } = await supabase.from('authed_users').select('role, college_id').eq('uid', user.uid).single();
+    const { data } = await supabase.from('authed_users').select('role, college_id, approval_status, requested_role, department_id').eq('uid', user.uid).single();
     if (data) {
       if (data.role) finalUser.role = data.role;
       if (data.college_id) (finalUser as any).college_id = data.college_id;
+      if (data.approval_status) (finalUser as any).approval_status = data.approval_status;
+      if (data.requested_role) (finalUser as any).requested_role = data.requested_role;
+      if (data.department_id) (finalUser as any).department_id = data.department_id;
     }
   } else {
     console.error('Supabase authed_user record error:', upsertError.message);
@@ -494,6 +497,22 @@ export const fetchUsers = async (filters: UserFilters) => {
   const { data, error } = await query.order('created_at', { ascending: false });
   if (error) {
     console.error(`Error fetching ${filters.role}s:`, error);
+    return [];
+  }
+  return data || [];
+};
+
+export const fetchPendingUsers = async (collegeId: string, requestedRole: string) => {
+  const { data, error } = await supabase
+    .from('authed_users')
+    .select('*')
+    .eq('college_id', collegeId)
+    .eq('role', 'USER')
+    .eq('requested_role', requestedRole)
+    .eq('approval_status', 'PENDING')
+    .order('created_at', { ascending: false });
+  if (error) {
+    console.error('Error fetching pending users:', error);
     return [];
   }
   return data || [];

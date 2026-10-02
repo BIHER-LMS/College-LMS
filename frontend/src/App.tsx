@@ -37,6 +37,9 @@ function App() {
         <Route path="/super-admin" element={<SuperAdmin />} />
         <Route path="/college-admin" element={<CollegeAdmin />} />
         <Route path="/waiting-approval" element={<WaitingApproval />} />
+        <Route path="/hod" element={<div className="p-8 text-center"><h1 className="text-2xl font-bold">HOD Dashboard</h1><p className="text-slate-500 mt-2">Under Construction by the team.</p></div>} />
+        <Route path="/faculty" element={<div className="p-8 text-center"><h1 className="text-2xl font-bold">Faculty Dashboard</h1><p className="text-slate-500 mt-2">Under Construction by the team.</p></div>} />
+        <Route path="/student" element={<div className="p-8 text-center"><h1 className="text-2xl font-bold">Student Dashboard</h1><p className="text-slate-500 mt-2">Under Construction by the team.</p></div>} />
       </Routes>
     </BrowserRouter>
   );
