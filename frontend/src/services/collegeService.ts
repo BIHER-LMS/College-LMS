@@ -228,6 +228,39 @@ export async function recordAuthedUser(user: AuthedUserRecord): Promise<AuthedUs
   return finalUser;
 }
 
+export async function getAuthedUserProfile(params: { uid?: string; email?: string }): Promise<AuthedUserRecord | null> {
+  try {
+    let query = supabase.from('authed_users').select('*');
+    if (params.uid) {
+      query = query.eq('uid', params.uid);
+    } else if (params.email) {
+      query = query.eq('email', params.email);
+    } else {
+      return null;
+    }
+    const { data, error } = await query.maybeSingle();
+    if (error || !data) return null;
+    return {
+      uid: data.uid,
+      email: data.email,
+      displayName: data.display_name,
+      photoURL: data.photo_url,
+      provider: data.provider,
+      role: data.role,
+      lastLogin: data.last_login,
+      college_id: data.college_id,
+      department_id: data.department_id,
+      class_id: data.class_id,
+      register_number: data.register_number,
+      requested_role: data.requested_role,
+      approval_status: data.approval_status,
+    } as any;
+  } catch (err) {
+    console.error('getAuthedUserProfile error:', err);
+    return null;
+  }
+}
+
 export async function fetchAuthedUsers(): Promise<AuthedUserRecord[]> {
   try {
     const { data, error } = await supabase.from('authed_users').select('*').order('created_at', { ascending: false });
@@ -253,6 +286,16 @@ export async function fetchAuthedUsers(): Promise<AuthedUserRecord[]> {
 
 export async function deleteAuthedUser(uid: string): Promise<void> {
   try {
+    // 1. Remove user from any departments they are HOD of
+    await supabase.from('departments').update({ hod_uid: null }).eq('hod_uid', uid);
+    
+    // 2. Remove user from any classes they are faculty of
+    await supabase.from('classes').update({ faculty_uid: null }).eq('faculty_uid', uid);
+
+    // 3. Remove user from any college they are admin of
+    await supabase.from('colleges').update({ admin_uid: null }).eq('admin_uid', uid);
+
+    // 4. Delete the user record
     const { error } = await supabase.from('authed_users').delete().eq('uid', uid);
     if (error) {
       console.warn('Supabase delete authed user warning:', error.message);
@@ -518,12 +561,14 @@ export const fetchPendingUsers = async (collegeId: string, requestedRole: string
   return data || [];
 };
 
-export const updateUserProfile = async (uid: string, updates: any) => {
-  const { data, error } = await supabase
-    .from('authed_users')
-    .update(updates)
-    .eq('uid', uid)
-    .select();
+export const updateUserProfile = async (identifier: string, updates: any) => {
+  let query = supabase.from('authed_users').update(updates);
+  if (identifier.includes('@')) {
+    query = query.eq('email', identifier);
+  } else {
+    query = query.eq('uid', identifier);
+  }
+  const { data, error } = await query.select();
 
   if (error) {
     console.error('Error updating user profile:', error);

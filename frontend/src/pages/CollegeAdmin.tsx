@@ -179,9 +179,7 @@ export default function CollegeAdmin() {
       `}>
         <div className="p-6 flex items-center justify-between">
           <div className="flex items-center gap-3">
-            <div className="w-8 h-8 rounded-lg bg-brand-500 flex items-center justify-center">
-              <GraduationCap className="w-5 h-5 text-white" />
-            </div>
+            <img src="/logo.png" alt="Logo" className="h-10 w-auto object-contain" />
             <div>
               <h1 className="text-lg font-bold text-white leading-tight">College LMS</h1>
               <p className="text-xs text-brand-300">Admin Portal</p>

@@ -1,0 +1,6 @@
+{
+  "name": "Aura Academia",
+  "description": "Enterprise Higher Education Learning Management Platform connecting academic administration, faculty workflows, and student experiences.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

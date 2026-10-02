@@ -2,11 +2,13 @@ import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Clock, LogOut, XCircle } from 'lucide-react';
 import { auth } from '../config/firebase';
+import { onAuthStateChanged } from 'firebase/auth';
 import { 
   recordAuthedUser, 
   fetchColleges, 
   fetchDepartments, 
-  updateUserProfile 
+  updateUserProfile,
+  getAuthedUserProfile
 } from '../services/collegeService';
 
 function WaitingApproval() {
@@ -14,6 +16,7 @@ function WaitingApproval() {
   const [isChecking, setIsChecking] = useState(false);
   const [needsOnboarding, setNeedsOnboarding] = useState(false);
   const [approvalStatus, setApprovalStatus] = useState<string>('PENDING');
+  const [statusMessage, setStatusMessage] = useState<string | null>(null);
   const [requestedDetails, setRequestedDetails] = useState<{ college: string, department: string, role: string } | null>(null);
   
   // Onboarding Form State
@@ -21,77 +24,116 @@ function WaitingApproval() {
   const [departments, setDepartments] = useState<any[]>([]);
   
   const [selectedCollege, setSelectedCollege] = useState('');
-  const [selectedRole, setSelectedRole] = useState('HOD'); // default to HOD
+  const [selectedRole, setSelectedRole] = useState('FACULTY'); // default to FACULTY
   const [selectedDepartment, setSelectedDepartment] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  useEffect(() => {
-    const init = async () => {
-      if (!auth.currentUser) return;
-      try {
-        const authedRecord = await recordAuthedUser({
-          uid: auth.currentUser.uid,
-          email: auth.currentUser.email || '',
-          displayName: auth.currentUser.displayName || null,
-          photoURL: auth.currentUser.photoURL || null,
-          provider: 'google',
-          lastLogin: new Date().toISOString(),
-        });
-        
-        const record = authedRecord as any;
-        setApprovalStatus(record.approval_status || 'PENDING');
-        
-        // Redirect if already approved
-        if (record.role === 'SUPER_ADMIN') {
-          const localUser = JSON.parse(localStorage.getItem('lms_user') || '{}');
-          localStorage.setItem('lms_user', JSON.stringify({ ...localUser, role: 'SUPER_ADMIN', isSuperAdmin: true }));
-          navigate('/super-admin');
-          return;
-        } else if (record.role === 'COLLEGE_ADMIN') {
-          const localUser = JSON.parse(localStorage.getItem('lms_user') || '{}');
-          localStorage.setItem('lms_user', JSON.stringify({ ...localUser, role: 'COLLEGE_ADMIN', college_id: record.college_id }));
-          navigate('/college-admin');
-          return;
-        } else if (record.role === 'HOD') {
-          const localUser = JSON.parse(localStorage.getItem('lms_user') || '{}');
-          localStorage.setItem('lms_user', JSON.stringify({ ...localUser, role: 'HOD', college_id: record.college_id, department_id: record.department_id }));
-          navigate('/hod');
-          return;
-        } else if (record.role === 'FACULTY') {
-          const localUser = JSON.parse(localStorage.getItem('lms_user') || '{}');
-          localStorage.setItem('lms_user', JSON.stringify({ ...localUser, role: 'FACULTY', college_id: record.college_id, department_id: record.department_id }));
-          navigate('/faculty');
-          return;
-        } else if (record.role === 'STUDENT') {
-          const localUser = JSON.parse(localStorage.getItem('lms_user') || '{}');
-          localStorage.setItem('lms_user', JSON.stringify({ ...localUser, role: 'STUDENT', college_id: record.college_id, department_id: record.department_id }));
-          navigate('/student');
-          return;
-        }
+  // Helper to route approved user
+  const routeApprovedUser = (record: any) => {
+    const status = record.approval_status || 'PENDING';
+    const effectiveRole = record.role !== 'USER' ? record.role : (status === 'APPROVED' ? record.requested_role : 'USER');
+    const localUser = JSON.parse(localStorage.getItem('lms_user') || '{}');
 
-        const cols = await fetchColleges();
-        setColleges(cols);
+    if (effectiveRole === 'SUPER_ADMIN') {
+      localStorage.setItem('lms_user', JSON.stringify({ ...localUser, role: 'SUPER_ADMIN', isSuperAdmin: true }));
+      navigate('/super-admin');
+      return true;
+    } else if (effectiveRole === 'COLLEGE_ADMIN') {
+      localStorage.setItem('lms_user', JSON.stringify({ ...localUser, role: 'COLLEGE_ADMIN', college_id: record.college_id }));
+      navigate('/college-admin');
+      return true;
+    } else if (effectiveRole === 'HOD') {
+      localStorage.setItem('lms_user', JSON.stringify({ ...localUser, role: 'HOD', college_id: record.college_id, department_id: record.department_id }));
+      navigate('/hod');
+      return true;
+    } else if (effectiveRole === 'FACULTY') {
+      localStorage.setItem('lms_user', JSON.stringify({ ...localUser, role: 'FACULTY', college_id: record.college_id, department_id: record.department_id }));
+      navigate('/faculty');
+      return true;
+    } else if (effectiveRole === 'STUDENT') {
+      localStorage.setItem('lms_user', JSON.stringify({ ...localUser, role: 'STUDENT', college_id: record.college_id, department_id: record.department_id }));
+      navigate('/student');
+      return true;
+    }
+    return false;
+  };
+
+  useEffect(() => {
+    let isMounted = true;
+
+    const checkAndRoute = async (userObj: { uid?: string; email?: string; displayName?: string | null; photoURL?: string | null }) => {
+      try {
+        let record = await getAuthedUserProfile({ uid: userObj.uid, email: userObj.email });
         
-        // If the user is just a USER and hasn't selected a college yet
-        if (record.role === 'USER' && !record.college_id) {
-          setNeedsOnboarding(true);
-        } else if (record.role === 'USER' && record.college_id) {
-          // User has selected college and is waiting
-          const collegeName = cols.find(c => c.id === record.college_id)?.name || 'Unknown College';
-          const depts = await fetchDepartments(record.college_id);
-          const deptName = depts.find(d => d.id === record.department_id)?.name || 'Unknown Department';
-          setRequestedDetails({
-            college: collegeName,
-            department: deptName,
-            role: record.requested_role || 'Unknown Role'
+        // If not recorded yet and we have a valid firebase user, create shadow record
+        if (!record && userObj.uid && userObj.email) {
+          record = await recordAuthedUser({
+            uid: userObj.uid,
+            email: userObj.email,
+            displayName: userObj.displayName || null,
+            photoURL: userObj.photoURL || null,
+            provider: 'google',
+            lastLogin: new Date().toISOString(),
           });
         }
+
+        if (!record || !isMounted) return;
+
+        setApprovalStatus(record.approval_status || 'PENDING');
+
+        // Check if user is approved and route them
+        const routed = routeApprovedUser(record);
+        if (routed) return;
+
+        const cols = await fetchColleges();
+        if (isMounted) setColleges(cols);
+
+        // If the user has not submitted onboarding yet
+        if (!record.college_id) {
+          if (isMounted) setNeedsOnboarding(true);
+        } else {
+          // User already submitted request and is waiting
+          const collegeName = cols.find(c => c.id === record.college_id)?.name || 'Selected College';
+          const depts = await fetchDepartments(record.college_id);
+          const deptName = depts.find(d => d.id === record.department_id)?.name || 'Selected Department';
+          if (isMounted) {
+            setNeedsOnboarding(false);
+            setRequestedDetails({
+              college: collegeName,
+              department: deptName,
+              role: record.requested_role || 'Faculty'
+            });
+          }
+        }
       } catch (err) {
-        console.error(err);
+        console.error('WaitingApproval init error:', err);
       }
     };
-    init();
-  }, []);
+
+    const unsubscribe = onAuthStateChanged(auth, async (user) => {
+      if (user) {
+        await checkAndRoute({
+          uid: user.uid,
+          email: user.email || '',
+          displayName: user.displayName,
+          photoURL: user.photoURL,
+        });
+      } else {
+        const localUser = JSON.parse(localStorage.getItem('lms_user') || '{}');
+        if (localUser.email) {
+          await checkAndRoute({
+            email: localUser.email,
+            displayName: localUser.name,
+          });
+        }
+      }
+    });
+
+    return () => {
+      isMounted = false;
+      unsubscribe();
+    };
+  }, [navigate]);
 
   // Fetch departments when college changes (for onboarding)
   useEffect(() => {
@@ -103,7 +145,7 @@ function WaitingApproval() {
         setDepartments([]);
       }
       if (needsOnboarding) {
-        setSelectedDepartment(''); // reset department only during onboarding
+        setSelectedDepartment('');
       }
     };
     loadDepartments();
@@ -122,68 +164,40 @@ function WaitingApproval() {
   };
 
   const handleCheckStatus = async () => {
-    if (!auth.currentUser) return;
     setIsChecking(true);
+    setStatusMessage(null);
     try {
-      const authedRecord = await recordAuthedUser({
-        uid: auth.currentUser.uid,
-        email: auth.currentUser.email || '',
-        displayName: auth.currentUser.displayName || null,
-        photoURL: auth.currentUser.photoURL || null,
-        provider: 'google',
-        lastLogin: new Date().toISOString(),
-      });
-      
-      const record = authedRecord as any;
+      const uid = auth.currentUser?.uid;
+      const localUser = JSON.parse(localStorage.getItem('lms_user') || '{}');
+      const email = auth.currentUser?.email || localUser?.email;
+
+      if (!uid && !email) {
+        alert('Your session has expired. Please sign in again.');
+        navigate('/login');
+        return;
+      }
+
+      // Query latest profile directly from database
+      const record = await getAuthedUserProfile({ uid, email });
+      if (!record) {
+        setStatusMessage('No user record found. Please try signing in again.');
+        return;
+      }
+
       setApprovalStatus(record.approval_status || 'PENDING');
 
-      if (authedRecord.role === 'COLLEGE_ADMIN') {
-        const localUser = JSON.parse(localStorage.getItem('lms_user') || '{}');
-        localStorage.setItem('lms_user', JSON.stringify({
-          ...localUser,
-          role: 'COLLEGE_ADMIN',
-          college_id: (authedRecord as any).college_id,
-        }));
-        navigate('/college-admin');
-      } else if (authedRecord.role === 'SUPER_ADMIN') {
-        const localUser = JSON.parse(localStorage.getItem('lms_user') || '{}');
-        localStorage.setItem('lms_user', JSON.stringify({
-          ...localUser,
-          role: 'SUPER_ADMIN',
-          isSuperAdmin: true,
-        }));
-        navigate('/super-admin');
-      } else if (authedRecord.role === 'HOD') {
-        // Just an example, you can route to HOD dashboard later
-        const localUser = JSON.parse(localStorage.getItem('lms_user') || '{}');
-        localStorage.setItem('lms_user', JSON.stringify({
-          ...localUser,
-          role: 'HOD',
-          college_id: (authedRecord as any).college_id,
-          department_id: (authedRecord as any).department_id,
-        }));
-        navigate('/hod'); // assuming this route exists or will exist
-      } else if (authedRecord.role === 'FACULTY') {
-        const localUser = JSON.parse(localStorage.getItem('lms_user') || '{}');
-        localStorage.setItem('lms_user', JSON.stringify({
-          ...localUser,
-          role: 'FACULTY',
-          college_id: (authedRecord as any).college_id,
-          department_id: (authedRecord as any).department_id,
-        }));
-        navigate('/faculty');
-      } else if (authedRecord.role === 'STUDENT') {
-        const localUser = JSON.parse(localStorage.getItem('lms_user') || '{}');
-        localStorage.setItem('lms_user', JSON.stringify({
-          ...localUser,
-          role: 'STUDENT',
-          college_id: (authedRecord as any).college_id,
-          department_id: (authedRecord as any).department_id,
-        }));
-        navigate('/student');
+      // Check if approved and redirect
+      const routed = routeApprovedUser(record);
+      if (routed) return;
+
+      if (record.approval_status === 'REJECTED') {
+        setStatusMessage('Your application was rejected by the administrator.');
+      } else {
+        setStatusMessage('Status checked: Your application is still pending review by the College Administrator.');
       }
-    } catch (error) {
+    } catch (error: any) {
       console.error('Failed to check status:', error);
+      setStatusMessage('Error checking status. Please try again.');
     } finally {
       setIsChecking(false);
     }
@@ -191,11 +205,21 @@ function WaitingApproval() {
 
   const handleSubmitOnboarding = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!auth.currentUser || !selectedCollege || !selectedRole || !selectedDepartment) return;
+    if (!selectedCollege || !selectedRole || !selectedDepartment) return;
+
+    const uid = auth.currentUser?.uid;
+    const localUser = JSON.parse(localStorage.getItem('lms_user') || '{}');
+    const identifier = uid || localUser?.email;
+
+    if (!identifier) {
+      alert('Authentication session not found. Please log in again.');
+      navigate('/login');
+      return;
+    }
 
     setIsSubmitting(true);
     try {
-      await updateUserProfile(auth.currentUser.uid, {
+      await updateUserProfile(identifier, {
         college_id: selectedCollege,
         requested_role: selectedRole,
         department_id: selectedDepartment,
@@ -203,15 +227,16 @@ function WaitingApproval() {
       });
       setApprovalStatus('PENDING');
       
-      const collegeName = colleges.find(c => c.id === selectedCollege)?.name || 'Unknown College';
-      const deptName = departments.find(d => d.id === selectedDepartment)?.name || 'Unknown Department';
+      const collegeName = colleges.find(c => c.id === selectedCollege)?.name || 'Selected College';
+      const deptName = departments.find(d => d.id === selectedDepartment)?.name || 'Selected Department';
       setRequestedDetails({
         college: collegeName,
         department: deptName,
         role: selectedRole
       });
       
-      setNeedsOnboarding(false); // Switch to waiting screen
+      setNeedsOnboarding(false);
+      setStatusMessage('Request submitted! Waiting for College Administrator approval.');
     } catch (error) {
       console.error('Failed to submit onboarding:', error);
       alert('Failed to save details. Please try again.');
@@ -225,6 +250,7 @@ function WaitingApproval() {
       <div className="min-h-screen bg-slate-50 flex flex-col items-center justify-center p-6">
         <div className="w-full max-w-md bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden p-8 space-y-6">
           <div className="text-center">
+            <img src="/logo.png" alt="Aura Logo" className="h-12 w-auto object-contain mx-auto mb-4" />
             <h2 className="text-2xl font-bold text-slate-800">Complete Your Profile</h2>
             <p className="text-slate-500 mt-2 text-sm leading-relaxed">
               Please select your college, role, and department to request access.
@@ -308,6 +334,7 @@ function WaitingApproval() {
               <XCircle className="w-8 h-8" />
             </div>
             <div>
+              <img src="/logo.png" alt="Aura Logo" className="h-12 w-auto object-contain mx-auto mb-4" />
               <h2 className="text-2xl font-bold text-slate-800">Request Rejected</h2>
               <p className="text-slate-500 mt-2 text-sm leading-relaxed">
                 Your request has been rejected by the College Administrator. Please contact support or your administrator for more information.
@@ -320,6 +347,7 @@ function WaitingApproval() {
               <Clock className="w-8 h-8" />
             </div>
             <div>
+              <img src="/logo.png" alt="Aura Logo" className="h-12 w-auto object-contain mx-auto mb-4" />
               <h2 className="text-2xl font-bold text-slate-800">Account Pending Approval</h2>
               <p className="text-slate-500 mt-2 text-sm leading-relaxed">
                 Your request has been successfully submitted and is currently waiting for your College Administrator to approve your role.
@@ -345,6 +373,12 @@ function WaitingApproval() {
                 <span className="text-right">{requestedDetails.role}</span>
               </div>
             </div>
+          </div>
+        )}
+
+        {statusMessage && (
+          <div className="p-3 bg-blue-50 border border-blue-200 text-blue-800 rounded-lg text-sm text-left">
+            {statusMessage}
           </div>
         )}
 

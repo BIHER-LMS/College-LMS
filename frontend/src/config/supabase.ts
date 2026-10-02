@@ -40,4 +40,9 @@ export interface AuthedUserRecord {
   lastLogin: string;
   role?: string;
   college_id?: string | null;
+  department_id?: string | null;
+  class_id?: string | null;
+  register_number?: string | null;
+  requested_role?: string | null;
+  approval_status?: string | null;
 }
