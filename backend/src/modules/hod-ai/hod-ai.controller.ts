@@ -1,3 +1,4 @@
+<<<<<<< Updated upstream
 /**
  * HOD AI Orchestrator — Controller
  *
@@ -115,11 +116,32 @@ class HODAIController {
       const response = await hodAIOrchestrator.chat(context, parseResult.data);
 
       // 4. Return structured response
+=======
+import { Response, NextFunction } from 'express';
+import { AuthenticatedRequest } from '../hod_temp/middleware/authMiddleware';
+import { AIRequestSchema } from './hod-ai.types';
+import { hodAiService } from './hod-ai.service';
+import { sendSuccess } from '../../utils/response';
+import { UnauthorizedError } from '../../utils/errors';
+
+export class HODAiController {
+  async handleQuery(req: AuthenticatedRequest, res: Response, next: NextFunction) {
+    try {
+      if (!req.hod) {
+        throw new UnauthorizedError('HOD context missing');
+      }
+
+      const validatedBody = AIRequestSchema.parse(req.body);
+      
+      const response = await hodAiService.processQuery(validatedBody, req.hod);
+
+>>>>>>> Stashed changes
       sendSuccess(res, response, 200);
     } catch (error) {
       next(error);
     }
   }
+<<<<<<< Updated upstream
 
   /**
    * GET /api/hod/ai/tools
@@ -178,3 +200,8 @@ class HODAIController {
  *   import { hodAIController } from '../modules/hod-ai/hod-ai.controller';
  */
 export const hodAIController = new HODAIController();
+=======
+}
+
+export const hodAiController = new HODAiController();
+>>>>>>> Stashed changes

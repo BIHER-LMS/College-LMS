@@ -1,5 +1,6 @@
 # HOD AI Tool Contract
 
+<<<<<<< Updated upstream
 **Canonical Document**
 **Owner**: Abhinav
 **Last Updated**: 2026-10-08
@@ -325,3 +326,98 @@ export interface HODAIContext {
 ```
 
 Executors **MUST** use `context.departmentId` and `context.collegeId` in their WHERE clauses/Prisma queries to ensure data isolation. Do NOT allow the LLM to query across departments or colleges.
+=======
+This document specifies the canonical tool interfaces that the LLM Orchestrator will expose, and which Varun (the next developer) must implement.
+
+## API Contract
+**Endpoint:** `/api/hod/ai/chat`
+**Method:** `POST`
+
+**Request Schema:**
+```json
+{
+  "message": "string (1-4000 chars)",
+  "history": [
+    {
+      "role": "user | assistant | system",
+      "content": "string"
+    }
+  ] // optional
+}
+```
+
+**Response Schema:**
+```json
+{
+  "success": true,
+  "message": "string (LLM text response)",
+  "toolsUsed": [
+    {
+      "toolName": "string",
+      "result": "any",
+      "error": "string (optional)"
+    }
+  ]
+}
+```
+
+## Authorization
+All AI routes are protected by `requireHODOrAdmin`.
+The LLM Orchestrator will inject a trusted `HODContext` into all tools, ensuring proper multi-tenant and role-based data isolation.
+Tools MUST NOT accept roles, tenant IDs, or user IDs as input arguments directly from the LLM.
+
+## Error Contract
+All AI tool errors must not expose sensitive stack traces. The orchestrator will gracefully capture tool errors and pass them back as `error` in `toolsUsed`. Use centralized error handling (e.g. `AppError`).
+
+## Tool Registry
+The canonical tool registry is exported at `backend/src/modules/hod-ai/hod-ai.registry.ts`.
+Tools must be defined and registered using the `HODToolConfig` interface.
+
+### Planned Tools
+
+#### `hod.getAttendanceSummary`
+- **Purpose**: Get high-level attendance summary (percentage, count of safe/critical students) for a class or department.
+- **Input Schema**:
+  ```json
+  {
+    "targetType": "class | department",
+    "targetId": "string (UUID, optional if context restricts)"
+  }
+  ```
+- **Output Schema**: JSON Object with summary stats.
+
+#### `hod.getStudentAttendance`
+- **Purpose**: Get detailed attendance breakdown for a specific student.
+- **Input Schema**:
+  ```json
+  {
+    "studentUid": "string"
+  }
+  ```
+- **Output Schema**: JSON Object with student attendance records.
+
+#### `hod.getClassAttendance`
+- **Purpose**: Get daily or subject-wise attendance for a class.
+- **Input Schema**:
+  ```json
+  {
+    "classId": "string (UUID)"
+  }
+  ```
+
+#### `hod.getDepartmentAttendance`
+- **Purpose**: Get comparative attendance across all classes in the department.
+- **Input Schema**: Empty `{}`. Use `context.departmentId`.
+
+#### `hod.getAttendanceAnalytics`
+- **Purpose**: Get analytics on attendance trends, most absent subjects, etc.
+- **Input Schema**: Empty `{}`.
+
+#### `hod.searchKnowledge` / `hod.getKnowledgeContext`
+*(Reserved for Harini - Do not implement yet)*
+
+## Implementation Instructions (For Varun)
+Varun will implement the attendance/analytics tools.
+1. Use `hodToolRegistry.registerTool(config)` in `hod-ai.registry.ts` or in an initialization file.
+2. Implement the `execute` function for each tool using the existing secure data repositories and services where applicable. Ensure that queries are strictly scoped to the `HODContext` (department isolation).
+>>>>>>> Stashed changes

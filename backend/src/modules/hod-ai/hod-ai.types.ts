@@ -1,3 +1,4 @@
+<<<<<<< Updated upstream
 /**
  * HOD AI Orchestrator — Canonical Types
  *
@@ -174,3 +175,39 @@ export const HODAIErrorCodes = {
 } as const;
 
 export type HODAIErrorCode = (typeof HODAIErrorCodes)[keyof typeof HODAIErrorCodes];
+=======
+import { z } from 'zod';
+import { HODContext } from '../hod_temp/middleware/authMiddleware';
+
+// Reusable schema for the AI request
+export const AIRequestSchema = z.object({
+  message: z.string().min(1).max(4000),
+  history: z.array(z.object({
+    role: z.enum(['user', 'assistant', 'system']),
+    content: z.string()
+  })).optional().default([]),
+});
+
+export type AIRequestDTO = z.infer<typeof AIRequestSchema>;
+
+export interface AIToolResponse {
+  toolName: string;
+  result: any;
+  error?: string;
+}
+
+export interface AIResponseDTO {
+  success: boolean;
+  message: string;
+  toolsUsed: AIToolResponse[];
+}
+
+export type ToolExecutor<T = any> = (input: T, context: HODContext) => Promise<any>;
+
+export interface HODToolConfig<T = any> {
+  name: string;
+  description: string;
+  inputSchema: z.ZodSchema<T>;
+  execute: ToolExecutor<T>;
+}
+>>>>>>> Stashed changes

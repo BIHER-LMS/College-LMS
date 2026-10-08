@@ -77,7 +77,9 @@ app.use('/api/student', studentRoutes);
 import hodAIRoutes from './modules/hod-ai/hod-ai.routes';
 app.use('/api/hod/ai', hodAIRoutes);
 import hodRoutes from './modules/hod_temp/routes/index';
+import hodAiRoutes from './modules/hod-ai/hod-ai.routes';
 app.use('/api', hodRoutes);
+app.use('/api/hod/ai', hodAiRoutes);
 app.use('/api', secureDataRoutes);
 >>>>>>> Stashed changes
 

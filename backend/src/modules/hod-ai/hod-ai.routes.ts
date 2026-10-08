@@ -1,3 +1,4 @@
+<<<<<<< Updated upstream
 /**
  * HOD AI Orchestrator — Routes
  *
@@ -85,5 +86,17 @@ router.get('/tools', (req, res, next) => hodAIController.getTools(req, res, next
  *   }
  */
 router.get('/health', (req, res, next) => hodAIController.health(req, res, next));
+=======
+import { Router } from 'express';
+import { hodAiController } from './hod-ai.controller';
+import { requireHODOrAdmin } from '../hod_temp/middleware/authMiddleware';
+
+const router = Router();
+
+// Secure all AI routes using the exact existing HOD context builder
+router.use(requireHODOrAdmin);
+
+router.post('/chat', (req, res, next) => hodAiController.handleQuery(req, res, next));
+>>>>>>> Stashed changes
 
 export default router;
