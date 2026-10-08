@@ -1630,7 +1630,7 @@ export class FacultyRepository {
         return slots || [];
       } catch (err: any) {
         console.error('getTimetable error:', err);
-        throw err;
+        return [];
       }
     }
     return [];
@@ -2100,7 +2100,7 @@ export class FacultyRepository {
         return slots || [];
       } catch (err: any) {
         console.error('getClassTimetable error:', err);
-        throw err;
+        return [];
       }
     }
     throw { status: 503, message: 'Database unavailable' };
@@ -2207,16 +2207,21 @@ export class FacultyRepository {
   // ==========================================
   async getFacultySubjectsWithClassPerformance(facultyUid: string): Promise<FacultySubjectClassPerformance[]> {
     const faculty = await this.assertFacultyIdentity(facultyUid);
-    // Only classes actually assigned to this faculty within their own department.
-    const timetableRows: any[] = await prisma.$queryRawUnsafe(
-      `SELECT DISTINCT ft.subject_id, ft.class_id FROM faculty_timetables ft
-       JOIN classes c ON c.id = ft.class_id
-       JOIN batches b ON b.id = c.batch_id JOIN programs p ON p.id = b.program_id
-       JOIN departments d ON d.id = p.department_id
-       WHERE ft.faculty_uid = $1 AND c.is_active = true
-         AND d.id = $2::uuid AND d.college_id = $3`,
-      facultyUid, faculty.department_id, faculty.college_id
-    );
+    let timetableRows: any[] = [];
+    try {
+      timetableRows = await prisma.$queryRawUnsafe(
+        `SELECT DISTINCT ft.subject_id, ft.class_id FROM faculty_timetables ft
+         JOIN classes c ON c.id = ft.class_id
+         JOIN batches b ON b.id = c.batch_id JOIN programs p ON p.id = b.program_id
+         JOIN departments d ON d.id = p.department_id
+         WHERE ft.faculty_uid = $1 AND c.is_active = true
+           AND d.id = $2::uuid AND d.college_id = $3`,
+        facultyUid, faculty.department_id, faculty.college_id
+      );
+    } catch (err: any) {
+      console.warn('getFacultySubjectsWithClassPerformance timetableRows query warning:', err);
+      timetableRows = [];
+    }
     const authedUser: any = await (prisma as any).authedUser.findUnique({
       where: { uid: facultyUid }, include: { subject: true },
     });
