@@ -151,51 +151,8 @@ export const StudentDashboard: React.FC = () => {
 
       {/* ─── Bottom Split Grid (Curriculum Subjects & Class Incharge) ─── */}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
-        {/* Left Column: Subjects & Degree Progress (8 cols) */}
+        {/* Left Column: Curriculum Subjects (8 cols) */}
         <div className="lg:col-span-8 flex flex-col gap-6">
-          {/* Degree Progress Card */}
-          <div className="bg-white border border-slate-200 rounded-lg p-6 shadow-xs">
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-slate-100">
-              <div>
-                <span className="text-xs font-semibold uppercase tracking-wider text-slate-400 font-mono">
-                  {deptData?.code ? `${deptData.code.toUpperCase()} · CURRICULUM PROGRESSION` : 'CURRICULUM PROGRESSION'}
-                </span>
-                <h3 className="text-lg font-bold text-slate-900 mt-0.5">
-                  {programData?.name || 'Academic Degree Program'}
-                </h3>
-              </div>
-              <span className="px-2.5 py-1 bg-emerald-50 border border-emerald-200 text-emerald-700 text-xs font-semibold rounded-md self-start sm:self-auto flex items-center gap-1.5">
-                <span className="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>
-                Verified Cohort
-              </span>
-            </div>
-
-            <div className="py-4">
-              <div className="flex justify-between items-center text-xs font-medium text-slate-600 mb-2">
-                <span>Semester {classData?.currentSemester || 1} of 6 Completed</span>
-                <span className="font-bold text-slate-900 font-mono">{Math.round(((classData?.currentSemester || 1) / 6) * 100)}% Degree Progress</span>
-              </div>
-              <div className="w-full bg-slate-100 rounded-full h-2">
-                <div
-                  className="bg-[#0b1727] h-2 rounded-full transition-all duration-500"
-                  style={{ width: `${((classData?.currentSemester || 1) / 6) * 100}%` }}
-                />
-              </div>
-            </div>
-
-            <div className="pt-3 border-t border-slate-100 flex items-center justify-between text-xs text-slate-500">
-              <span>Section: <strong className="text-slate-800">{classData?.name || 'Not Assigned'}</strong></span>
-              <span>Batch: <strong className="text-slate-800">{batchData ? `${batchData.startYear} - ${batchData.endYear}` : 'Not Assigned'}</strong></span>
-              <button
-                onClick={() => navigate('/student/subjects')}
-                className="text-slate-700 hover:text-black font-semibold inline-flex items-center gap-1"
-                type="button"
-              >
-                <span>Full Syllabus</span>
-                <span className="material-symbols-outlined text-[1rem]">arrow_forward</span>
-              </button>
-            </div>
-          </div>
 
           {/* Curriculum Subjects Strip */}
           <div className="bg-white border border-slate-200 rounded-lg p-6 shadow-xs flex flex-col gap-4">
