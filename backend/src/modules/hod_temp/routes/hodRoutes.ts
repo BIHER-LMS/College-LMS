@@ -62,4 +62,8 @@ router.get('/announcements', (req, res, next) => hodController.getAnnouncements(
 router.post('/announcements', (req, res, next) => hodController.createAnnouncement(req, res, next));
 router.get('/academic-alerts', (req, res, next) => hodController.getAcademicAlerts(req, res, next));
 
+// 8. AI Chatbot Orchestrator & Canonical Tool Registry (Abhinav)
+import hodAiRoutes from '../ai/hodAi.routes';
+router.use('/ai', hodAiRoutes);
+
 export default router;
