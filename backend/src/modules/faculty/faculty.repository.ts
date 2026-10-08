@@ -2429,8 +2429,10 @@ export class FacultyRepository {
       ...s,
       submittedAt: s.submitted_at,
       fileUrl: s.file_url,
+      attachmentUrl: s.file_url,
       studentName: s.student.display_name,
-      registerNumber: s.student.register_number
+      registerNumber: s.student.register_number,
+      student: s.student,
     }));
   }
 }

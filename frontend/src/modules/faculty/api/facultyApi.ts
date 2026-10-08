@@ -306,7 +306,17 @@ export const facultyApi = {
   getAssignmentSubmissions: async (assignmentId: string): Promise<any[]> => {
     const res = await api.get<any[]>(`/faculty/assignments/${assignmentId}/submissions`);
     return res.data;
-  }
+  },
+
+  uploadFile: async (file: File, folder?: string): Promise<{ url: string; secureUrl: string; publicId: string }> => {
+    const formData = new FormData();
+    formData.append('file', file);
+    if (folder) formData.append('folder', folder);
+    const res = await api.post('/upload', formData, {
+      headers: { 'Content-Type': 'multipart/form-data' },
+    });
+    return res.data?.data || res.data;
+  },
 };
 
 export default api;

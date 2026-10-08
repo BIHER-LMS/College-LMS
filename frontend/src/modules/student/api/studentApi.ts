@@ -30,9 +30,10 @@ export async function getAuthToken(): Promise<string> {
  */
 async function request<T>(endpoint: string, options: RequestInit = {}): Promise<T> {
   const token = await getAuthToken();
+  const isFormData = typeof FormData !== 'undefined' && options.body instanceof FormData;
   const headers: HeadersInit = {
-    'Content-Type': 'application/json',
     Authorization: `Bearer ${token}`,
+    ...(isFormData ? {} : { 'Content-Type': 'application/json' }),
     ...options.headers,
   };
 
@@ -111,9 +112,32 @@ export const studentApi = {
 
   // 13. Assignments
   getAssignments: () => request<any[]>('/student/assignments'),
-  submitAssignment: (assignmentId: string, data: { attachmentUrl: string }) =>
-    request<any>(`/student/assignments/${assignmentId}/submit`, {
+  submitAssignment: (assignmentId: string, data: { attachmentUrl?: string; file?: File }) => {
+    if (data.file) {
+      const formData = new FormData();
+      formData.append('file', data.file);
+      if (data.attachmentUrl) {
+        formData.append('attachmentUrl', data.attachmentUrl);
+      }
+      return request<any>(`/student/assignments/${assignmentId}/submit`, {
+        method: 'POST',
+        body: formData,
+      });
+    }
+    return request<any>(`/student/assignments/${assignmentId}/submit`, {
       method: 'POST',
       body: JSON.stringify(data),
-    }),
+    });
+  },
+
+  // 14. Universal Cloudinary Storage Upload
+  uploadFile: (file: File, folder?: string) => {
+    const formData = new FormData();
+    formData.append('file', file);
+    if (folder) formData.append('folder', folder);
+    return request<{ url: string; secureUrl: string; publicId: string }>('/upload', {
+      method: 'POST',
+      body: formData,
+    });
+  },
 };
