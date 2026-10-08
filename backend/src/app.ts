@@ -16,6 +16,7 @@ import facultyRoutes from './modules/faculty/faculty.routes';
 import roleRoutes from './modules/roles/role.routes';
 import auditRoutes from './modules/audit/audit.routes';
 import secureDataRoutes from './modules/secure-data/secureData.routes';
+import uploadRoutes from './modules/upload/upload.routes';
 
 const app = express();
 
@@ -87,6 +88,7 @@ app.use('/api/student', studentRoutes);
 import hodRoutes from './modules/hod_temp/routes/index';
 app.use('/api', hodRoutes);
 app.use('/api', secureDataRoutes);
+app.use('/api/upload', uploadRoutes);
 
 // ─── Error Handling ──────────────────────────────────
 app.use(notFoundHandler);

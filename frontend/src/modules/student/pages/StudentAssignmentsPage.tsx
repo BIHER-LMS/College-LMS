@@ -1,12 +1,11 @@
 import React, { useEffect, useState } from 'react';
 import { studentApi } from '../api/studentApi';
-import { Calendar, Clock, FileText, Upload, CheckCircle, AlertCircle, Download, FileImage } from 'lucide-react';
-import { supabase } from '../../../config/supabase';
+import { Calendar, Clock, FileText, Upload, CheckCircle, AlertCircle, Download, FileImage, ExternalLink } from 'lucide-react';
 
 export const StudentAssignmentsPage: React.FC = () => {
   const [assignments, setAssignments] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
-  const [uploading, setUploading] = useState(false);
+  const [uploadingId, setUploadingId] = useState<string | null>(null);
 
   useEffect(() => {
     loadAssignments();
@@ -27,43 +26,26 @@ export const StudentAssignmentsPage: React.FC = () => {
   const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>, assignmentId: string) => {
     const file = e.target.files?.[0];
     if (!file) return;
-    
-    // validate if image
-    if (!file.type.startsWith('image/')) {
-        alert('Please upload an image file (.jpg, .png, .jpeg)');
-        return;
+
+    // Validate image format or pdf
+    if (!file.type.startsWith('image/') && file.type !== 'application/pdf') {
+      alert('Please upload an image file (.jpg, .jpeg, .png, .webp) or PDF');
+      return;
     }
 
     try {
-      setUploading(true);
-      const timestamp = new Date().getTime();
-      const fileName = `submissions/${assignmentId}_${timestamp}_${file.name}`;
-      
-      const { error } = await supabase.storage
-        .from('assignments')
-        .upload(fileName, file);
+      setUploadingId(assignmentId);
+      // Upload directly to Cloudinary cloud bucket via backend authenticated endpoint
+      await studentApi.submitAssignment(assignmentId, { file });
 
-      if (error) {
-        throw error;
-      }
-
-      const { data: urlData } = supabase.storage
-        .from('assignments')
-        .getPublicUrl(fileName);
-
-      const fileUrl = urlData.publicUrl;
-
-      await studentApi.submitAssignment(assignmentId, { attachmentUrl: fileUrl });
-      
-      // refresh assignments
-      loadAssignments();
-      alert('Assignment submitted successfully!');
+      // Refresh assignments to show the updated submission
+      await loadAssignments();
+      alert('Assignment submitted successfully to Cloudinary cloud storage!');
     } catch (err: any) {
       console.error('Upload failed:', err);
-      alert('Failed to submit assignment: ' + err.message);
+      alert('Failed to submit assignment: ' + (err.message || 'Unknown error'));
     } finally {
-      setUploading(false);
-      // clear input
+      setUploadingId(null);
       e.target.value = '';
     }
   };
@@ -83,56 +65,54 @@ export const StudentAssignmentsPage: React.FC = () => {
           <FileText className="w-6 h-6 text-indigo-600" />
           My Assignments & Assessments
         </h1>
-        <p className="text-sm text-slate-500 mt-1">View and submit your class assignments.</p>
+        <p className="text-sm text-slate-500 mt-1">View and submit your class assignments with cloud storage.</p>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+      <div className="space-y-4">
         {assignments.length > 0 ? (
           assignments.map((assignment) => (
-            <div key={assignment.id} className="bg-white p-5 rounded-xl border border-slate-200 shadow-sm hover:shadow-md transition">
-              <div className="flex justify-between items-start mb-3">
+            <div key={assignment.id} className="bg-white p-5 rounded-2xl shadow-sm border border-slate-200 space-y-4">
+              <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2">
                 <div>
-                  <div className="flex items-center gap-2 mb-1">
-                    <span className="text-xs font-bold px-2 py-0.5 rounded bg-indigo-50 text-indigo-700">
+                  <div className="flex items-center gap-2">
+                    <span className="px-2.5 py-0.5 bg-indigo-50 text-indigo-700 text-xs font-bold rounded">
                       {assignment.subjectCode}
                     </span>
-                    <span className="text-xs font-medium text-slate-500">
-                      {assignment.facultyName}
-                    </span>
+                    <span className="text-xs text-slate-500">{assignment.subjectName}</span>
                   </div>
-                  <h3 className="font-bold text-lg text-slate-900">{assignment.title}</h3>
+                  <h2 className="text-lg font-bold text-slate-900 mt-1">{assignment.title}</h2>
                 </div>
-                {assignment.isSubmitted ? (
-                  <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-medium bg-emerald-100 text-emerald-800">
-                    <CheckCircle className="w-3.5 h-3.5" />
-                    Submitted
-                  </span>
-                ) : (
-                   new Date(assignment.dueDate) < new Date() ? (
-                     <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-medium bg-rose-100 text-rose-800">
-                       <AlertCircle className="w-3.5 h-3.5" />
-                       Overdue
-                     </span>
-                   ) : (
-                     <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-medium bg-amber-100 text-amber-800">
-                       <Clock className="w-3.5 h-3.5" />
-                       Pending
-                     </span>
-                   )
-                )}
+                <div>
+                  {assignment.isSubmitted ? (
+                    <span className="inline-flex items-center gap-1.5 px-3 py-1 bg-emerald-50 text-emerald-700 border border-emerald-200 rounded-full text-xs font-semibold">
+                      <CheckCircle className="w-3.5 h-3.5" />
+                      Submitted
+                    </span>
+                  ) : (
+                    <span className="inline-flex items-center gap-1.5 px-3 py-1 bg-amber-50 text-amber-700 border border-amber-200 rounded-full text-xs font-semibold">
+                      <Clock className="w-3.5 h-3.5" />
+                      Pending
+                    </span>
+                  )}
+                </div>
               </div>
-              
-              <p className="text-sm text-slate-600 mb-4 line-clamp-3">
+
+              <p className="text-sm text-slate-600 bg-slate-50 p-3 rounded-xl border border-slate-100">
                 {assignment.description || 'No description provided.'}
               </p>
-              
-              <div className="flex items-center gap-4 text-xs text-slate-500 mb-4">
+
+              <div className="flex flex-wrap items-center gap-4 text-xs text-slate-500">
                 <div className="flex items-center gap-1.5">
                   <Calendar className="w-4 h-4" />
-                  Due: {new Date(assignment.dueDate).toLocaleDateString()}
+                  Due: {assignment.dueDate ? new Date(assignment.dueDate).toLocaleDateString() : 'N/A'}
                 </div>
                 {assignment.attachmentUrl && (
-                  <a href={assignment.attachmentUrl} target="_blank" rel="noopener noreferrer" className="flex items-center gap-1.5 text-indigo-600 hover:underline">
+                  <a
+                    href={assignment.attachmentUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="flex items-center gap-1.5 text-indigo-600 hover:underline font-medium"
+                  >
                     <Download className="w-4 h-4" />
                     Reference Material
                   </a>
@@ -140,42 +120,74 @@ export const StudentAssignmentsPage: React.FC = () => {
               </div>
 
               <div className="pt-4 border-t border-slate-100">
-                {assignment.isSubmitted ? (
-                  <div className="flex justify-between items-center bg-slate-50 p-3 rounded-lg border border-slate-100">
-                     <div className="flex items-center gap-2 text-sm">
-                       <FileImage className="w-4 h-4 text-slate-400" />
-                       <span className="text-slate-600">You have submitted an image.</span>
-                     </div>
-                     <a 
-                       href={assignment.submission.file_url} 
-                       target="_blank" 
-                       rel="noopener noreferrer"
-                       className="text-xs font-medium text-indigo-600 hover:text-indigo-800"
-                     >
-                       View Submission
-                     </a>
+                {assignment.isSubmitted && assignment.submission ? (
+                  <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 bg-slate-50 p-3.5 rounded-xl border border-slate-200">
+                    <div className="flex items-center gap-3">
+                      {assignment.submission.file_url && (assignment.submission.file_url.includes('cloudinary.com') || assignment.submission.file_url.match(/\.(jpeg|jpg|png|webp|gif)/i)) ? (
+                        <a href={assignment.submission.file_url} target="_blank" rel="noopener noreferrer">
+                          <img
+                            src={assignment.submission.file_url}
+                            alt="Submission"
+                            className="w-12 h-12 object-cover rounded-lg border border-slate-300 shadow-2xs hover:opacity-90 transition"
+                          />
+                        </a>
+                      ) : (
+                        <div className="w-12 h-12 rounded-lg bg-indigo-100 text-indigo-700 flex items-center justify-center">
+                          <FileImage className="w-6 h-6" />
+                        </div>
+                      )}
+                      <div>
+                        <div className="text-sm font-semibold text-slate-800 flex items-center gap-1.5">
+                          <span>Submission Uploaded</span>
+                          <span className="text-[10px] bg-emerald-100 text-emerald-800 font-bold px-1.5 py-0.5 rounded">Cloud Verified</span>
+                        </div>
+                        <div className="text-xs text-slate-500 mt-0.5">
+                          Submitted on {new Date(assignment.submission.submitted_at || Date.now()).toLocaleDateString()}
+                        </div>
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-2 self-end sm:self-auto">
+                      <a
+                        href={assignment.submission.file_url}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="inline-flex items-center gap-1 px-3 py-1.5 text-xs font-semibold text-indigo-600 hover:text-indigo-800 bg-white border border-slate-200 rounded-lg shadow-2xs hover:bg-slate-50 transition"
+                      >
+                        <ExternalLink className="w-3.5 h-3.5" />
+                        <span>View Submission</span>
+                      </a>
+                    </div>
                   </div>
                 ) : (
                   <div>
-                    <input 
-                      type="file" 
-                      accept="image/*"
+                    <input
+                      type="file"
+                      accept="image/*,application/pdf"
                       id={`upload-${assignment.id}`}
                       className="hidden"
                       onChange={(e) => handleFileUpload(e, assignment.id)}
-                      disabled={uploading}
+                      disabled={uploadingId === assignment.id}
                     />
-                    <label 
+                    <label
                       htmlFor={`upload-${assignment.id}`}
-                      className={`w-full flex items-center justify-center gap-2 py-2 px-4 rounded-lg border-2 border-dashed font-medium transition cursor-pointer
-                        ${uploading ? 'opacity-50 cursor-not-allowed bg-slate-50 border-slate-200 text-slate-500' : 'border-indigo-200 bg-indigo-50 text-indigo-700 hover:bg-indigo-100 hover:border-indigo-300'}`}
+                      className={`w-full flex items-center justify-center gap-2 py-2.5 px-4 rounded-xl border-2 border-dashed font-semibold text-xs transition cursor-pointer
+                        ${
+                          uploadingId === assignment.id
+                            ? 'opacity-60 cursor-not-allowed bg-slate-50 border-slate-200 text-slate-500'
+                            : 'border-indigo-300 bg-indigo-50/50 text-indigo-700 hover:bg-indigo-100 hover:border-indigo-400'
+                        }`}
                     >
-                      {uploading ? (
-                        <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-indigo-700"></div>
+                      {uploadingId === assignment.id ? (
+                        <>
+                          <div className="animate-spin rounded-full h-4 w-4 border-2 border-indigo-700 border-t-transparent"></div>
+                          <span>Uploading to Cloudinary...</span>
+                        </>
                       ) : (
-                        <Upload className="w-4 h-4" />
+                        <>
+                          <Upload className="w-4 h-4 text-indigo-600" />
+                          <span>Upload Assignment Image / Document (Cloudinary Storage)</span>
+                        </>
                       )}
-                      {uploading ? 'Uploading...' : 'Upload Image Submission'}
                     </label>
                   </div>
                 )}
@@ -183,12 +195,10 @@ export const StudentAssignmentsPage: React.FC = () => {
             </div>
           ))
         ) : (
-          <div className="col-span-1 md:col-span-2 bg-white rounded-xl border border-slate-200 p-8 text-center">
-            <div className="w-16 h-16 bg-slate-50 rounded-full flex items-center justify-center mx-auto mb-4">
-              <CheckCircle className="w-8 h-8 text-slate-400" />
-            </div>
+          <div className="bg-white p-12 text-center rounded-2xl border border-slate-200">
+            <AlertCircle className="w-12 h-12 text-slate-300 mx-auto mb-3" />
             <h3 className="text-lg font-bold text-slate-900 mb-1">No Assignments</h3>
-            <p className="text-slate-500">You don't have any assignments pending or submitted at the moment.</p>
+            <p className="text-slate-500 text-sm">You don't have any assignments pending or submitted at the moment.</p>
           </div>
         )}
       </div>

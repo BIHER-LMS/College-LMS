@@ -4,6 +4,7 @@ import { authenticateFirebaseUser } from '../../middleware/auth.middleware';
 import prisma from '../../config/database';
 import { StudentContext } from './student.types';
 import { AppError } from '../../utils/errors';
+import { uploadMemory } from '../../middleware/upload.middleware';
 
 const router = Router();
 
@@ -91,6 +92,6 @@ router.get('/attendance', (req, res, next) => studentController.getAttendance(re
 
 // 13. Assignments API
 router.get('/assignments', (req, res, next) => studentController.getAssignments(req, res, next));
-router.post('/assignments/:assignmentId/submit', (req, res, next) => studentController.submitAssignment(req, res, next));
+router.post('/assignments/:assignmentId/submit', uploadMemory.single('file'), (req, res, next) => studentController.submitAssignment(req, res, next));
 
 export default router;

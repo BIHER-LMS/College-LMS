@@ -2,6 +2,8 @@ import { Request, Response, NextFunction } from 'express';
 import { studentService } from './student.service';
 import { updateProfileSchema } from './student.validation';
 import { sendSuccess } from '../../utils/response';
+import { storageService } from '../../services/storage.service';
+import { AppError } from '../../utils/errors';
 
 const successResponse = (res: Response, data: any, status = 200, message?: string) => {
   return sendSuccess(res, data, status);
@@ -141,7 +143,27 @@ export class StudentController {
   async submitAssignment(req: Request, res: Response, next: NextFunction) {
     try {
       const assignmentId = req.params.assignmentId;
-      const data = await studentService.submitAssignment((req as any).studentContext!, assignmentId, req.body);
+      const studentContext = (req as any).studentContext!;
+      let attachmentUrl = req.body?.attachmentUrl;
+
+      if (req.file) {
+        const uploadResult = await storageService.uploadAssignmentSubmission(
+          req.file.buffer,
+          req.file.originalname,
+          studentContext.uid,
+          assignmentId
+        );
+        attachmentUrl = uploadResult.secureUrl;
+      }
+
+      if (!attachmentUrl) {
+        throw new AppError(400, 'BAD_REQUEST', 'Please provide a file or an attachmentUrl to submit');
+      }
+
+      const data = await studentService.submitAssignment(studentContext, assignmentId, {
+        ...req.body,
+        attachmentUrl,
+      });
       return successResponse(res, data, 200, 'Assignment submitted successfully');
     } catch (error) {
       next(error);

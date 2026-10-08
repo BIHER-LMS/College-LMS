@@ -284,7 +284,7 @@ export const FacultyAssignmentsPage: React.FC = () => {
                         </p>
                       </div>
                       <a
-                        href={sub.attachmentUrl}
+                        href={sub.attachmentUrl || sub.fileUrl || sub.file_url}
                         target="_blank"
                         rel="noopener noreferrer"
                         className="bg-white border border-slate-300 px-3 py-1.5 rounded-lg text-sm font-semibold text-indigo-600 hover:bg-indigo-50 transition flex items-center gap-2"
