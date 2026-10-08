@@ -42,13 +42,20 @@ export const FacultyWorkspace: React.FC = () => {
           </p>
         </div>
 
-        <div className="flex items-center gap-3">
+        <div className="flex flex-wrap items-center gap-3">
           <span className="px-3 py-1.5 rounded-lg bg-[#eff4ff] text-[#004ac6] text-xs font-semibold border border-[#d3e4fe]">
             48 Enrolled Students
           </span>
           <span className="px-3 py-1.5 rounded-lg bg-emerald-50 text-emerald-700 text-xs font-semibold border border-emerald-200">
             Syllabus: v3.4 Synced
           </span>
+          <a
+            href="/faculty"
+            className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg bg-[#004ac6] hover:bg-[#2563eb] text-white text-xs font-semibold shadow-xs transition-all"
+          >
+            <span>Launch Live Faculty Portal</span>
+            <span className="material-symbols-outlined text-sm">arrow_forward</span>
+          </a>
         </div>
       </div>
 

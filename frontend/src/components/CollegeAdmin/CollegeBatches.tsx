@@ -37,7 +37,7 @@ export function CollegeBatches({ collegeId }: { collegeId: string }) {
       <form onSubmit={handleCreate} className="flex gap-4 items-end bg-white p-4 rounded-xl border">
         <div><label className="text-xs mb-1 block">Start Year</label><input required type="number" value={formData.start_year} onChange={e => setFormData({...formData, start_year: +e.target.value})} className="h-10 px-3 border rounded-lg w-32" /></div>
         <div><label className="text-xs mb-1 block">End Year</label><input required type="number" value={formData.end_year} onChange={e => setFormData({...formData, end_year: +e.target.value})} className="h-10 px-3 border rounded-lg w-32" /></div>
-        <button type="submit" disabled={!selectedProgram} className="h-10 px-4 bg-brand-600 text-white rounded-lg disabled:opacity-50">Add Batch</button>
+        <button type="submit" disabled={!selectedProgram} className="h-10 px-4 bg-blue-700 text-white rounded-lg disabled:opacity-50">Add Batch</button>
       </form>
       <div className="bg-white border rounded-xl overflow-hidden">
         <table className="w-full text-left text-sm whitespace-nowrap">

@@ -5,7 +5,7 @@ import { auth } from '../config/firebase';
 import { onAuthStateChanged } from 'firebase/auth';
 import { 
   recordAuthedUser, 
-  fetchColleges, 
+  fetchPublicColleges,
   fetchDepartments, 
   updateUserProfile,
   getAuthedUserProfile
@@ -61,7 +61,7 @@ function WaitingApproval() {
   useEffect(() => {
     let isMounted = true;
 
-    const checkAndRoute = async (userObj: { uid?: string; email?: string; displayName?: string | null; photoURL?: string | null }) => {
+    const checkAndRoute = async (userObj: { uid?: string; email?: string; displayName?: string | null; photoURL?: string | null; token?: string }) => {
       try {
         let record = await getAuthedUserProfile({ uid: userObj.uid, email: userObj.email });
         
@@ -74,7 +74,7 @@ function WaitingApproval() {
             photoURL: userObj.photoURL || null,
             provider: 'google',
             lastLogin: new Date().toISOString(),
-          });
+          }, userObj.token);
         }
 
         if (!record || !isMounted) return;
@@ -85,8 +85,8 @@ function WaitingApproval() {
         const routed = routeApprovedUser(record);
         if (routed) return;
 
-        const cols = await fetchColleges();
-        if (isMounted) setColleges(cols);
+        const cols = await fetchPublicColleges();
+        if (isMounted) setColleges(cols as any);
 
         // If the user has not submitted onboarding yet
         if (!record.college_id) {
@@ -112,11 +112,13 @@ function WaitingApproval() {
 
     const unsubscribe = onAuthStateChanged(auth, async (user) => {
       if (user) {
+        const token = await user.getIdToken();
         await checkAndRoute({
           uid: user.uid,
           email: user.email || '',
           displayName: user.displayName,
           photoURL: user.photoURL,
+          token
         });
       } else {
         const localUser = JSON.parse(localStorage.getItem('lms_user') || '{}');
@@ -205,7 +207,8 @@ function WaitingApproval() {
 
   const handleSubmitOnboarding = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!selectedCollege || !selectedRole || !selectedDepartment) return;
+    if (!selectedCollege || !selectedRole) return;
+    if (selectedRole !== 'COLLEGE_ADMIN' && !selectedDepartment) return;
 
     const uid = auth.currentUser?.uid;
     const localUser = JSON.parse(localStorage.getItem('lms_user') || '{}');
@@ -222,13 +225,13 @@ function WaitingApproval() {
       await updateUserProfile(identifier, {
         college_id: selectedCollege,
         requested_role: selectedRole,
-        department_id: selectedDepartment,
+        department_id: selectedRole === 'COLLEGE_ADMIN' ? null : selectedDepartment,
         approval_status: 'PENDING',
       });
       setApprovalStatus('PENDING');
       
       const collegeName = colleges.find(c => c.id === selectedCollege)?.name || 'Selected College';
-      const deptName = departments.find(d => d.id === selectedDepartment)?.name || 'Selected Department';
+      const deptName = departments.find(d => d.id === selectedDepartment)?.name || 'No Department';
       setRequestedDetails({
         college: collegeName,
         department: deptName,
@@ -278,30 +281,34 @@ function WaitingApproval() {
               <select
                 required
                 value={selectedRole}
-                onChange={(e) => setSelectedRole(e.target.value)}
+                onChange={(e) => {
+                  setSelectedRole(e.target.value);
+                  if (e.target.value === 'COLLEGE_ADMIN') setSelectedDepartment('');
+                }}
                 className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-brand-500"
               >
                 <option value="HOD">Head of Department (HOD)</option>
                 <option value="FACULTY">Faculty</option>
-                <option value="STUDENT">Student</option>
               </select>
             </div>
 
-            <div>
-              <label className="block text-sm font-medium text-slate-700 mb-1">Select Department</label>
-              <select
-                required
-                value={selectedDepartment}
-                onChange={(e) => setSelectedDepartment(e.target.value)}
-                disabled={!selectedCollege}
-                className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-brand-500 disabled:bg-slate-100"
-              >
-                <option value="" disabled>-- Select a Department --</option>
-                {departments.map((d) => (
-                  <option key={d.id} value={d.id}>{d.name} ({d.code})</option>
-                ))}
-              </select>
-            </div>
+            {selectedRole !== 'COLLEGE_ADMIN' && (
+              <div>
+                <label className="block text-sm font-medium text-slate-700 mb-1">Select Department</label>
+                <select
+                  required
+                  value={selectedDepartment}
+                  onChange={(e) => setSelectedDepartment(e.target.value)}
+                  disabled={!selectedCollege}
+                  className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-brand-500 disabled:bg-slate-100"
+                >
+                  <option value="" disabled>-- Select a Department --</option>
+                  {departments.map((d) => (
+                    <option key={d.id} value={d.id}>{d.name} ({d.code})</option>
+                  ))}
+                </select>
+              </div>
+            )}
 
             <button
               type="submit"

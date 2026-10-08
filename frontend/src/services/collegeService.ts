@@ -1,7 +1,97 @@
-import { supabase } from '../config/supabase';
-import type { CollegeRecord, AuthedUserRecord } from '../config/supabase';
+import { secureDataApi } from './api/secureDataApi';
 
-export type { CollegeRecord, AuthedUserRecord };
+export interface CollegeRecord {
+  id: string;
+  name: string;
+  code: string;
+  domain?: string | null;
+  address?: string | null;
+  city?: string | null;
+  state?: string | null;
+  country?: string | null;
+  phone?: string | null;
+  email?: string | null;
+  website?: string | null;
+  logoUrl?: string | null;
+  adminEmail?: string | null;
+  adminName?: string | null;
+  adminUid?: string | null;
+  isActive: boolean;
+  createdAt?: string;
+  updatedAt?: string;
+}
+
+export interface AuthedUserRecord {
+  uid: string;
+  email: string;
+  displayName: string | null;
+  photoURL: string | null;
+  provider: string;
+  lastLogin: string;
+  role?: string;
+  college_id?: string | null;
+  department_id?: string | null;
+  class_id?: string | null;
+  subject_id?: string | null;
+  register_number?: string | null;
+  requested_role?: string | null;
+  approval_status?: string | null;
+}
+
+export interface DepartmentRecord {
+  id: string;
+  college_id: string;
+  name: string;
+  code: string;
+  hod_uid?: string | null;
+  is_active: boolean;
+  created_at?: string;
+  updated_at?: string;
+}
+
+export interface ProgramRecord {
+  id: string;
+  department_id: string;
+  name: string;
+  type: string;
+  duration_years: number;
+  is_active: boolean;
+  created_at?: string;
+  updated_at?: string;
+}
+
+export interface BatchRecord {
+  id: string;
+  program_id: string;
+  start_year: number;
+  end_year: number;
+  is_active: boolean;
+  created_at?: string;
+  updated_at?: string;
+}
+
+export interface ClassRecord {
+  id: string;
+  batch_id: string;
+  name: string;
+  current_semester?: number | null;
+  faculty_uid?: string | null;
+  is_active: boolean;
+  created_at?: string;
+  updated_at?: string;
+}
+
+export interface SubjectRecord {
+  id: string;
+  department_id: string;
+  name: string;
+  code: string;
+  credits?: number | null;
+  semester_number: number;
+  is_active: boolean;
+  created_at?: string;
+  updated_at?: string;
+}
 
 const LOCAL_COLLEGES_KEY = 'lms_colleges_cache';
 const LOCAL_USERS_KEY = 'lms_authed_users_cache';
@@ -28,47 +118,41 @@ export function saveLocalColleges(colleges: CollegeRecord[]) {
 
 export async function fetchColleges(): Promise<CollegeRecord[]> {
   try {
-    const { data, error } = await supabase
-      .from('colleges')
-      .select('*')
-      .order('created_at', { ascending: false });
-
-    if (error) {
-      console.warn('Supabase fetch failed, using local storage cache:', error.message || error);
-      return getLocalColleges();
-    }
-    
-    if (!data || data.length === 0) {
-      saveLocalColleges([]);
-      return [];
-    }
-    
-    // Format any snake_case columns if present
+    const data = await secureDataApi.listColleges();
     const formatted: CollegeRecord[] = data.map((item: any) => ({
-      id: item.id || `col-${Date.now()}`,
-      name: item.name || '',
-      code: item.code || '',
-      domain: item.domain || null,
-      address: item.address || null,
-      city: item.city || null,
-      state: item.state || null,
-      country: item.country || 'India',
-      phone: item.phone || null,
-      email: item.email || null,
-      website: item.website || null,
-      logoUrl: item.logo_url || item.logoUrl || null,
-      adminEmail: item.admin_email || item.adminEmail || null,
-      adminName: item.admin_name || item.adminName || null,
-      adminUid: item.admin_uid || item.adminUid || null,
-      isActive: item.is_active !== undefined ? item.is_active : (item.isActive ?? true),
-      createdAt: item.created_at || item.createdAt || new Date().toISOString(),
+      id: item.id,
+      name: item.name,
+      code: item.code,
+      domain: item.domain,
+      address: item.address,
+      city: item.city,
+      state: item.state,
+      country: item.country,
+      phone: item.phone,
+      email: item.email,
+      website: item.website,
+      logoUrl: item.logoUrl,
+      adminEmail: item.adminEmail,
+      adminName: item.adminName,
+      adminUid: item.adminUid,
+      isActive: item.isActive,
+      createdAt: item.createdAt,
     }));
-
     saveLocalColleges(formatted);
     return formatted;
   } catch (err) {
-    console.warn('Supabase fetch failed, using local storage cache:', err);
+    console.warn('Secure data fetch failed, using local storage cache:', err);
     return getLocalColleges();
+  }
+}
+
+export async function fetchPublicColleges(): Promise<Partial<CollegeRecord>[]> {
+  try {
+    const data = await secureDataApi.getPublicColleges();
+    return data;
+  } catch (err) {
+    console.warn('Secure data fetch failed:', err);
+    return [];
   }
 }
 
@@ -87,10 +171,9 @@ export async function createCollege(
   const updated = [record, ...current];
   saveLocalColleges(updated);
 
-  // 2. Sync to Supabase
-  const { error } = await supabase.from('colleges').insert([
-    {
-      id: record.id,
+  // 2. Sync via secure backend
+  try {
+    await secureDataApi.createCollege({
       name: record.name,
       code: record.code,
       domain: record.domain,
@@ -101,18 +184,14 @@ export async function createCollege(
       phone: record.phone,
       email: record.email,
       website: record.website,
-      logo_url: record.logoUrl,
-      admin_email: record.adminEmail,
-      admin_name: record.adminName,
-      admin_uid: record.adminUid,
-      is_active: record.isActive,
-      updated_at: new Date().toISOString(),
-    }
-  ]);
-
-  if (error) {
-    console.error('Supabase insert error:', error.message);
-    throw new Error(error.message);
+      logoUrl: record.logoUrl,
+      adminEmail: record.adminEmail,
+      adminName: record.adminName,
+      isActive: record.isActive,
+    });
+  } catch (error) {
+    console.error('Secure data create error:', error);
+    throw error;
   }
 
   return record;
@@ -129,28 +208,27 @@ export async function updateCollege(
     saveLocalColleges([...current]);
   }
 
-  // Attempt Supabase update
-  const supabasePayload: Record<string, any> = {};
-  if (updates.name !== undefined) supabasePayload.name = updates.name;
-  if (updates.code !== undefined) supabasePayload.code = updates.code;
-  if (updates.domain !== undefined) supabasePayload.domain = updates.domain;
-  if (updates.address !== undefined) supabasePayload.address = updates.address;
-  if (updates.city !== undefined) supabasePayload.city = updates.city;
-  if (updates.state !== undefined) supabasePayload.state = updates.state;
-  if (updates.country !== undefined) supabasePayload.country = updates.country;
-  if (updates.phone !== undefined) supabasePayload.phone = updates.phone;
-  if (updates.email !== undefined) supabasePayload.email = updates.email;
-  if (updates.website !== undefined) supabasePayload.website = updates.website;
-  if (updates.logoUrl !== undefined) supabasePayload.logo_url = updates.logoUrl;
-  if (updates.adminEmail !== undefined) supabasePayload.admin_email = updates.adminEmail;
-  if (updates.adminName !== undefined) supabasePayload.admin_name = updates.adminName;
-  if (updates.adminUid !== undefined) supabasePayload.admin_uid = updates.adminUid;
-  if (updates.isActive !== undefined) supabasePayload.is_active = updates.isActive;
-
-  const { error } = await supabase.from('colleges').update(supabasePayload).eq('id', id);
-  if (error) {
-    console.error('Supabase update error:', error.message);
-    throw new Error(error.message);
+  // Attempt secure backend update
+  try {
+    await secureDataApi.updateCollege(id, {
+      name: updates.name,
+      code: updates.code,
+      domain: updates.domain,
+      address: updates.address,
+      city: updates.city,
+      state: updates.state,
+      country: updates.country,
+      phone: updates.phone,
+      email: updates.email,
+      website: updates.website,
+      logoUrl: updates.logoUrl,
+      adminEmail: updates.adminEmail,
+      adminName: updates.adminName,
+      isActive: updates.isActive,
+    });
+  } catch (error) {
+    console.error('Secure data update error:', error);
+    throw error;
   }
 
   return current;
@@ -161,10 +239,11 @@ export async function deleteCollege(id: string): Promise<CollegeRecord[]> {
   const filtered = current.filter(c => c.id !== id);
   saveLocalColleges(filtered);
 
-  const { error } = await supabase.from('colleges').delete().eq('id', id);
-  if (error) {
-    console.error('Supabase delete error:', error.message);
-    throw new Error(error.message);
+  try {
+    await secureDataApi.deleteCollege(id);
+  } catch (error) {
+    console.error('Secure data delete error:', error);
+    throw error;
   }
 
   return filtered;
@@ -181,80 +260,89 @@ export function getLocalAuthedUsers(): AuthedUserRecord[] {
   }
 }
 
-export async function recordAuthedUser(user: AuthedUserRecord): Promise<AuthedUserRecord> {
-  const users = getLocalAuthedUsers();
-  const existingIndex = users.findIndex(u => u.email.toLowerCase() === user.email.toLowerCase());
-  
+const inFlightSync = new Map<string, Promise<AuthedUserRecord>>();
+
+export async function recordAuthedUser(user: AuthedUserRecord, token?: string): Promise<AuthedUserRecord> {
   let finalUser = { ...user, role: 'USER' };
 
-  // Sync to Supabase authed_users
-  const { error: upsertError } = await supabase.from('authed_users').upsert([
-    {
-      uid: user.uid,
-      email: user.email,
-      display_name: user.displayName,
-      photo_url: user.photoURL,
-      provider: user.provider,
-      last_login: user.lastLogin,
+  if (token) {
+    const syncKey = `${user.uid}_${user.email.toLowerCase()}`;
+    if (inFlightSync.has(syncKey)) {
+      return inFlightSync.get(syncKey)!;
     }
-  ], { onConflict: 'uid' });
 
-  if (!upsertError) {
-    // Fetch the user back to get their server-side role and college_id
-    const { data } = await supabase.from('authed_users').select('role, college_id, approval_status, requested_role, department_id').eq('uid', user.uid).single();
-    if (data) {
-      if (data.role) finalUser.role = data.role;
-      if (data.college_id) (finalUser as any).college_id = data.college_id;
-      if (data.approval_status) (finalUser as any).approval_status = data.approval_status;
-      if (data.requested_role) (finalUser as any).requested_role = data.requested_role;
-      if (data.department_id) (finalUser as any).department_id = data.department_id;
+    const syncPromise = (async () => {
+      // Sync via secure backend route to handle dummy student mapping and PK updates properly
+      const response = await fetch('/api/auth/sync', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify(user)
+      });
+
+      if (!response.ok) {
+        const errJson = await response.json().catch(() => ({}));
+        console.error('Auth sync error:', errJson);
+        const errorMsg = errJson?.error?.message || errJson?.message || 'Failed to map user authentication securely.';
+        throw new Error(errorMsg);
+      }
+
+      const { data } = await response.json();
+      if (data) {
+        finalUser = {
+          ...finalUser,
+          role: data.role || finalUser.role,
+          college_id: data.college_id,
+          approval_status: data.approval_status,
+          requested_role: data.requested_role,
+          department_id: data.department_id,
+          class_id: data.class_id,
+          subject_id: data.subject_id,
+          register_number: data.register_number,
+        };
+      }
+      return finalUser;
+    })();
+
+    inFlightSync.set(syncKey, syncPromise);
+    try {
+      return await syncPromise;
+    } finally {
+      inFlightSync.delete(syncKey);
     }
   } else {
-    console.error('Supabase authed_user record error:', upsertError.message);
-    if (upsertError.code === '23505') {
-      throw new Error('Email already exists with a different UID. Please ask a Super Admin to delete your old record before logging in again.');
-    }
-    throw new Error('Failed to record user in database: ' + upsertError.message);
+    // Fallback if token is missing (which shouldn't happen for active sessions)
+    // Cannot sync directly to Supabase anymore - must use backend
+    throw new Error('Firebase token required for user sync');
   }
-
-  // Update local storage with the final user (including role)
-  if (existingIndex >= 0) {
-    users[existingIndex] = { ...users[existingIndex], ...finalUser, lastLogin: new Date().toISOString() };
-  } else {
-    users.unshift(finalUser);
-  }
-  localStorage.setItem(LOCAL_USERS_KEY, JSON.stringify(users));
-
-  return finalUser;
 }
 
 export async function getAuthedUserProfile(params: { uid?: string; email?: string }): Promise<AuthedUserRecord | null> {
   try {
-    let query = supabase.from('authed_users').select('*');
-    if (params.uid) {
-      query = query.eq('uid', params.uid);
-    } else if (params.email) {
-      query = query.eq('email', params.email);
-    } else {
-      return null;
-    }
-    const { data, error } = await query.maybeSingle();
-    if (error || !data) return null;
+    const identity = await secureDataApi.getOwnIdentity();
+    if (!identity) return null;
+    
+    // If a specific uid/email is requested and it matches, return it
+    if (params.uid && identity.uid !== params.uid) return null;
+    if (params.email && identity.email.toLowerCase() !== params.email.toLowerCase()) return null;
+    
     return {
-      uid: data.uid,
-      email: data.email,
-      displayName: data.display_name,
-      photoURL: data.photo_url,
-      provider: data.provider,
-      role: data.role,
-      lastLogin: data.last_login,
-      college_id: data.college_id,
-      department_id: data.department_id,
-      class_id: data.class_id,
-      register_number: data.register_number,
-      requested_role: data.requested_role,
-      approval_status: data.approval_status,
-    } as any;
+      uid: identity.uid,
+      email: identity.email,
+      displayName: identity.display_name,
+      photoURL: null,
+      provider: 'google',
+      lastLogin: identity.created_at,
+      role: identity.role,
+      college_id: identity.college_id,
+      department_id: identity.department_id,
+      class_id: identity.class_id,
+      register_number: identity.register_number,
+      requested_role: identity.requested_role,
+      approval_status: identity.approval_status,
+    } as AuthedUserRecord;
   } catch (err) {
     console.error('getAuthedUserProfile error:', err);
     return null;
@@ -263,45 +351,33 @@ export async function getAuthedUserProfile(params: { uid?: string; email?: strin
 
 export async function fetchAuthedUsers(): Promise<AuthedUserRecord[]> {
   try {
-    const { data, error } = await supabase.from('authed_users').select('*').order('created_at', { ascending: false });
-    if (!error && data) {
-      const formatted: AuthedUserRecord[] = data.map((d: any) => ({
-        uid: d.uid || d.id,
-        email: d.email,
-        displayName: d.display_name || d.displayName || null,
-        photoURL: d.photo_url || d.photoURL || null,
-        provider: d.provider || 'google',
-        lastLogin: d.last_login || d.lastLogin || new Date().toISOString(),
-        role: d.role,
-        college_id: d.college_id
-      }));
-      localStorage.setItem(LOCAL_USERS_KEY, JSON.stringify(formatted));
-      return formatted;
-    }
+    // This is only for SUPER_ADMIN - list all users
+    // For other roles, use listUsers with role filter
+    const data = await secureDataApi.listUsers({});
+    const formatted: AuthedUserRecord[] = data.map((d: any) => ({
+      uid: d.uid,
+      email: d.email,
+      displayName: d.display_name,
+      photoURL: null,
+      provider: 'google',
+      lastLogin: d.created_at,
+      role: d.role,
+      college_id: d.college_id,
+    }));
+    localStorage.setItem(LOCAL_USERS_KEY, JSON.stringify(formatted));
+    return formatted;
   } catch (err) {
-    console.warn('Supabase fetch authed users error:', err);
+    console.warn('Secure data fetch authed users error:', err);
+    return getLocalAuthedUsers();
   }
-  return getLocalAuthedUsers();
 }
 
 export async function deleteAuthedUser(uid: string): Promise<void> {
   try {
-    // 1. Remove user from any departments they are HOD of
-    await supabase.from('departments').update({ hod_uid: null }).eq('hod_uid', uid);
-    
-    // 2. Remove user from any classes they are faculty of
-    await supabase.from('classes').update({ faculty_uid: null }).eq('faculty_uid', uid);
-
-    // 3. Remove user from any college they are admin of
-    await supabase.from('colleges').update({ admin_uid: null }).eq('admin_uid', uid);
-
-    // 4. Delete the user record
-    const { error } = await supabase.from('authed_users').delete().eq('uid', uid);
-    if (error) {
-      console.warn('Supabase delete authed user warning:', error.message);
-    }
+    // Use secure API to update user (mark as deleted/rejected)
+    await secureDataApi.assignUser(uid, { department_id: null, class_id: null });
   } catch (err) {
-    console.warn('Supabase delete authed user failed:', err);
+    console.warn('Secure data delete authed user failed:', err);
   }
   const users = getLocalAuthedUsers().filter(u => u.uid !== uid);
   localStorage.setItem(LOCAL_USERS_KEY, JSON.stringify(users));
@@ -309,213 +385,205 @@ export async function deleteAuthedUser(uid: string): Promise<void> {
 
 // ====== College Admin: Departments ======
 
-export interface DepartmentRecord {
-  id: string;
-  college_id: string;
-  name: string;
-  code: string;
-  hod_uid: string | null;
-  is_active: boolean;
-  created_at?: string;
-  updated_at?: string;
-}
-
 export const fetchDepartments = async (collegeId: string): Promise<DepartmentRecord[]> => {
-  const { data, error } = await supabase
-    .from('departments')
-    .select('*')
-    .eq('college_id', collegeId)
-    .order('created_at', { ascending: false });
-
-  if (error) {
-    console.error('Error fetching departments:', error);
+  try {
+    const data = await secureDataApi.listStructure('departments', collegeId);
+    return data as DepartmentRecord[];
+  } catch (err) {
+    console.error('Error fetching departments:', err);
     return [];
   }
-  return data || [];
 };
 
 export const createDepartment = async (department: Omit<DepartmentRecord, 'id' | 'created_at' | 'updated_at'>) => {
-  const { data, error } = await supabase
-    .from('departments')
-    .insert([department])
-    .select();
+  const data = await secureDataApi.createStructure('departments', department.college_id, {
+    name: department.name,
+    code: department.code,
+    hod_uid: department.hod_uid,
+    is_active: department.is_active,
+  });
+  return data;
+};
 
-  if (error) {
-    console.error('Error creating department:', error);
-    throw error;
+export const fetchEligibleHODs = async (_collegeId?: string): Promise<AuthedUserRecord[]> => {
+  try {
+    // Filter HODs that are unassigned (no department_id)
+    const data = await secureDataApi.listUsers({ role: 'HOD', department_id: undefined, pending: false });
+    return data.filter((h: any) => h.department_id === null) as unknown as AuthedUserRecord[];
+  } catch (err) {
+    console.error('Error fetching eligible HODs:', err);
+    return [];
   }
-  return data ? data[0] : null;
 };
 
 export const updateDepartment = async (id: string, updates: Partial<DepartmentRecord>) => {
-  updates.updated_at = new Date().toISOString();
-  const { data, error } = await supabase
-    .from('departments')
-    .update(updates)
-    .eq('id', id)
-    .select();
+  const data = await secureDataApi.updateStructure('departments', id, {
+    name: updates.name,
+    code: updates.code,
+    hod_uid: updates.hod_uid,
+    is_active: updates.is_active,
+  });
+  return data;
+};
 
-  if (error) {
-    console.error('Error updating department:', error);
-    throw error;
-  }
-  return data ? data[0] : null;
+export const deleteDepartment = async (id: string) => {
+  await secureDataApi.deleteStructure('departments', id);
 };
 
 // ====== College Admin: Programs ======
 
-export interface ProgramRecord {
-  id: string;
-  department_id: string;
-  name: string;
-  type: string;
-  duration_years: number;
-  is_active: boolean;
-  created_at?: string;
-}
-
 export const fetchPrograms = async (departmentId: string): Promise<ProgramRecord[]> => {
-  const { data, error } = await supabase
-    .from('programs')
-    .select('*')
-    .eq('department_id', departmentId)
-    .order('name', { ascending: true });
-
-  if (error) {
-    console.error('Error fetching programs:', error);
+  try {
+    const data = await secureDataApi.listStructure('programs', departmentId);
+    return data as ProgramRecord[];
+  } catch (err) {
+    console.error('Error fetching programs:', err);
     return [];
   }
-  return data || [];
 };
 
 export const createProgram = async (programData: Omit<ProgramRecord, 'id' | 'created_at'>) => {
-  const { data, error } = await supabase
-    .from('programs')
-    .insert([programData])
-    .select();
-
-  if (error) {
-    console.error('Error creating program:', error);
-    throw error;
-  }
-  return data ? data[0] : null;
+  const data = await secureDataApi.createStructure('programs', programData.department_id, {
+    name: programData.name,
+    type: programData.type,
+    duration_years: programData.duration_years,
+    is_active: programData.is_active,
+  });
+  return data;
 };
 
 // ====== College Admin: Batches ======
 
-export interface BatchRecord {
-  id: string;
-  program_id: string;
-  start_year: number;
-  end_year: number;
-  is_active: boolean;
-  created_at?: string;
-}
-
 export const fetchBatches = async (programId: string): Promise<BatchRecord[]> => {
-  const { data, error } = await supabase
-    .from('batches')
-    .select('*')
-    .eq('program_id', programId)
-    .order('start_year', { ascending: false });
-
-  if (error) {
-    console.error('Error fetching batches:', error);
+  try {
+    const data = await secureDataApi.listStructure('batches', programId);
+    return data as BatchRecord[];
+  } catch (err) {
+    console.error('Error fetching batches:', err);
     return [];
   }
-  return data || [];
 };
 
 export const createBatch = async (batchData: Omit<BatchRecord, 'id' | 'created_at'>) => {
-  const { data, error } = await supabase
-    .from('batches')
-    .insert([batchData])
-    .select();
-
-  if (error) {
-    console.error('Error creating batch:', error);
-    throw error;
-  }
-  return data ? data[0] : null;
+  const data = await secureDataApi.createStructure('batches', batchData.program_id, {
+    start_year: batchData.start_year,
+    end_year: batchData.end_year,
+    is_active: batchData.is_active,
+  });
+  return data;
 };
 
 // ====== College Admin: Classes ======
 
-export interface ClassRecord {
-  id: string;
-  batch_id: string;
-  name: string;
-  current_semester: number;
-  faculty_uid: string | null;
-  is_active: boolean;
-  created_at?: string;
-}
-
 export const fetchClasses = async (batchId: string): Promise<ClassRecord[]> => {
-  const { data, error } = await supabase
-    .from('classes')
-    .select('*')
-    .eq('batch_id', batchId)
-    .order('name', { ascending: true });
-
-  if (error) {
-    console.error('Error fetching classes:', error);
+  try {
+    const data = await secureDataApi.listStructure('classes', batchId);
+    return data as ClassRecord[];
+  } catch (err) {
+    console.error('Error fetching classes:', err);
     return [];
   }
-  return data || [];
 };
 
 export const createClass = async (classData: Omit<ClassRecord, 'id' | 'created_at'>) => {
-  const { data, error } = await supabase
-    .from('classes')
-    .insert([classData])
-    .select();
-
-  if (error) {
-    console.error('Error creating class:', error);
-    throw error;
-  }
-  return data ? data[0] : null;
+  const data = await secureDataApi.createStructure('classes', classData.batch_id, {
+    name: classData.name,
+    current_semester: classData.current_semester,
+    faculty_uid: classData.faculty_uid,
+    is_active: classData.is_active,
+  });
+  return data;
 };
 
 // ====== College Admin: Subjects ======
 
-export interface SubjectRecord {
-  id: string;
-  department_id: string;
-  name: string;
-  code: string;
-  credits: number;
-  semester_number: number;
-  is_active: boolean;
-  created_at?: string;
-}
-
 export const fetchSubjects = async (departmentId: string): Promise<SubjectRecord[]> => {
-  const { data, error } = await supabase
-    .from('subjects')
-    .select('*')
-    .eq('department_id', departmentId)
-    .order('semester_number', { ascending: true });
-
-  if (error) {
-    console.error('Error fetching subjects:', error);
+  try {
+    const data = await secureDataApi.listStructure('subjects', departmentId);
+    return data as SubjectRecord[];
+  } catch (err) {
+    console.error('Error fetching subjects:', err);
     return [];
   }
-  return data || [];
+};
+
+export const fetchAllCollegeSubjects = async (collegeId: string): Promise<SubjectRecord[]> => {
+  try {
+    // Get all departments for this college, then get subjects for each
+    const departments = await fetchDepartments(collegeId);
+    if (!departments.length) return [];
+    
+    const allSubjects: SubjectRecord[] = [];
+    for (const dept of departments) {
+      const subjects = await fetchSubjects(dept.id);
+      allSubjects.push(...subjects);
+    }
+    return allSubjects.sort((a, b) => a.name.localeCompare(b.name));
+  } catch (err) {
+    console.error('Error in fetchAllCollegeSubjects:', err);
+    return [];
+  }
+};
+
+export const fetchAllCollegeClasses = async (collegeId: string): Promise<ClassRecord[]> => {
+  try {
+    // Get all departments -> programs -> batches -> classes for this college
+    const departments = await fetchDepartments(collegeId);
+    if (!departments.length) return [];
+    
+    const allClasses: ClassRecord[] = [];
+    for (const dept of departments) {
+      const programs = await fetchPrograms(dept.id);
+      for (const prog of programs) {
+        const batches = await fetchBatches(prog.id);
+        for (const batch of batches) {
+          const classes = await fetchClasses(batch.id);
+          allClasses.push(...classes);
+        }
+      }
+    }
+    return allClasses.sort((a, b) => a.name.localeCompare(b.name));
+  } catch (err) {
+    console.error('Error in fetchAllCollegeClasses:', err);
+    return [];
+  }
+};
+
+export const assignFacultyClassIncharge = async (facultyUid: string, classId: string | null) => {
+  try {
+    // This is a complex operation - first unassign from any current class
+    // then assign to new class. The secure API handles this in updateStructure.
+    const data = await secureDataApi.updateStructure('classes', classId || '', {
+      faculty_uid: classId ? facultyUid : null,
+    });
+    return data;
+  } catch (err) {
+    console.error('Error assigning class incharge:', err);
+    throw err;
+  }
+};
+
+export const assignFacultySubject = async (facultyUid: string, subjectId: string | null) => {
+  try {
+    const data = await secureDataApi.updateStructure('subjects', subjectId || '', {
+      faculty_uid: subjectId ? facultyUid : null,
+    });
+    return data;
+  } catch (err) {
+    console.error('Error assigning faculty subject:', err);
+    throw err;
+  }
 };
 
 export const createSubject = async (subjectData: Omit<SubjectRecord, 'id' | 'created_at'>) => {
-  const { data, error } = await supabase
-    .from('subjects')
-    .insert([subjectData])
-    .select();
-
-  if (error) {
-    console.error('Error creating subject:', error);
-    throw error;
-  }
-  return data ? data[0] : null;
+  const data = await secureDataApi.createStructure('subjects', subjectData.department_id, {
+    name: subjectData.name,
+    code: subjectData.code,
+    credits: subjectData.credits,
+    semester_number: subjectData.semester_number,
+    is_active: subjectData.is_active,
+  });
+  return data;
 };
 
 // ====== College Admin: Users ======
@@ -526,92 +594,93 @@ export interface UserFilters {
   department_id?: string;
 }
 
-export const fetchUsers = async (filters: UserFilters) => {
-  let query = supabase
-    .from('authed_users')
-    .select('*')
-    .eq('college_id', filters.college_id)
-    .eq('role', filters.role);
+// Map backend user shape to frontend AuthedUserRecord
+function mapToAuthedUserRecord(d: any): AuthedUserRecord {
+  return {
+    uid: d.uid,
+    email: d.email,
+    displayName: d.display_name,
+    photoURL: null,
+    provider: 'google',
+    lastLogin: d.created_at,
+    role: d.role,
+    college_id: d.college_id,
+    department_id: d.department_id,
+    class_id: d.class_id,
+    subject_id: d.subject_id,
+    register_number: d.register_number,
+    requested_role: d.requested_role,
+    approval_status: d.approval_status,
+  };
+}
 
-  if (filters.department_id) {
-    query = query.eq('department_id', filters.department_id);
-  }
-
-  const { data, error } = await query.order('created_at', { ascending: false });
-  if (error) {
-    console.error(`Error fetching ${filters.role}s:`, error);
+export const fetchUsers = async (filters: UserFilters): Promise<AuthedUserRecord[]> => {
+  try {
+    const data = await secureDataApi.listUsers({
+      role: filters.role,
+      department_id: filters.department_id,
+      pending: false,
+    });
+    return data.map(mapToAuthedUserRecord);
+  } catch (err) {
+    console.error(`Error fetching ${filters.role}s:`, err);
     return [];
   }
-  return data || [];
 };
 
-export const fetchPendingUsers = async (collegeId: string, requestedRole: string) => {
-  const { data, error } = await supabase
-    .from('authed_users')
-    .select('*')
-    .eq('college_id', collegeId)
-    .eq('role', 'USER')
-    .eq('requested_role', requestedRole)
-    .eq('approval_status', 'PENDING')
-    .order('created_at', { ascending: false });
-  if (error) {
-    console.error('Error fetching pending users:', error);
+export const fetchPendingUsers = async (_collegeId: string, requestedRole: string): Promise<AuthedUserRecord[]> => {
+  try {
+    const data = await secureDataApi.listUsers({
+      role: requestedRole as any,
+      department_id: undefined,
+      pending: true,
+    });
+    return data.map(mapToAuthedUserRecord);
+  } catch (err) {
+    console.error('Error fetching pending users:', err);
     return [];
   }
-  return data || [];
 };
 
 export const updateUserProfile = async (identifier: string, updates: any) => {
-  let query = supabase.from('authed_users').update(updates);
-  if (identifier.includes('@')) {
-    query = query.eq('email', identifier);
-  } else {
-    query = query.eq('uid', identifier);
+  try {
+    // If identifier is email, we need to find the uid first
+    // For now, assume it's a uid
+    const data = await secureDataApi.assignUser(identifier, {
+      department_id: updates.department_id,
+      class_id: updates.class_id,
+      subject_id: updates.subject_id,
+      register_number: updates.register_number,
+    });
+    return data;
+  } catch (err) {
+    console.error('Error updating user profile:', err);
+    throw err;
   }
-  const { data, error } = await query.select();
-
-  if (error) {
-    console.error('Error updating user profile:', error);
-    throw error;
-  }
-  return data ? data[0] : null;
 };
 
 // ====== Dashboard Stats ======
 
-export const fetchCollegeStats = async (collegeId: string) => {
-  const [
-    { count: students },
-    { count: faculty },
-    { count: hods },
-    { count: depts },
-  ] = await Promise.all([
-    supabase.from('authed_users').select('uid', { count: 'exact', head: true }).eq('college_id', collegeId).eq('role', 'STUDENT'),
-    supabase.from('authed_users').select('uid', { count: 'exact', head: true }).eq('college_id', collegeId).eq('role', 'FACULTY'),
-    supabase.from('authed_users').select('uid', { count: 'exact', head: true }).eq('college_id', collegeId).eq('role', 'HOD'),
-    supabase.from('departments').select('id', { count: 'exact', head: true }).eq('college_id', collegeId)
-  ]);
-
-  // Let's get department ids first if we need classes/programs
-  const { data: deptData } = await supabase.from('departments').select('id').eq('college_id', collegeId);
-  const deptIds = deptData?.map(d => d.id) || [];
-  
-  let programsCount = 0;
-  let subjectsCount = 0;
-  if (deptIds.length > 0) {
-    const { count: pCount } = await supabase.from('programs').select('id', { count: 'exact', head: true }).in('department_id', deptIds);
-    programsCount = pCount || 0;
-    
-    const { count: sCount } = await supabase.from('subjects').select('id', { count: 'exact', head: true }).in('department_id', deptIds);
-    subjectsCount = sCount || 0;
+export const fetchCollegeStats = async (_collegeId?: string) => {
+  try {
+    const data = await secureDataApi.getStats();
+    return {
+      students: data.students,
+      faculty: data.faculty,
+      hods: data.hods,
+      departments: data.departments,
+      programs: data.programs,
+      subjects: data.subjects
+    };
+  } catch (err) {
+    console.error('Error fetching college stats:', err);
+    return {
+      students: 0,
+      faculty: 0,
+      hods: 0,
+      departments: 0,
+      programs: 0,
+      subjects: 0
+    };
   }
-
-  return {
-    students: students || 0,
-    faculty: faculty || 0,
-    hods: hods || 0,
-    departments: depts || 0,
-    programs: programsCount,
-    subjects: subjectsCount
-  };
 };

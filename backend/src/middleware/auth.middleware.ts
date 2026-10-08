@@ -10,6 +10,7 @@ import { logger } from '../utils/logger';
  */
 export interface AuthenticatedRequest extends Request {
   firebaseUid?: string;
+  verifiedEmail?: string;
   user?: {
     id: string;
     firebaseUid: string;
@@ -64,6 +65,7 @@ export async function authenticateFirebaseUser(
 
     const firebaseUid = decodedToken.uid;
     req.firebaseUid = firebaseUid;
+    req.verifiedEmail = decodedToken.email?.trim().toLowerCase();
 
     // Find LMS user
     const user = await prisma.user.findUnique({

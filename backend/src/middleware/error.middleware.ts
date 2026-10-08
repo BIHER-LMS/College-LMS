@@ -19,15 +19,26 @@ export function errorHandler(
   res: Response,
   _next: NextFunction,
 ): void {
-  // Operational errors (expected — validation, auth, etc.)
-  if (err instanceof AppError) {
-    if (err.statusCode >= 500) {
-      logger.error(err.message, { code: err.code, stack: err.stack });
-    } else {
-      logger.warn(err.message, { code: err.code });
-    }
+  const statusCode = (err as any).statusCode;
+  const isOperational =
+    err instanceof AppError ||
+    (typeof statusCode === 'number' && statusCode >= 400 && statusCode < 500);
 
-    sendError(res, err.statusCode, err.code, err.message, err.details);
+  // Operational errors (expected — validation, auth, etc.)
+  if (isOperational) {
+    const code =
+      (err as any).code ||
+      (err as any).errorCode ||
+      (statusCode === 401
+        ? 'UNAUTHORIZED'
+        : statusCode === 403
+        ? 'FORBIDDEN'
+        : statusCode === 404
+        ? 'NOT_FOUND'
+        : 'BAD_REQUEST');
+
+    logger.warn(err.message, { code });
+    sendError(res, statusCode || 400, code, err.message, (err as any).details);
     return;
   }
 

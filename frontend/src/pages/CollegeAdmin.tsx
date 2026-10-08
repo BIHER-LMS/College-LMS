@@ -10,7 +10,8 @@ import {
 } from 'lucide-react';
 import { CollegeDepartments, CollegePrograms, CollegeBatches, CollegeClasses, CollegeSubjects, ManageHods, ManageFaculty, ManageStudents, CollegeProfile } from '../components/CollegeAdmin';
 import { TimetableModule, AttendanceModule, PerformanceModule, ExaminationsModule } from '../components/CollegeAdmin/Modules';
-import { fetchCollegeStats, fetchColleges } from '../services/collegeService';
+import { fetchCollegeStats } from '../services/collegeService';
+import { getCollegeProfile } from '../services/api/collegeProfile';
 import type { CollegeRecord } from '../services/collegeService';
 
 const MENU_ITEMS = [
@@ -337,16 +338,15 @@ function DashboardOverview({ collegeId }: { collegeId: string }) {
     async function loadData() {
       setLoading(true);
       try {
-        const [fetchedStats, fetchedColleges] = await Promise.all([
+        const [fetchedStats, fetchedCollegeProfile] = await Promise.all([
           fetchCollegeStats(collegeId),
-          fetchColleges()
+          getCollegeProfile()
         ]);
         
         setStats(fetchedStats);
         
-        const college = fetchedColleges.find(c => c.id === collegeId);
-        if (college) {
-          setCollegeInfo(college);
+        if (fetchedCollegeProfile) {
+          setCollegeInfo(fetchedCollegeProfile);
         }
       } catch (err) {
         console.error('Failed to load dashboard data', err);

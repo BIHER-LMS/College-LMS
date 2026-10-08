@@ -40,11 +40,47 @@ export function CollegeProfile() {
     setSaveError(null);
     setSaveSuccess(false);
     try {
-      const { id, code, status, createdAt, updatedAt, ...updatableFields } = formData;
-      // Convert establishedYear to number
-      if (updatableFields.establishedYear) {
-        updatableFields.establishedYear = parseInt(updatableFields.establishedYear, 10);
-      }
+      
+      // Extract only allowed fields to satisfy strict backend schema
+      const updatableFields: Record<string, any> = {
+        name: formData.name,
+        type: formData.type,
+        domain: formData.domain,
+        address: formData.address,
+        addressLine2: formData.addressLine2,
+        city: formData.city,
+        district: formData.district,
+        state: formData.state,
+        country: formData.country,
+        pincode: formData.pincode,
+        phone: formData.phone,
+        email: formData.email,
+        website: formData.website,
+        logoUrl: formData.logoUrl,
+        establishedYear: formData.establishedYear ? parseInt(formData.establishedYear, 10) : null,
+        affiliatedUniversity: formData.affiliatedUniversity,
+        accreditation: formData.accreditation,
+        naacGrade: formData.naacGrade,
+        recognition: formData.recognition,
+        institutionType: formData.institutionType,
+        principalName: formData.principalName,
+        principalEmail: formData.principalEmail,
+        principalPhone: formData.principalPhone,
+        adminOfficeEmail: formData.adminOfficeEmail,
+        adminOfficePhone: formData.adminOfficePhone,
+        linkedinUrl: formData.linkedinUrl,
+        instagramUrl: formData.instagramUrl,
+        facebookUrl: formData.facebookUrl,
+        youtubeUrl: formData.youtubeUrl
+      };
+      
+      // Clean up undefined values and empty strings for optional nullables
+      Object.keys(updatableFields).forEach(key => {
+        if (updatableFields[key] === undefined) {
+          delete updatableFields[key];
+        }
+      });
+
       
       const updatedProfile = await updateCollegeProfile(updatableFields);
       setProfile(updatedProfile);
@@ -62,7 +98,7 @@ export function CollegeProfile() {
   if (loading) {
     return (
       <div className="flex flex-col items-center justify-center p-12">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-brand-500 mb-4"></div>
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mb-4"></div>
         <p className="text-slate-500">Loading college profile...</p>
       </div>
     );
@@ -104,7 +140,7 @@ export function CollegeProfile() {
               setFormData(profile);
               setIsEditing(true);
             }}
-            className="px-4 py-2 bg-brand-500 text-white font-medium rounded-lg hover:bg-brand-600 transition-colors"
+            className="px-4 py-2 bg-blue-600 text-white font-medium rounded-lg hover:bg-blue-700 transition-colors"
           >
             Edit Profile
           </button>
@@ -152,7 +188,7 @@ export function CollegeProfile() {
                   name="logoUrl" 
                   value={formData.logoUrl || ''} 
                   onChange={handleChange}
-                  className="w-full p-2 border border-slate-300 rounded focus:ring-2 focus:ring-brand-500 focus:border-brand-500 outline-none text-sm"
+                  className="w-full p-2 border border-slate-300 rounded focus:ring-2 focus:ring-blue-600 focus:border-blue-600 outline-none text-sm"
                   placeholder="https://example.com/logo.png"
                 />
               </div>
@@ -167,7 +203,7 @@ export function CollegeProfile() {
             <div>
               <label className="block text-sm font-medium text-slate-700 mb-1">College Name</label>
               {isEditing ? (
-                <input required type="text" name="name" value={formData.name || ''} onChange={handleChange} className="w-full p-2 border border-slate-300 rounded focus:ring-2 focus:ring-brand-500 outline-none text-sm" />
+                <input required type="text" name="name" value={formData.name || ''} onChange={handleChange} className="w-full p-2 border border-slate-300 rounded focus:ring-2 focus:ring-blue-600 outline-none text-sm" />
               ) : (
                 <p className="text-slate-800">{profile.name}</p>
               )}
@@ -179,7 +215,7 @@ export function CollegeProfile() {
             <div>
               <label className="block text-sm font-medium text-slate-700 mb-1">College Type</label>
               {isEditing ? (
-                <select name="type" value={formData.type || ''} onChange={handleChange} className="w-full p-2 border border-slate-300 rounded focus:ring-2 focus:ring-brand-500 outline-none text-sm">
+                <select name="type" value={formData.type || ''} onChange={handleChange} className="w-full p-2 border border-slate-300 rounded focus:ring-2 focus:ring-blue-600 outline-none text-sm">
                   <option value="">Select Type</option>
                   <option value="Government">Government</option>
                   <option value="Private">Private</option>
@@ -193,7 +229,7 @@ export function CollegeProfile() {
             <div>
               <label className="block text-sm font-medium text-slate-700 mb-1">Established Year</label>
               {isEditing ? (
-                <input type="number" name="establishedYear" value={formData.establishedYear || ''} onChange={handleChange} className="w-full p-2 border border-slate-300 rounded focus:ring-2 focus:ring-brand-500 outline-none text-sm" />
+                <input type="number" name="establishedYear" value={formData.establishedYear || ''} onChange={handleChange} className="w-full p-2 border border-slate-300 rounded focus:ring-2 focus:ring-blue-600 outline-none text-sm" />
               ) : (
                 <p className="text-slate-800">{profile.establishedYear || 'Not provided'}</p>
               )}
@@ -208,7 +244,7 @@ export function CollegeProfile() {
             <div>
               <label className="block text-sm font-medium text-slate-700 mb-1">Official Email</label>
               {isEditing ? (
-                <input type="email" name="email" value={formData.email || ''} onChange={handleChange} className="w-full p-2 border border-slate-300 rounded focus:ring-2 focus:ring-brand-500 outline-none text-sm" />
+                <input type="email" name="email" value={formData.email || ''} onChange={handleChange} className="w-full p-2 border border-slate-300 rounded focus:ring-2 focus:ring-blue-600 outline-none text-sm" />
               ) : (
                 <p className="text-slate-800">{profile.email || 'Not provided'}</p>
               )}
@@ -216,7 +252,7 @@ export function CollegeProfile() {
             <div>
               <label className="block text-sm font-medium text-slate-700 mb-1">Phone</label>
               {isEditing ? (
-                <input type="text" name="phone" value={formData.phone || ''} onChange={handleChange} className="w-full p-2 border border-slate-300 rounded focus:ring-2 focus:ring-brand-500 outline-none text-sm" />
+                <input type="text" name="phone" value={formData.phone || ''} onChange={handleChange} className="w-full p-2 border border-slate-300 rounded focus:ring-2 focus:ring-blue-600 outline-none text-sm" />
               ) : (
                 <p className="text-slate-800">{profile.phone || 'Not provided'}</p>
               )}
@@ -224,9 +260,9 @@ export function CollegeProfile() {
             <div className="md:col-span-2">
               <label className="block text-sm font-medium text-slate-700 mb-1">Website</label>
               {isEditing ? (
-                <input type="url" name="website" value={formData.website || ''} onChange={handleChange} className="w-full p-2 border border-slate-300 rounded focus:ring-2 focus:ring-brand-500 outline-none text-sm" />
+                <input type="url" name="website" value={formData.website || ''} onChange={handleChange} className="w-full p-2 border border-slate-300 rounded focus:ring-2 focus:ring-blue-600 outline-none text-sm" />
               ) : (
-                <p className="text-brand-600 hover:underline">
+                <p className="text-blue-700 hover:underline">
                   {profile.website ? (
                     <a href={profile.website} target="_blank" rel="noopener noreferrer">{profile.website}</a>
                   ) : 'Not provided'}
@@ -241,17 +277,17 @@ export function CollegeProfile() {
           <h3 className="text-lg font-bold text-slate-800 border-b border-slate-100 pb-3 mb-4">Address</h3>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             <div className="md:col-span-2">
-              <label className="block text-sm font-medium text-slate-700 mb-1">Address Line 1</label>
+              <label className="block text-sm font-medium text-slate-700 mb-1">Address</label>
               {isEditing ? (
-                <input type="text" name="addressLine1" value={formData.addressLine1 || ''} onChange={handleChange} className="w-full p-2 border border-slate-300 rounded focus:ring-2 focus:ring-brand-500 outline-none text-sm" />
+                <input type="text" name="address" value={formData.address || ''} onChange={handleChange} className="w-full p-2 border border-slate-300 rounded focus:ring-2 focus:ring-blue-600 outline-none text-sm" />
               ) : (
-                <p className="text-slate-800">{profile.addressLine1 || 'Not provided'}</p>
+                <p className="text-slate-800">{profile.address || 'Not provided'}</p>
               )}
             </div>
             <div className="md:col-span-2">
               <label className="block text-sm font-medium text-slate-700 mb-1">Address Line 2</label>
               {isEditing ? (
-                <input type="text" name="addressLine2" value={formData.addressLine2 || ''} onChange={handleChange} className="w-full p-2 border border-slate-300 rounded focus:ring-2 focus:ring-brand-500 outline-none text-sm" />
+                <input type="text" name="addressLine2" value={formData.addressLine2 || ''} onChange={handleChange} className="w-full p-2 border border-slate-300 rounded focus:ring-2 focus:ring-blue-600 outline-none text-sm" />
               ) : (
                 <p className="text-slate-800">{profile.addressLine2 || 'Not provided'}</p>
               )}
@@ -259,7 +295,7 @@ export function CollegeProfile() {
             <div>
               <label className="block text-sm font-medium text-slate-700 mb-1">City</label>
               {isEditing ? (
-                <input type="text" name="city" value={formData.city || ''} onChange={handleChange} className="w-full p-2 border border-slate-300 rounded focus:ring-2 focus:ring-brand-500 outline-none text-sm" />
+                <input type="text" name="city" value={formData.city || ''} onChange={handleChange} className="w-full p-2 border border-slate-300 rounded focus:ring-2 focus:ring-blue-600 outline-none text-sm" />
               ) : (
                 <p className="text-slate-800">{profile.city || 'Not provided'}</p>
               )}
@@ -267,7 +303,7 @@ export function CollegeProfile() {
             <div>
               <label className="block text-sm font-medium text-slate-700 mb-1">District</label>
               {isEditing ? (
-                <input type="text" name="district" value={formData.district || ''} onChange={handleChange} className="w-full p-2 border border-slate-300 rounded focus:ring-2 focus:ring-brand-500 outline-none text-sm" />
+                <input type="text" name="district" value={formData.district || ''} onChange={handleChange} className="w-full p-2 border border-slate-300 rounded focus:ring-2 focus:ring-blue-600 outline-none text-sm" />
               ) : (
                 <p className="text-slate-800">{profile.district || 'Not provided'}</p>
               )}
@@ -275,7 +311,7 @@ export function CollegeProfile() {
             <div>
               <label className="block text-sm font-medium text-slate-700 mb-1">State</label>
               {isEditing ? (
-                <input type="text" name="state" value={formData.state || ''} onChange={handleChange} className="w-full p-2 border border-slate-300 rounded focus:ring-2 focus:ring-brand-500 outline-none text-sm" />
+                <input type="text" name="state" value={formData.state || ''} onChange={handleChange} className="w-full p-2 border border-slate-300 rounded focus:ring-2 focus:ring-blue-600 outline-none text-sm" />
               ) : (
                 <p className="text-slate-800">{profile.state || 'Not provided'}</p>
               )}
@@ -283,7 +319,7 @@ export function CollegeProfile() {
             <div>
               <label className="block text-sm font-medium text-slate-700 mb-1">Country</label>
               {isEditing ? (
-                <input type="text" name="country" value={formData.country || ''} onChange={handleChange} className="w-full p-2 border border-slate-300 rounded focus:ring-2 focus:ring-brand-500 outline-none text-sm" />
+                <input type="text" name="country" value={formData.country || ''} onChange={handleChange} className="w-full p-2 border border-slate-300 rounded focus:ring-2 focus:ring-blue-600 outline-none text-sm" />
               ) : (
                 <p className="text-slate-800">{profile.country || 'Not provided'}</p>
               )}
@@ -291,7 +327,7 @@ export function CollegeProfile() {
             <div>
               <label className="block text-sm font-medium text-slate-700 mb-1">Pincode</label>
               {isEditing ? (
-                <input type="text" name="pincode" value={formData.pincode || ''} onChange={handleChange} className="w-full p-2 border border-slate-300 rounded focus:ring-2 focus:ring-brand-500 outline-none text-sm" />
+                <input type="text" name="pincode" value={formData.pincode || ''} onChange={handleChange} className="w-full p-2 border border-slate-300 rounded focus:ring-2 focus:ring-blue-600 outline-none text-sm" />
               ) : (
                 <p className="text-slate-800">{profile.pincode || 'Not provided'}</p>
               )}
@@ -306,7 +342,7 @@ export function CollegeProfile() {
             <div>
               <label className="block text-sm font-medium text-slate-700 mb-1">Affiliated University</label>
               {isEditing ? (
-                <input type="text" name="affiliatedUniversity" value={formData.affiliatedUniversity || ''} onChange={handleChange} className="w-full p-2 border border-slate-300 rounded focus:ring-2 focus:ring-brand-500 outline-none text-sm" />
+                <input type="text" name="affiliatedUniversity" value={formData.affiliatedUniversity || ''} onChange={handleChange} className="w-full p-2 border border-slate-300 rounded focus:ring-2 focus:ring-blue-600 outline-none text-sm" />
               ) : (
                 <p className="text-slate-800">{profile.affiliatedUniversity || 'Not provided'}</p>
               )}
@@ -314,7 +350,7 @@ export function CollegeProfile() {
             <div>
               <label className="block text-sm font-medium text-slate-700 mb-1">Accreditation</label>
               {isEditing ? (
-                <input type="text" name="accreditation" value={formData.accreditation || ''} onChange={handleChange} className="w-full p-2 border border-slate-300 rounded focus:ring-2 focus:ring-brand-500 outline-none text-sm" />
+                <input type="text" name="accreditation" value={formData.accreditation || ''} onChange={handleChange} className="w-full p-2 border border-slate-300 rounded focus:ring-2 focus:ring-blue-600 outline-none text-sm" />
               ) : (
                 <p className="text-slate-800">{profile.accreditation || 'Not provided'}</p>
               )}
@@ -322,7 +358,7 @@ export function CollegeProfile() {
             <div>
               <label className="block text-sm font-medium text-slate-700 mb-1">NAAC Grade</label>
               {isEditing ? (
-                <select name="naacGrade" value={formData.naacGrade || ''} onChange={handleChange} className="w-full p-2 border border-slate-300 rounded focus:ring-2 focus:ring-brand-500 outline-none text-sm">
+                <select name="naacGrade" value={formData.naacGrade || ''} onChange={handleChange} className="w-full p-2 border border-slate-300 rounded focus:ring-2 focus:ring-blue-600 outline-none text-sm">
                   <option value="">Select Grade</option>
                   <option value="A++">A++</option>
                   <option value="A+">A+</option>
@@ -339,7 +375,7 @@ export function CollegeProfile() {
             <div>
               <label className="block text-sm font-medium text-slate-700 mb-1">Recognition</label>
               {isEditing ? (
-                <input type="text" name="recognition" value={formData.recognition || ''} onChange={handleChange} className="w-full p-2 border border-slate-300 rounded focus:ring-2 focus:ring-brand-500 outline-none text-sm" placeholder="e.g. AICTE, UGC" />
+                <input type="text" name="recognition" value={formData.recognition || ''} onChange={handleChange} className="w-full p-2 border border-slate-300 rounded focus:ring-2 focus:ring-blue-600 outline-none text-sm" placeholder="e.g. AICTE, UGC" />
               ) : (
                 <p className="text-slate-800">{profile.recognition || 'Not provided'}</p>
               )}
@@ -347,7 +383,7 @@ export function CollegeProfile() {
             <div>
               <label className="block text-sm font-medium text-slate-700 mb-1">Institution Type</label>
               {isEditing ? (
-                <input type="text" name="institutionType" value={formData.institutionType || ''} onChange={handleChange} className="w-full p-2 border border-slate-300 rounded focus:ring-2 focus:ring-brand-500 outline-none text-sm" placeholder="e.g. Engineering, Arts & Science" />
+                <input type="text" name="institutionType" value={formData.institutionType || ''} onChange={handleChange} className="w-full p-2 border border-slate-300 rounded focus:ring-2 focus:ring-blue-600 outline-none text-sm" placeholder="e.g. Engineering, Arts & Science" />
               ) : (
                 <p className="text-slate-800">{profile.institutionType || 'Not provided'}</p>
               )}
@@ -362,7 +398,7 @@ export function CollegeProfile() {
             <div>
               <label className="block text-sm font-medium text-slate-700 mb-1">Principal Name</label>
               {isEditing ? (
-                <input type="text" name="principalName" value={formData.principalName || ''} onChange={handleChange} className="w-full p-2 border border-slate-300 rounded focus:ring-2 focus:ring-brand-500 outline-none text-sm" />
+                <input type="text" name="principalName" value={formData.principalName || ''} onChange={handleChange} className="w-full p-2 border border-slate-300 rounded focus:ring-2 focus:ring-blue-600 outline-none text-sm" />
               ) : (
                 <p className="text-slate-800">{profile.principalName || 'Not provided'}</p>
               )}
@@ -370,7 +406,7 @@ export function CollegeProfile() {
             <div>
               <label className="block text-sm font-medium text-slate-700 mb-1">Principal Email</label>
               {isEditing ? (
-                <input type="email" name="principalEmail" value={formData.principalEmail || ''} onChange={handleChange} className="w-full p-2 border border-slate-300 rounded focus:ring-2 focus:ring-brand-500 outline-none text-sm" />
+                <input type="email" name="principalEmail" value={formData.principalEmail || ''} onChange={handleChange} className="w-full p-2 border border-slate-300 rounded focus:ring-2 focus:ring-blue-600 outline-none text-sm" />
               ) : (
                 <p className="text-slate-800">{profile.principalEmail || 'Not provided'}</p>
               )}
@@ -378,7 +414,7 @@ export function CollegeProfile() {
             <div>
               <label className="block text-sm font-medium text-slate-700 mb-1">Principal Phone</label>
               {isEditing ? (
-                <input type="text" name="principalPhone" value={formData.principalPhone || ''} onChange={handleChange} className="w-full p-2 border border-slate-300 rounded focus:ring-2 focus:ring-brand-500 outline-none text-sm" />
+                <input type="text" name="principalPhone" value={formData.principalPhone || ''} onChange={handleChange} className="w-full p-2 border border-slate-300 rounded focus:ring-2 focus:ring-blue-600 outline-none text-sm" />
               ) : (
                 <p className="text-slate-800">{profile.principalPhone || 'Not provided'}</p>
               )}
@@ -386,7 +422,7 @@ export function CollegeProfile() {
             <div>
               <label className="block text-sm font-medium text-slate-700 mb-1">Admin Office Email</label>
               {isEditing ? (
-                <input type="email" name="adminOfficeEmail" value={formData.adminOfficeEmail || ''} onChange={handleChange} className="w-full p-2 border border-slate-300 rounded focus:ring-2 focus:ring-brand-500 outline-none text-sm" />
+                <input type="email" name="adminOfficeEmail" value={formData.adminOfficeEmail || ''} onChange={handleChange} className="w-full p-2 border border-slate-300 rounded focus:ring-2 focus:ring-blue-600 outline-none text-sm" />
               ) : (
                 <p className="text-slate-800">{profile.adminOfficeEmail || 'Not provided'}</p>
               )}
@@ -394,7 +430,7 @@ export function CollegeProfile() {
             <div>
               <label className="block text-sm font-medium text-slate-700 mb-1">Admin Office Phone</label>
               {isEditing ? (
-                <input type="text" name="adminOfficePhone" value={formData.adminOfficePhone || ''} onChange={handleChange} className="w-full p-2 border border-slate-300 rounded focus:ring-2 focus:ring-brand-500 outline-none text-sm" />
+                <input type="text" name="adminOfficePhone" value={formData.adminOfficePhone || ''} onChange={handleChange} className="w-full p-2 border border-slate-300 rounded focus:ring-2 focus:ring-blue-600 outline-none text-sm" />
               ) : (
                 <p className="text-slate-800">{profile.adminOfficePhone || 'Not provided'}</p>
               )}
@@ -409,9 +445,9 @@ export function CollegeProfile() {
             <div>
               <label className="block text-sm font-medium text-slate-700 mb-1">LinkedIn URL</label>
               {isEditing ? (
-                <input type="url" name="linkedinUrl" value={formData.linkedinUrl || ''} onChange={handleChange} className="w-full p-2 border border-slate-300 rounded focus:ring-2 focus:ring-brand-500 outline-none text-sm" />
+                <input type="url" name="linkedinUrl" value={formData.linkedinUrl || ''} onChange={handleChange} className="w-full p-2 border border-slate-300 rounded focus:ring-2 focus:ring-blue-600 outline-none text-sm" />
               ) : (
-                <p className="text-brand-600 hover:underline">
+                <p className="text-blue-700 hover:underline">
                   {profile.linkedinUrl ? <a href={profile.linkedinUrl} target="_blank" rel="noopener noreferrer">View Profile</a> : 'Not provided'}
                 </p>
               )}
@@ -419,9 +455,9 @@ export function CollegeProfile() {
             <div>
               <label className="block text-sm font-medium text-slate-700 mb-1">Instagram URL</label>
               {isEditing ? (
-                <input type="url" name="instagramUrl" value={formData.instagramUrl || ''} onChange={handleChange} className="w-full p-2 border border-slate-300 rounded focus:ring-2 focus:ring-brand-500 outline-none text-sm" />
+                <input type="url" name="instagramUrl" value={formData.instagramUrl || ''} onChange={handleChange} className="w-full p-2 border border-slate-300 rounded focus:ring-2 focus:ring-blue-600 outline-none text-sm" />
               ) : (
-                <p className="text-brand-600 hover:underline">
+                <p className="text-blue-700 hover:underline">
                   {profile.instagramUrl ? <a href={profile.instagramUrl} target="_blank" rel="noopener noreferrer">View Profile</a> : 'Not provided'}
                 </p>
               )}
@@ -429,9 +465,9 @@ export function CollegeProfile() {
             <div>
               <label className="block text-sm font-medium text-slate-700 mb-1">Facebook URL</label>
               {isEditing ? (
-                <input type="url" name="facebookUrl" value={formData.facebookUrl || ''} onChange={handleChange} className="w-full p-2 border border-slate-300 rounded focus:ring-2 focus:ring-brand-500 outline-none text-sm" />
+                <input type="url" name="facebookUrl" value={formData.facebookUrl || ''} onChange={handleChange} className="w-full p-2 border border-slate-300 rounded focus:ring-2 focus:ring-blue-600 outline-none text-sm" />
               ) : (
-                <p className="text-brand-600 hover:underline">
+                <p className="text-blue-700 hover:underline">
                   {profile.facebookUrl ? <a href={profile.facebookUrl} target="_blank" rel="noopener noreferrer">View Profile</a> : 'Not provided'}
                 </p>
               )}
@@ -439,9 +475,9 @@ export function CollegeProfile() {
             <div>
               <label className="block text-sm font-medium text-slate-700 mb-1">YouTube URL</label>
               {isEditing ? (
-                <input type="url" name="youtubeUrl" value={formData.youtubeUrl || ''} onChange={handleChange} className="w-full p-2 border border-slate-300 rounded focus:ring-2 focus:ring-brand-500 outline-none text-sm" />
+                <input type="url" name="youtubeUrl" value={formData.youtubeUrl || ''} onChange={handleChange} className="w-full p-2 border border-slate-300 rounded focus:ring-2 focus:ring-blue-600 outline-none text-sm" />
               ) : (
-                <p className="text-brand-600 hover:underline">
+                <p className="text-blue-700 hover:underline">
                   {profile.youtubeUrl ? <a href={profile.youtubeUrl} target="_blank" rel="noopener noreferrer">View Profile</a> : 'Not provided'}
                 </p>
               )}
@@ -466,7 +502,7 @@ export function CollegeProfile() {
             </button>
             <button 
               type="submit" 
-              className="px-6 py-2 bg-brand-500 text-white rounded-lg hover:bg-brand-600 transition-colors font-medium flex items-center gap-2"
+              className="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-medium flex items-center gap-2"
               disabled={saving}
             >
               {saving && <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>}

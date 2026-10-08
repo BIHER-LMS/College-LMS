@@ -1,13 +1,13 @@
 import { auth } from '../../config/firebase';
 
-const API_BASE_URL = import.meta.env.VITE_API_URL || '';
+const API_BASE_URL = import.meta.env.VITE_API_URL || '/api';
 
 async function getAuthHeaders() {
-  const user = auth.currentUser;
-  if (!user) {
+  await auth.authStateReady();
+  if (!auth.currentUser) {
     throw new Error('Not authenticated');
   }
-  const token = await user.getIdToken();
+  const token = await auth.currentUser.getIdToken();
   return {
     'Content-Type': 'application/json',
     'Authorization': `Bearer ${token}`
@@ -42,7 +42,7 @@ async function parseResponse(response: Response) {
 
 export async function getCollegeProfile() {
   const headers = await getAuthHeaders();
-  const response = await fetch(`${API_BASE_URL}/api/college-admin/college/profile`, {
+  const response = await fetch(`${API_BASE_URL}/college-admin/college/profile`, {
     headers
   });
   
@@ -51,7 +51,7 @@ export async function getCollegeProfile() {
 
 export async function updateCollegeProfile(profileData: any) {
   const headers = await getAuthHeaders();
-  const response = await fetch(`${API_BASE_URL}/api/college-admin/college/profile`, {
+  const response = await fetch(`${API_BASE_URL}/college-admin/college/profile`, {
     method: 'PATCH',
     headers,
     body: JSON.stringify(profileData)
