@@ -243,12 +243,19 @@ export const RoleShowcaseSection: React.FC<RoleShowcaseSectionProps> = ({ onOpen
                   </div>
                 </div>
 
-                <div className="pt-2 flex justify-end">
+                <div className="pt-2 flex flex-wrap items-center justify-end gap-2.5">
+                  <a
+                    href="/faculty"
+                    className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-lg bg-[#eff4ff] text-[#004ac6] border border-[#d3e4fe] text-xs font-semibold hover:bg-[#dce9ff] transition-all"
+                  >
+                    <span>Open Live Faculty Portal</span>
+                    <span className="material-symbols-outlined text-sm">arrow_forward</span>
+                  </a>
                   <button
                     onClick={() => onOpenWorkspace('faculty')}
                     className="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-[#004ac6] text-white text-xs font-semibold hover:bg-[#2563eb] transition-all"
                   >
-                    <span>Launch Full Faculty Workspace</span>
+                    <span>Interactive Workspace Demo</span>
                     <span className="material-symbols-outlined text-sm">open_in_new</span>
                   </button>
                 </div>

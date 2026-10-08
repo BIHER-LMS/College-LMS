@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { signInWithPopup } from 'firebase/auth';
+import { signInWithPopup, signInWithEmailAndPassword } from 'firebase/auth';
 import { auth, googleProvider } from '../config/firebase';
 import { recordAuthedUser } from '../services/collegeService';
 
@@ -16,131 +16,76 @@ function Login() {
   const [googleLoading, setGoogleLoading] = useState(false);
   const [authError, setAuthError] = useState<string | null>(null);
 
+  const finishSignIn = async (user: typeof auth.currentUser) => {
+    if (!user || !user.email) throw new Error('A verified email address is required to sign in.');
+    const token = await user.getIdToken();
+    const authedRecord = await recordAuthedUser({
+      uid: user.uid,
+      email: user.email,
+      displayName: user.displayName || null,
+      photoURL: user.photoURL || null,
+      provider: user.providerData[0]?.providerId || 'password',
+      lastLogin: new Date().toISOString(),
+    }, token);
+
+    const isSuper = authedRecord.role === 'SUPER_ADMIN';
+    localStorage.setItem('lms_user', JSON.stringify({
+      uid: user.uid,
+      email: user.email,
+      name: user.displayName || user.email,
+      role: authedRecord.role,
+      isSuperAdmin: isSuper,
+      photoURL: user.photoURL,
+      college_id: authedRecord.college_id || null,
+      department_id: authedRecord.department_id || null,
+    }));
+    // The UI snapshot is not an authorization credential; backend routes verify Firebase again.
+    localStorage.setItem('token', token);
+    setIsSuccess(true);
+    const destination: Record<string, string> = {
+      SUPER_ADMIN: '/super-admin',
+      COLLEGE_ADMIN: '/college-admin',
+      HOD: '/hod',
+      FACULTY: '/faculty',
+      STUDENT: '/student',
+    };
+    navigate(destination[authedRecord.role || ''] || '/waiting-approval');
+  };
+
   const handleGoogleSignIn = async () => {
     try {
       setGoogleLoading(true);
       setAuthError(null);
       const result = await signInWithPopup(auth, googleProvider);
-      const user = result.user;
-      
-      // Record user for College Admin assignment pool and get their role
-      const authedRecord = await recordAuthedUser({
-        uid: user.uid,
-        email: user.email || '',
-        displayName: user.displayName || null,
-        photoURL: user.photoURL || null,
-        provider: 'google',
-        lastLogin: new Date().toISOString(),
-      });
-
-      const isSuper = authedRecord.role === 'SUPER_ADMIN';
-      const isCollegeAdmin = authedRecord.role === 'COLLEGE_ADMIN';
-      
-      localStorage.setItem('lms_user', JSON.stringify({
-        email: user.email,
-        name: user.displayName || 'Google User',
-        role: authedRecord.role,
-        isSuperAdmin: isSuper,
-        photoURL: user.photoURL,
-        college_id: authedRecord.college_id || null,
-      }));
-
-      setIsSuccess(true);
-      setTimeout(() => {
-        if (isSuper) {
-          navigate('/super-admin');
-        } else if (isCollegeAdmin) {
-          navigate('/college-admin');
-        } else if (authedRecord.role === 'HOD') {
-          navigate('/hod');
-        } else if (authedRecord.role === 'FACULTY') {
-          navigate('/faculty');
-        } else if (authedRecord.role === 'STUDENT') {
-          navigate('/student');
-        } else {
-          navigate('/waiting-approval');
-        }
-      }, 700);
+      await finishSignIn(result.user);
     } catch (err: any) {
       console.error('Google Sign In Error:', err);
-      if (err.code === 'auth/popup-closed-by-user') {
-        setAuthError('Sign in popup was closed before completion.');
-      } else if (err.code === 'auth/unauthorized-domain') {
-        setAuthError('Domain not authorized in Firebase Console (Authentication > Settings > Authorized domains).');
-      } else if (err.code === 'auth/invalid-api-key' || !import.meta.env.VITE_FIREBASE_API_KEY) {
-        setAuthError('Firebase API key missing. Please configure your .env file with Firebase credentials.');
-      } else {
-        setAuthError(err.message || 'Failed to authenticate with Google.');
-      }
+      setAuthError(err.code === 'auth/popup-closed-by-user'
+        ? 'Sign in popup was closed before completion.'
+        : 'Could not sign in with Google. Please check your account and try again.');
     } finally {
       setGoogleLoading(false);
     }
   };
 
-  const handleSignInSubmit = (e: React.FormEvent) => {
+  const handleSignInSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setAuthError(null);
-    
     const cleanEmail = email.trim().toLowerCase();
-
-    // ── Hardcoded Super Admin Check ──
-    if (cleanEmail === 'ragav@lms.com') {
-      if (password === 'biher@mh_aiml') {
-        setIsLoading(true);
-        localStorage.setItem('lms_user', JSON.stringify({
-          email: 'ragav@lms.com',
-          name: 'Ragav Super Admin',
-          role: 'SUPER_ADMIN',
-          isSuperAdmin: true,
-        }));
-
-        setTimeout(() => {
-          setIsLoading(false);
-          setIsSuccess(true);
-          setTimeout(() => {
-            navigate('/super-admin');
-          }, 600);
-        }, 500);
-        return;
-      } else {
-        setPasswordError(true);
-        setAuthError('Invalid password for Super Admin account.');
-        return;
-      }
-    }
-
-    let isValid = true;
-    if (!email || !email.includes('@')) {
-      setEmailError(true);
-      isValid = false;
-    } else {
-      setEmailError(false);
-    }
-
-    if (!password || password.length < 4) {
-      setPasswordError(true);
-      isValid = false;
-    } else {
-      setPasswordError(false);
-    }
-
-    if (!isValid) return;
-
+    setEmailError(!cleanEmail.includes('@'));
+    setPasswordError(password.length < 8);
+    if (!cleanEmail.includes('@') || password.length < 8) return;
     setIsLoading(true);
-
-    setTimeout(() => {
+    try {
+      // Only Firebase-verified users may enter the LMS, including superadmins.
+      const result = await signInWithEmailAndPassword(auth, cleanEmail, password);
+      await finishSignIn(result.user);
+    } catch (err) {
+      console.error('Firebase email sign-in failed:', err);
+      setAuthError('Invalid credentials or email/password sign-in is not enabled. Please use Google sign-in or contact your administrator.');
+    } finally {
       setIsLoading(false);
-      setIsSuccess(true);
-      localStorage.setItem('lms_user', JSON.stringify({
-        email,
-        name: email.split('@')[0],
-        role: 'USER',
-        isSuperAdmin: false,
-      }));
-      setTimeout(() => {
-        navigate('/waiting-approval');
-      }, 800);
-    }, 1000);
+    }
   };
 
   return (

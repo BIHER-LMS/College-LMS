@@ -320,14 +320,20 @@ model AuthedUser {
   college_id     String?
   department_id  String?       @db.Uuid
   class_id       String?       @db.Uuid
+  subject_id     String?       @db.Uuid
   register_number String?
+  requested_role  String?
+  approval_status String?       @default("PENDING")
 
   college    College?    @relation(fields: [college_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
   department Department? @relation("AuthedUserDepartment", fields: [department_id], references: [id], onUpdate: NoAction)
   class      Class?      @relation("AuthedUserClass", fields: [class_id], references: [id], onUpdate: NoAction)
+  subject    Subject?    @relation("AuthedUserSubject", fields: [subject_id], references: [id], onUpdate: NoAction)
 
   facultyClasses    Class[]      @relation("ClassFaculty")
   hodDepartments    Department[] @relation("DepartmentHOD")
+  facultySubjects   ClassSubject[] @relation("FacultySubjects")
+  studentSubmissions StudentSubmission[] @relation("StudentSubmissions")
 
   @@map("authed_users")
 }
@@ -413,6 +419,7 @@ model Class {
   batch      Batch        @relation(fields: [batch_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
   faculty    AuthedUser?  @relation("ClassFaculty", fields: [faculty_uid], references: [uid], onUpdate: NoAction)
   students   AuthedUser[] @relation("AuthedUserClass")
+  classSubjects ClassSubject[]
 
   @@map("classes")
 }
@@ -442,7 +449,57 @@ model Subject {
   is_active       Boolean?    @default(true)
   created_at      DateTime?   @default(now()) @db.Timestamptz(6)
 
-  department Department @relation(fields: [department_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  department   Department  @relation(fields: [department_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  authedUsers  AuthedUser[] @relation("AuthedUserSubject")
+  classSubjects ClassSubject[]
 
   @@map("subjects")
+}
+
+/// Assignment of a Subject to a Class, taught by a specific Faculty
+model ClassSubject {
+  id          String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  class_id    String   @db.Uuid
+  subject_id  String   @db.Uuid
+  faculty_uid String?
+
+  class       Class       @relation(fields: [class_id], references: [id], onDelete: Cascade)
+  subject     Subject     @relation(fields: [subject_id], references: [id], onDelete: Cascade)
+  faculty     AuthedUser? @relation("FacultySubjects", fields: [faculty_uid], references: [uid])
+
+  assignments Assignment[]
+
+  @@unique([class_id, subject_id])
+  @@map("class_subjects")
+}
+
+model Assignment {
+  id               String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  class_subject_id String   @db.Uuid
+  title            String
+  description      String?
+  attachment_url   String?
+  due_date         DateTime? @db.Timestamptz(6)
+  created_at       DateTime? @default(now()) @db.Timestamptz(6)
+
+  classSubject     ClassSubject @relation(fields: [class_subject_id], references: [id], onDelete: Cascade)
+  submissions      StudentSubmission[]
+
+  @@map("assignments")
+}
+
+model StudentSubmission {
+  id            String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  assignment_id String   @db.Uuid
+  student_uid   String
+  file_url      String
+  submitted_at  DateTime? @default(now()) @db.Timestamptz(6)
+  grade         String?
+  feedback      String?
+
+  assignment    Assignment @relation(fields: [assignment_id], references: [id], onDelete: Cascade)
+  student       AuthedUser @relation("StudentSubmissions", fields: [student_uid], references: [uid], onDelete: Cascade)
+
+  @@unique([assignment_id, student_uid])
+  @@map("student_submissions")
 }

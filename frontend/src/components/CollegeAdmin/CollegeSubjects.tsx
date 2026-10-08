@@ -29,7 +29,7 @@ export function CollegeSubjects({ collegeId }: { collegeId: string }) {
         <div><label className="text-xs mb-1 block">Code</label><input required value={formData.code} onChange={e => setFormData({...formData, code: e.target.value})} className="h-10 px-3 border rounded-lg w-32 uppercase" /></div>
         <div><label className="text-xs mb-1 block">Credits</label><input required type="number" min="1" value={formData.credits} onChange={e => setFormData({...formData, credits: +e.target.value})} className="h-10 px-3 border rounded-lg w-20" /></div>
         <div><label className="text-xs mb-1 block">Semester</label><input required type="number" min="1" value={formData.semester_number} onChange={e => setFormData({...formData, semester_number: +e.target.value})} className="h-10 px-3 border rounded-lg w-24" /></div>
-        <button type="submit" disabled={!selectedDept} className="h-10 px-4 bg-brand-600 text-white rounded-lg disabled:opacity-50">Add Subject</button>
+        <button type="submit" disabled={!selectedDept} className="h-10 px-4 bg-blue-700 text-white rounded-lg disabled:opacity-50">Add Subject</button>
       </form>
       <div className="bg-white border rounded-xl overflow-hidden">
         <table className="w-full text-left text-sm whitespace-nowrap">

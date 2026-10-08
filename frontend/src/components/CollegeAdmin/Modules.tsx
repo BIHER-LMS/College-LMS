@@ -8,7 +8,7 @@ export function TimetableModule() {
           <h2 className="text-2xl font-bold text-slate-800">Master Timetable</h2>
           <p className="text-slate-500 text-sm mt-1">Manage schedules across all departments and classes</p>
         </div>
-        <button className="px-4 py-2 bg-brand-800 text-white rounded-lg text-sm font-medium hover:bg-brand-700 transition-colors shadow-sm">
+        <button className="px-4 py-2 bg-brand-800 text-white rounded-lg text-sm font-medium hover:bg-blue-800 transition-colors shadow-sm">
           Generate Schedule
         </button>
       </div>
@@ -64,7 +64,7 @@ export function ExaminationsModule() {
           <h2 className="text-2xl font-bold text-slate-800">Examinations & Assignments</h2>
           <p className="text-slate-500 text-sm mt-1">Manage exam schedules, grading, and paper tracking</p>
         </div>
-        <button className="px-4 py-2 bg-brand-800 text-white rounded-lg text-sm font-medium hover:bg-brand-700 transition-colors shadow-sm">
+        <button className="px-4 py-2 bg-brand-800 text-white rounded-lg text-sm font-medium hover:bg-blue-800 transition-colors shadow-sm">
           Schedule Exam
         </button>
       </div>

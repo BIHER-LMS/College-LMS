@@ -12,8 +12,10 @@ import approvalRoutes from './modules/approvals/approval.routes';
 import userRoutes from './modules/users/user.routes';
 import collegeRoutes from './modules/colleges/college.routes';
 import collegeAdminRoutes from './modules/college-admin/collegeAdmin.routes';
+import facultyRoutes from './modules/faculty/faculty.routes';
 import roleRoutes from './modules/roles/role.routes';
 import auditRoutes from './modules/audit/audit.routes';
+import secureDataRoutes from './modules/secure-data/secureData.routes';
 
 const app = express();
 
@@ -32,9 +34,16 @@ app.use(
 // ─── Rate Limiting ───────────────────────────────────
 const limiter = rateLimit({
   windowMs: env.RATE_LIMIT_WINDOW_MS,
-  max: env.RATE_LIMIT_MAX_REQUESTS,
+  max: env.NODE_ENV === 'development' ? 100_000 : env.RATE_LIMIT_MAX_REQUESTS,
   standardHeaders: true,
   legacyHeaders: false,
+  skip: (req) => {
+    // Disable rate limiting in development mode
+    if (env.NODE_ENV === 'development') return true;
+    // Health checks do not access account data; auth sync must remain rate limited.
+    if (req.path === '/api/health') return true;
+    return false;
+  },
   message: {
     success: false,
     error: {
@@ -62,6 +71,8 @@ app.get('/api/health', (_req, res) => {
   });
 });
 
+import studentRoutes from './modules/student/student.routes';
+
 // ─── API Routes ──────────────────────────────────────
 app.use('/api/auth', authRoutes);
 app.use('/api/profiles', profileRoutes);
@@ -69,8 +80,13 @@ app.use('/api/approvals', approvalRoutes);
 app.use('/api/users', userRoutes);
 app.use('/api/colleges', collegeRoutes);
 app.use('/api/college-admin', collegeAdminRoutes);
+app.use('/api/faculty', facultyRoutes);
 app.use('/api/roles', roleRoutes);
 app.use('/api/audit', auditRoutes);
+app.use('/api/student', studentRoutes);
+import hodRoutes from './modules/hod_temp/routes/index';
+app.use('/api', hodRoutes);
+app.use('/api', secureDataRoutes);
 
 // ─── Error Handling ──────────────────────────────────
 app.use(notFoundHandler);

@@ -1,0 +1,58 @@
+{
+  "collapse-filter": false,
+  "search": "",
+  "showTags": false,
+  "showAttachments": false,
+  "hideUnresolved": false,
+  "showOrphans": true,
+  "collapse-color-groups": false,
+  "colorGroups": [
+    {
+      "query": "file:\"Dashboard\"",
+      "color": {
+        "a": 1,
+        "rgb": 14701138
+      }
+    },
+    {
+      "query": "file:\"Project_Overview\" OR file:\"Architecture\"",
+      "color": {
+        "a": 1,
+        "rgb": 10309341
+      }
+    },
+    {
+      "query": "file:\"Database_Schema\"",
+      "color": {
+        "a": 1,
+        "rgb": 46296
+      }
+    },
+    {
+      "query": "file:\"Tech_Stack\" OR file:\"Deployment\"",
+      "color": {
+        "a": 1,
+        "rgb": 2792847
+      }
+    },
+    {
+      "query": "file:\"Development_Log\"",
+      "color": {
+        "a": 1,
+        "rgb": 16032353
+      }
+    }
+  ],
+  "collapse-display": false,
+  "showArrow": true,
+  "textFadeMultiplier": -0.6,
+  "nodeSizeMultiplier": 1.4,
+  "lineSizeMultiplier": 1.1,
+  "collapse-forces": false,
+  "centerStrength": 0.5,
+  "repelStrength": 15,
+  "linkStrength": 1,
+  "linkDistance": 200,
+  "scale": 0.9771845575772031,
+  "close": true
+}

@@ -10,6 +10,7 @@ import {
   updateUserProfile,
   deleteAuthedUser
 } from '../services/collegeService';
+import { CollegeLogsModal } from '../components/SuperAdmin/CollegeLogsModal';
 
 export default function SuperAdmin() {
   const navigate = useNavigate();
@@ -23,6 +24,7 @@ export default function SuperAdmin() {
   const [isCreateOpen, setIsCreateOpen] = useState(false);
   const [editingCollege, setEditingCollege] = useState<CollegeRecord | null>(null);
   const [assigningCollege, setAssigningCollege] = useState<CollegeRecord | null>(null);
+  const [selectedCollegeLogs, setSelectedCollegeLogs] = useState<CollegeRecord | null>(null);
   const [showSqlHelper, setShowSqlHelper] = useState(false);
   const [notification, setNotification] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
 
@@ -216,6 +218,11 @@ export default function SuperAdmin() {
       });
 
       setColleges(updated);
+      setAuthedUsers(prev => prev.map(u => 
+        u.uid === user.uid 
+          ? { ...u, role: 'COLLEGE_ADMIN', college_id: collegeId } 
+          : u
+      ));
       setAssigningCollege(null);
       notify(`Assigned ${user.email} as College Admin!`);
     } catch (err: any) {
@@ -230,45 +237,10 @@ export default function SuperAdmin() {
     (c.adminEmail && c.adminEmail.toLowerCase().includes(searchTerm.toLowerCase()))
   );
 
-  const supabaseSqlScript = `-- Run this in your Supabase SQL Editor if you want to create the tables manually:
-
-CREATE TABLE IF NOT EXISTS public.colleges (
-  id TEXT PRIMARY KEY,
-  name TEXT NOT NULL,
-  code TEXT UNIQUE NOT NULL,
-  domain TEXT,
-  address TEXT,
-  city TEXT,
-  state TEXT,
-  country TEXT DEFAULT 'India',
-  phone TEXT,
-  email TEXT,
-  website TEXT,
-  logo_url TEXT,
-  admin_email TEXT,
-  admin_name TEXT,
-  admin_uid TEXT,
-  is_active BOOLEAN DEFAULT TRUE,
-  created_at TIMESTAMPTZ DEFAULT NOW(),
-  updated_at TIMESTAMPTZ DEFAULT NOW()
-);
-
-CREATE TABLE IF NOT EXISTS public.authed_users (
-  uid TEXT PRIMARY KEY,
-  email TEXT UNIQUE NOT NULL,
-  display_name TEXT,
-  photo_url TEXT,
-  provider TEXT DEFAULT 'google',
-  last_login TIMESTAMPTZ DEFAULT NOW()
-);
-
--- Enable Public read/write for prototype if RLS is on:
-ALTER TABLE public.colleges ENABLE ROW LEVEL SECURITY;
-CREATE POLICY "Allow all access to colleges" ON public.colleges FOR ALL USING (true) WITH CHECK (true);
-
-ALTER TABLE public.authed_users ENABLE ROW LEVEL SECURITY;
-CREATE POLICY "Allow all access to authed_users" ON public.authed_users FOR ALL USING (true) WITH CHECK (true);
-`;
+  const supabaseSqlScript = `Security notice: the production database schema already exists.
+Do not create public policies or grant anonymous access to college or user data.
+See docs/RLS_AUTHORIZATION_DESIGN.md for the reviewed authorization model.
+Database policy changes must be coordinated with verified backend API cutover.`;
 
   return (
     <div className="min-h-screen bg-slate-900 text-slate-100 font-sans selection:bg-brand-accent selection:text-brand-900">
@@ -307,7 +279,7 @@ CREATE POLICY "Allow all access to authed_users" ON public.authed_users FOR ALL 
             <button 
               onClick={() => setShowSqlHelper(true)}
               className="text-xs text-slate-400 hover:text-white px-2.5 py-1.5 rounded border border-slate-700 hover:border-slate-500 transition-colors">
-              SQL Schema
+              Security Guidance
             </button>
 
             <div className="h-4 w-px bg-slate-700"></div>
@@ -511,6 +483,11 @@ CREATE POLICY "Allow all access to authed_users" ON public.authed_users FOR ALL 
                       Edit Details
                     </button>
                     <button 
+                      onClick={() => setSelectedCollegeLogs(col)}
+                      className="px-2.5 py-1 rounded bg-indigo-950/40 border border-indigo-500/30 text-indigo-300 hover:bg-indigo-900/60 transition-colors">
+                      View Logs
+                    </button>
+                    <button 
                       onClick={async () => {
                         const updated = await updateCollege(col.id, { isActive: !col.isActive });
                         setColleges(updated);
@@ -589,19 +566,48 @@ CREATE POLICY "Allow all access to authed_users" ON public.authed_users FOR ALL 
                         {new Date(u.lastLogin).toLocaleDateString()}
                       </td>
                       <td className="py-3 px-4 text-right flex items-center justify-end gap-2">
-                        <select 
-                          onChange={(e) => {
-                            if (e.target.value) {
-                              handleAssignAdmin(e.target.value, u);
-                            }
-                          }}
-                          defaultValue=""
-                          className="bg-slate-900 border border-slate-700 rounded px-2 py-1 text-slate-200 focus:outline-none focus:border-brand-accent">
-                          <option value="" disabled>Assign to College...</option>
-                          {colleges.map(c => (
-                            <option key={c.id} value={c.id}>{c.name} ({c.code})</option>
-                          ))}
-                        </select>
+                        {u.role === 'COLLEGE_ADMIN' && u.college_id ? (
+                          <div className="flex items-center gap-2">
+                            <span className="text-emerald-400 font-medium px-2 py-1 bg-emerald-900/30 rounded border border-emerald-800/50 text-[11px]">
+                              Assigned to {colleges.find(c => c.id === u.college_id)?.name || 'College'}
+                            </span>
+                            <button
+                              onClick={async () => {
+                                if (confirm(`Remove ${u.email} as College Admin?`)) {
+                                  // Update user role back to user
+                                  await updateUserProfile(u.uid, { role: 'USER', college_id: null });
+                                  
+                                  // Update college record if needed
+                                  const college = colleges.find(c => c.id === u.college_id);
+                                  if (college) {
+                                    const updated = await updateCollege(college.id, { adminEmail: null, adminName: null, adminUid: null });
+                                    setColleges(updated);
+                                  }
+                                  
+                                  setAuthedUsers(prev => prev.map(user => user.uid === u.uid ? { ...user, role: 'USER', college_id: undefined } : user));
+                                  notify(`Removed ${u.email} as College Admin`);
+                                }
+                              }}
+                              className="text-xs text-rose-400 hover:text-rose-300 underline underline-offset-2 ml-2"
+                            >
+                              Unassign
+                            </button>
+                          </div>
+                        ) : (
+                          <select 
+                            onChange={(e) => {
+                              if (e.target.value) {
+                                handleAssignAdmin(e.target.value, u);
+                              }
+                            }}
+                            value=""
+                            className="bg-slate-900 border border-slate-700 rounded px-2 py-1 text-slate-200 focus:outline-none focus:border-brand-accent">
+                            <option value="" disabled>Assign to College...</option>
+                            {colleges.map(c => (
+                              <option key={c.id} value={c.id}>{c.name} ({c.code})</option>
+                            ))}
+                          </select>
+                        )}
                         <button
                           onClick={async () => {
                             if (confirm(`Remove ${u.email} from database?`)) {
@@ -878,13 +884,13 @@ CREATE POLICY "Allow all access to authed_users" ON public.authed_users FOR ALL 
           <div className="w-full max-w-2xl bg-slate-900 border border-slate-700 rounded-xl shadow-2xl p-6">
             <div className="flex items-center justify-between pb-3 border-b border-slate-800 mb-3">
               <h3 className="font-heading font-bold text-sm text-white flex items-center gap-2">
-                <span>Supabase SQL Table Definitions</span>
-                <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-brand-900 text-brand-accent">Optional 1-Click Setup</span>
+                <span>Production Database Security</span>
+                <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-brand-900 text-brand-accent">Do Not Run Public Policies</span>
               </h3>
               <button onClick={() => setShowSqlHelper(false)} className="text-slate-400 hover:text-white">✕</button>
             </div>
             <p className="text-xs text-slate-400 mb-3">
-              If your Supabase project does not have the tables yet, you can paste this into your <strong>Supabase Dashboard &rarr; SQL Editor</strong>:
+              Never grant anonymous access to private LMS tables. Review the security design before changing database privileges:
             </p>
             <pre className="p-3 bg-slate-950 border border-slate-800 rounded text-[11px] font-mono text-slate-300 overflow-x-auto max-h-72">
               {supabaseSqlScript}
@@ -893,10 +899,10 @@ CREATE POLICY "Allow all access to authed_users" ON public.authed_users FOR ALL 
               <button 
                 onClick={() => {
                   navigator.clipboard.writeText(supabaseSqlScript);
-                  notify('SQL copied to clipboard!');
+                  notify('Security guidance copied to clipboard!');
                 }}
                 className="px-3 py-1.5 bg-brand-800 hover:bg-brand-700 text-white rounded text-xs font-semibold">
-                Copy SQL to Clipboard
+                Copy Guidance
               </button>
               <button 
                 onClick={() => setShowSqlHelper(false)}
@@ -906,6 +912,14 @@ CREATE POLICY "Allow all access to authed_users" ON public.authed_users FOR ALL 
             </div>
           </div>
         </div>
+      )}
+
+      {selectedCollegeLogs && (
+        <CollegeLogsModal 
+          college={selectedCollegeLogs}
+          onClose={() => setSelectedCollegeLogs(null)}
+          notify={notify}
+        />
       )}
     </div>
   );

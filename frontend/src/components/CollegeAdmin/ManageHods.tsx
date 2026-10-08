@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { fetchUsers, fetchPendingUsers, updateUserProfile, fetchDepartments } from '../../services/collegeService';
+import { fetchUsers, fetchPendingUsers, updateUserProfile, fetchDepartments, updateDepartment } from '../../services/collegeService';
 
 export function ManageHods({ collegeId }: { collegeId: string }) {
   const [hods, setHods] = useState<any[]>([]);
@@ -19,8 +19,28 @@ export function ManageHods({ collegeId }: { collegeId: string }) {
   };
 
   const assignDepartment = async (uid: string, deptId: string) => {
-    await updateUserProfile(uid, { department_id: deptId });
-    loadHods();
+    try {
+      const userToUpdate = hods.find(h => h.uid === uid);
+      const previousDeptId = userToUpdate?.department_id;
+
+      // 1. Clear hod_uid from the previous department if it exists
+      if (previousDeptId) {
+        await updateDepartment(previousDeptId, { hod_uid: null });
+      }
+
+      // 2. Set hod_uid on the new department if a department is selected
+      if (deptId) {
+        await updateDepartment(deptId, { hod_uid: uid });
+      }
+
+      // 3. Update the user profile
+      await updateUserProfile(uid, { department_id: deptId || null });
+      
+      loadHods();
+    } catch (e) {
+      console.error('Error assigning department:', e);
+      alert('Failed to assign department.');
+    }
   };
 
   const approveHod = async (uid: string) => {

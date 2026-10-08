@@ -35,7 +35,7 @@ export function CollegeClasses({ collegeId }: { collegeId: string }) {
       <form onSubmit={handleCreate} className="flex gap-4 items-end bg-white p-4 rounded-xl border">
         <div><label className="text-xs mb-1 block">Class/Section Name (e.g. A)</label><input required value={formData.name} onChange={e => setFormData({...formData, name: e.target.value})} className="h-10 px-3 border rounded-lg w-48" /></div>
         <div><label className="text-xs mb-1 block">Current Semester</label><input required type="number" min="1" value={formData.current_semester} onChange={e => setFormData({...formData, current_semester: +e.target.value})} className="h-10 px-3 border rounded-lg w-24" /></div>
-        <button type="submit" disabled={!selectedBatch} className="h-10 px-4 bg-brand-600 text-white rounded-lg disabled:opacity-50">Add Class</button>
+        <button type="submit" disabled={!selectedBatch} className="h-10 px-4 bg-blue-700 text-white rounded-lg disabled:opacity-50">Add Class</button>
       </form>
       <div className="bg-white border rounded-xl overflow-hidden">
         <table className="w-full text-left text-sm whitespace-nowrap">
