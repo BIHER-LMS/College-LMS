@@ -390,9 +390,32 @@ export const fetchDepartments = async (collegeId: string): Promise<DepartmentRec
     const data = await secureDataApi.listStructure('departments', collegeId);
     return data as DepartmentRecord[];
   } catch (err) {
-    console.error('Error fetching departments:', err);
+    try {
+      const publicData = await secureDataApi.getPublicDepartments(collegeId);
+      return publicData as DepartmentRecord[];
+    } catch {
+      console.error('Error fetching departments:', err);
+      return [];
+    }
+  }
+};
+
+export const fetchPublicDepartments = async (collegeId: string): Promise<DepartmentRecord[]> => {
+  try {
+    const data = await secureDataApi.getPublicDepartments(collegeId);
+    return data as DepartmentRecord[];
+  } catch (err) {
+    console.error('Error fetching public departments:', err);
     return [];
   }
+};
+
+export const submitOnboardingRequest = async (data: {
+  college_id: string;
+  requested_role: string;
+  department_id?: string | null;
+}) => {
+  return secureDataApi.submitOnboardingRequest(data);
 };
 
 export const createDepartment = async (department: Omit<DepartmentRecord, 'id' | 'created_at' | 'updated_at'>) => {
@@ -509,15 +532,12 @@ export const fetchSubjects = async (departmentId: string): Promise<SubjectRecord
 
 export const fetchAllCollegeSubjects = async (collegeId: string): Promise<SubjectRecord[]> => {
   try {
-    // Get all departments for this college, then get subjects for each
+    // Get all departments for this college, then fetch subjects in parallel
     const departments = await fetchDepartments(collegeId);
     if (!departments.length) return [];
-    
-    const allSubjects: SubjectRecord[] = [];
-    for (const dept of departments) {
-      const subjects = await fetchSubjects(dept.id);
-      allSubjects.push(...subjects);
-    }
+
+    const subjectArrays = await Promise.all(departments.map((dept) => fetchSubjects(dept.id)));
+    const allSubjects = subjectArrays.flat();
     return allSubjects.sort((a, b) => a.name.localeCompare(b.name));
   } catch (err) {
     console.error('Error in fetchAllCollegeSubjects:', err);
@@ -527,21 +547,21 @@ export const fetchAllCollegeSubjects = async (collegeId: string): Promise<Subjec
 
 export const fetchAllCollegeClasses = async (collegeId: string): Promise<ClassRecord[]> => {
   try {
-    // Get all departments -> programs -> batches -> classes for this college
+    // Parallelize tree traversal: departments -> programs -> batches -> classes
     const departments = await fetchDepartments(collegeId);
     if (!departments.length) return [];
-    
-    const allClasses: ClassRecord[] = [];
-    for (const dept of departments) {
-      const programs = await fetchPrograms(dept.id);
-      for (const prog of programs) {
-        const batches = await fetchBatches(prog.id);
-        for (const batch of batches) {
-          const classes = await fetchClasses(batch.id);
-          allClasses.push(...classes);
-        }
-      }
-    }
+
+    const programsArrays = await Promise.all(departments.map((dept) => fetchPrograms(dept.id)));
+    const allPrograms = programsArrays.flat();
+    if (!allPrograms.length) return [];
+
+    const batchesArrays = await Promise.all(allPrograms.map((prog) => fetchBatches(prog.id)));
+    const allBatches = batchesArrays.flat();
+    if (!allBatches.length) return [];
+
+    const classesArrays = await Promise.all(allBatches.map((batch) => fetchClasses(batch.id)));
+    const allClasses = classesArrays.flat();
+
     return allClasses.sort((a, b) => a.name.localeCompare(b.name));
   } catch (err) {
     console.error('Error in fetchAllCollegeClasses:', err);

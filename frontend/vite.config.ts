@@ -13,4 +13,34 @@ export default defineConfig({
       },
     },
   },
+  build: {
+    rollupOptions: {
+      output: {
+        manualChunks(id: string) {
+          const normalized = id.replace(/\\/g, '/');
+          if (normalized.includes('node_modules')) {
+            if (normalized.includes('xlsx')) {
+              return 'vendor-xlsx';
+            }
+            if (normalized.includes('@supabase')) {
+              return 'vendor-supabase';
+            }
+            if (normalized.includes('react-dom') || normalized.includes('react-router-dom') || normalized.includes('/react/')) {
+              return 'vendor-react';
+            }
+            if (normalized.includes('@reduxjs') || normalized.includes('react-redux')) {
+              return 'vendor-redux';
+            }
+            if (normalized.includes('lucide-react')) {
+              return 'vendor-icons';
+            }
+            if (normalized.includes('firebase')) {
+              return 'vendor-firebase';
+            }
+          }
+        },
+      },
+    },
+    chunkSizeWarningLimit: 600,
+  },
 })

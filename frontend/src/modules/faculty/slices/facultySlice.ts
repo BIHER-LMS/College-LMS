@@ -66,6 +66,14 @@ export const fetchFacultyDashboard = createAsyncThunk(
     } catch (err: any) {
       return rejectWithValue(err.response?.data?.error || 'Failed to load dashboard');
     }
+  },
+  {
+    condition: (_, { getState }) => {
+      const state = getState() as any;
+      if (state.faculty?.loading?.dashboard) {
+        return false;
+      }
+    },
   }
 );
 
@@ -77,6 +85,14 @@ export const fetchFacultyProfile = createAsyncThunk(
     } catch (err: any) {
       return rejectWithValue(err.response?.data?.error || 'Failed to load profile');
     }
+  },
+  {
+    condition: (_, { getState }) => {
+      const state = getState() as any;
+      if (state.faculty?.loading?.profile) {
+        return false;
+      }
+    },
   }
 );
 
@@ -99,6 +115,14 @@ export const fetchAssignedClasses = createAsyncThunk(
     } catch (err: any) {
       return rejectWithValue(err.response?.data?.error || 'Failed to load classes');
     }
+  },
+  {
+    condition: (_, { getState }) => {
+      const state = getState() as any;
+      if (state.faculty?.loading?.classes) {
+        return false;
+      }
+    },
   }
 );
 

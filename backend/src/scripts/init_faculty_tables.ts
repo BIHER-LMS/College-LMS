@@ -86,6 +86,9 @@ export async function initFacultyTables() {
     `ALTER TABLE public.faculty_timetables ENABLE ROW LEVEL SECURITY;`,
     `ALTER TABLE public.attendance_records ENABLE ROW LEVEL SECURITY;`,
     `ALTER TABLE public.attendance_sessions ENABLE ROW LEVEL SECURITY;`,
+    `ALTER TABLE public.authed_users ADD COLUMN IF NOT EXISTS dob DATE;`,
+    `ALTER TABLE public.authed_users ADD COLUMN IF NOT EXISTS phone TEXT;`,
+    `ALTER TABLE public.authed_users ADD COLUMN IF NOT EXISTS parent_phone TEXT;`,
   ];
 
   for (const sql of statements) {

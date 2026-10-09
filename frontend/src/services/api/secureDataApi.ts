@@ -71,6 +71,24 @@ export const secureDataApi = {
       created_at: string | null;
     }>('/secure-data/me'),
 
+  submitOnboardingRequest: (data: {
+    college_id: string;
+    requested_role: string;
+    department_id?: string | null;
+  }) =>
+    request<{
+      uid: string;
+      email: string;
+      role: string | null;
+      requested_role: string | null;
+      approval_status: string | null;
+      college_id: string | null;
+      department_id: string | null;
+    }>('/secure-data/me', {
+      method: 'PATCH',
+      body: JSON.stringify(data),
+    }),
+
   // SUPER_ADMIN only
   listColleges: () =>
     request<

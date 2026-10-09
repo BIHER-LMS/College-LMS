@@ -15,11 +15,10 @@ const globalForPrisma = globalThis as unknown as {
 export const prisma =
   globalForPrisma.prisma ??
   new PrismaClient({
-    log: env.NODE_ENV === 'development' ? ['query', 'warn', 'error'] : ['error'],
+    log: env.NODE_ENV === 'development' && process.env.PRISMA_LOG_QUERIES ? ['query', 'warn', 'error'] : ['warn', 'error'],
   });
 
-if (env.NODE_ENV !== 'production') {
-  globalForPrisma.prisma = prisma;
-}
+// Always store on globalThis to preserve connection pool across warm serverless invocations
+globalForPrisma.prisma = prisma;
 
 export default prisma;

@@ -106,21 +106,43 @@ const initialState: StudentState = {
 };
 
 // Async Thunks
-export const fetchDashboard = createAsyncThunk('student/fetchDashboard', async (_, { rejectWithValue }) => {
-  try {
-    return await studentApi.getDashboard();
-  } catch (err: any) {
-    return rejectWithValue(err.message || 'Failed to load student dashboard');
+export const fetchDashboard = createAsyncThunk(
+  'student/fetchDashboard',
+  async (_, { rejectWithValue }) => {
+    try {
+      return await studentApi.getDashboard();
+    } catch (err: any) {
+      return rejectWithValue(err.message || 'Failed to load student dashboard');
+    }
+  },
+  {
+    condition: (_, { getState }) => {
+      const state = getState() as any;
+      if (state.student?.loading?.dashboard) {
+        return false;
+      }
+    },
   }
-});
+);
 
-export const fetchProfile = createAsyncThunk('student/fetchProfile', async (_, { rejectWithValue }) => {
-  try {
-    return await studentApi.getProfile();
-  } catch (err: any) {
-    return rejectWithValue(err.message || 'Failed to load profile');
+export const fetchProfile = createAsyncThunk(
+  'student/fetchProfile',
+  async (_, { rejectWithValue }) => {
+    try {
+      return await studentApi.getProfile();
+    } catch (err: any) {
+      return rejectWithValue(err.message || 'Failed to load profile');
+    }
+  },
+  {
+    condition: (_, { getState }) => {
+      const state = getState() as any;
+      if (state.student?.loading?.profile) {
+        return false;
+      }
+    },
   }
-});
+);
 
 export const updateProfile = createAsyncThunk(
   'student/updateProfile',
@@ -204,13 +226,24 @@ export const fetchTimetable = createAsyncThunk('student/fetchTimetable', async (
   }
 });
 
-export const fetchAttendance = createAsyncThunk('student/fetchAttendance', async (date: string | undefined, { rejectWithValue }) => {
-  try {
-    return await studentApi.getAttendance(date);
-  } catch (err: any) {
-    return rejectWithValue(err.message || 'Failed to load attendance');
+export const fetchAttendance = createAsyncThunk(
+  'student/fetchAttendance',
+  async (date: string | undefined, { rejectWithValue }) => {
+    try {
+      return await studentApi.getAttendance(date);
+    } catch (err: any) {
+      return rejectWithValue(err.message || 'Failed to load attendance');
+    }
+  },
+  {
+    condition: (_, { getState }) => {
+      const state = getState() as any;
+      if (state.student?.loading?.attendance) {
+        return false;
+      }
+    },
   }
-});
+);
 
 export const studentSlice = createSlice({
   name: 'student',

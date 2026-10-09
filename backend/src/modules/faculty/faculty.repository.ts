@@ -1869,7 +1869,11 @@ export class FacultyRepository {
       include: {
         batch: {
           include: {
-            program: true,
+            program: {
+              include: {
+                department: true,
+              },
+            },
           },
         },
       },
@@ -1880,7 +1884,7 @@ export class FacultyRepository {
     }
 
     const departmentId = cls.batch?.program?.department_id || null;
-    const collegeId = 'col-1790654578727-zhdd';
+    const collegeId = cls.batch?.program?.department?.college_id || 'col-1790654578727-zhdd';
     const processedStudents: any[] = [];
 
     for (const item of students) {
@@ -1893,12 +1897,19 @@ export class FacultyRepository {
       const cleanParentPhone = (item.parentPhone || '').trim();
       let cleanDob = item.dob ? item.dob.trim() : null;
 
-      if (cleanDob && cleanDob.includes('/')) {
-        const parts = cleanDob.split('/');
-        if (parts.length === 3) {
-          if (parts[2].length === 4) {
-            cleanDob = `${parts[2]}-${parts[1].padStart(2, '0')}-${parts[0].padStart(2, '0')}`;
+      if (cleanDob) {
+        if (cleanDob.includes('/')) {
+          const parts = cleanDob.split('/');
+          if (parts.length === 3) {
+            if (parts[2].length === 4) {
+              cleanDob = `${parts[2]}-${parts[1].padStart(2, '0')}-${parts[0].padStart(2, '0')}`;
+            } else if (parts[0].length === 4) {
+              cleanDob = `${parts[0]}-${parts[1].padStart(2, '0')}-${parts[2].padStart(2, '0')}`;
+            }
           }
+        }
+        if (isNaN(Date.parse(cleanDob))) {
+          cleanDob = null;
         }
       }
 

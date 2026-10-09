@@ -63,6 +63,15 @@ router.get('/public/colleges/:collegeId/departments', asyncRoute(async (req, res
 router.get('/secure-data/me', verify, asyncRoute(async (req, res) => {
   sendSuccess(res, await service.ownIdentity((req as SecureRequest).secureUid!, email(req)));
 }));
+router.patch('/secure-data/me', verify, asyncRoute(async (req, res) => {
+  const schema = z.object({
+    college_id: z.string().min(1).max(128),
+    requested_role: z.enum(['HOD', 'FACULTY', 'STUDENT']),
+    department_id: uuid.nullable().optional(),
+  }).strict();
+  const input = body(req, schema);
+  sendSuccess(res, await service.submitOnboardingRequest((req as SecureRequest).secureUid!, email(req), input));
+}));
 router.use('/secure-data', verify, requireActor);
 router.get('/secure-data/colleges', asyncRoute(async (req, res) => sendSuccess(res, await service.listColleges(getActor(req)))));
 router.post('/secure-data/colleges', asyncRoute(async (req, res) => sendSuccess(res, await service.createCollege(getActor(req), email(req), body(req, collegeFields)), 201)));

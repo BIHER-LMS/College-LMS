@@ -6,8 +6,8 @@ import { onAuthStateChanged } from 'firebase/auth';
 import { 
   recordAuthedUser, 
   fetchPublicColleges,
-  fetchDepartments, 
-  updateUserProfile,
+  fetchPublicDepartments,
+  submitOnboardingRequest,
   getAuthedUserProfile
 } from '../services/collegeService';
 
@@ -94,7 +94,7 @@ function WaitingApproval() {
         } else {
           // User already submitted request and is waiting
           const collegeName = cols.find(c => c.id === record.college_id)?.name || 'Selected College';
-          const depts = await fetchDepartments(record.college_id);
+          const depts = await fetchPublicDepartments(record.college_id);
           const deptName = depts.find(d => d.id === record.department_id)?.name || 'Selected Department';
           if (isMounted) {
             setNeedsOnboarding(false);
@@ -141,7 +141,7 @@ function WaitingApproval() {
   useEffect(() => {
     const loadDepartments = async () => {
       if (selectedCollege && needsOnboarding) {
-        const depts = await fetchDepartments(selectedCollege);
+        const depts = await fetchPublicDepartments(selectedCollege);
         setDepartments(depts);
       } else if (needsOnboarding) {
         setDepartments([]);
@@ -222,11 +222,10 @@ function WaitingApproval() {
 
     setIsSubmitting(true);
     try {
-      await updateUserProfile(identifier, {
+      await submitOnboardingRequest({
         college_id: selectedCollege,
         requested_role: selectedRole,
         department_id: selectedRole === 'COLLEGE_ADMIN' ? null : selectedDepartment,
-        approval_status: 'PENDING',
       });
       setApprovalStatus('PENDING');
       

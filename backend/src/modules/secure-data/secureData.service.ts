@@ -69,6 +69,40 @@ async function mutate<T>(a: Actor, email: string, fn: (tx: Prisma.TransactionCli
   }, { isolationLevel: Prisma.TransactionIsolationLevel.Serializable });
 }
 export function ownIdentity(uid: string, email: string) { return identity(uid, email); }
+export async function submitOnboardingRequest(
+  uid: string,
+  email: string,
+  input: { college_id: string; requested_role: 'HOD' | 'FACULTY' | 'STUDENT'; department_id?: string | null }
+) {
+  const current = await identity(uid, email);
+  if (current.approval_status === 'APPROVED' && current.role !== 'USER') {
+    throw conflict('Account has already been approved');
+  }
+
+  const college = await prisma.college.findFirst({ where: { id: input.college_id, isActive: true }, select: { id: true } });
+  if (!college) throw new AppError(400, 'VALIDATION_ERROR', 'Invalid or inactive college');
+
+  if (input.department_id) {
+    const dept = await prisma.department.findFirst({
+      where: { id: input.department_id, college_id: input.college_id, is_active: true },
+      select: { id: true }
+    });
+    if (!dept) throw new AppError(400, 'VALIDATION_ERROR', 'Invalid department for selected college');
+  }
+
+  const updated = await prisma.authedUser.update({
+    where: { uid },
+    data: {
+      college_id: input.college_id,
+      requested_role: input.requested_role,
+      department_id: input.department_id || null,
+      approval_status: 'PENDING',
+    },
+    select: userSelect,
+  });
+
+  return updated;
+}
 export async function listColleges(a: Actor) { requireRole(a, 'SUPER_ADMIN'); return prisma.college.findMany({ select: collegeSelect, orderBy: { createdAt: 'desc' }, take: 500 }); }
 export async function createCollege(a: Actor, email: string, data: Prisma.CollegeCreateInput) {
   requireRole(a, 'SUPER_ADMIN');

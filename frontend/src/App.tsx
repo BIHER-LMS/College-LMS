@@ -1,15 +1,23 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, lazy, Suspense } from 'react';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { Provider } from 'react-redux';
 import { store } from './store';
 import Home from './pages/Home';
 import Login from './pages/Login';
-import SuperAdmin from './pages/SuperAdmin';
-import CollegeAdmin from './pages/CollegeAdmin';
-import WaitingApproval from './pages/WaitingApproval';
 import { auth } from './config/firebase';
 import { onAuthStateChanged } from 'firebase/auth';
 import { recordAuthedUser, getAuthedUserProfile } from './services/collegeService';
+
+// Lazy-loaded routes to minimize initial bundle size and speed up page load
+const SuperAdmin = lazy(() => import('./pages/SuperAdmin'));
+const CollegeAdmin = lazy(() => import('./pages/CollegeAdmin'));
+const WaitingApproval = lazy(() => import('./pages/WaitingApproval'));
+
+const PageLoader = () => (
+  <div className="p-8 text-center flex items-center justify-center min-h-screen bg-slate-50">
+    <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-slate-900" />
+  </div>
+);
 
 // Faculty Module imports
 import { FacultyLayout } from './layouts/FacultyLayout';
@@ -90,64 +98,66 @@ function App() {
   return (
     <Provider store={store}>
       <BrowserRouter>
-        <Routes>
-          <Route path="/" element={<Home />} />
-          <Route path="/login" element={<Login />} />
-          <Route path="/super-admin" element={<SuperAdmin />} />
-          <Route path="/college-admin" element={<CollegeAdmin />} />
-          <Route path="/waiting-approval" element={<WaitingApproval />} />
-          <Route path="/hod" element={<HodRoute />}>
-            <Route index element={<HODDashboard />} />
-            <Route path="department" element={<DepartmentOverviewPage />} />
-            <Route path="faculty" element={<FacultyPage />} />
-            <Route path="programs" element={<ProgramsPage />} />
-            <Route path="batches" element={<BatchesPage />} />
-            <Route path="classes" element={<ClassesPage />} />
-            <Route path="students" element={<StudentsPage />} />
-            <Route path="subjects" element={<SubjectsPage />} />
-            <Route path="attendance" element={<AttendanceSurveillancePage />} />
-            <Route path="calendar" element={<AcademicCalendarPage />} />
-            <Route path="analytics" element={<AcademicPerformancePage />} />
-            <Route path="reports" element={<ReportsAnalyticsPage />} />
-            <Route path="audit" element={<AuditExportPage />} />
-          </Route>
+        <Suspense fallback={<PageLoader />}>
+          <Routes>
+            <Route path="/" element={<Home />} />
+            <Route path="/login" element={<Login />} />
+            <Route path="/super-admin" element={<SuperAdmin />} />
+            <Route path="/college-admin" element={<CollegeAdmin />} />
+            <Route path="/waiting-approval" element={<WaitingApproval />} />
+            <Route path="/hod" element={<HodRoute />}>
+              <Route index element={<HODDashboard />} />
+              <Route path="department" element={<DepartmentOverviewPage />} />
+              <Route path="faculty" element={<FacultyPage />} />
+              <Route path="programs" element={<ProgramsPage />} />
+              <Route path="batches" element={<BatchesPage />} />
+              <Route path="classes" element={<ClassesPage />} />
+              <Route path="students" element={<StudentsPage />} />
+              <Route path="subjects" element={<SubjectsPage />} />
+              <Route path="attendance" element={<AttendanceSurveillancePage />} />
+              <Route path="calendar" element={<AcademicCalendarPage />} />
+              <Route path="analytics" element={<AcademicPerformancePage />} />
+              <Route path="reports" element={<ReportsAnalyticsPage />} />
+              <Route path="audit" element={<AuditExportPage />} />
+            </Route>
 
-          {/* Integrated Faculty Portal Module Routes */}
-          <Route path="/faculty" element={<FacultyLayout />}>
-            <Route index element={<FacultyDashboard />} />
-            <Route path="reminders" element={<FacultyRemindersPage />} />
-            <Route path="classes" element={<FacultyClassesPage />} />
-            <Route path="classes/:classId" element={<FacultyClassDetailsPage />} />
-            <Route path="classes/:classId/students" element={<FacultyClassStudentsPage />} />
-            <Route path="students/:studentId" element={<FacultyStudentDetailsPage />} />
-            <Route path="attendance" element={<FacultyAttendancePage />} />
-            <Route path="timetable" element={<FacultyTimetablePage />} />
-            <Route path="department" element={<FacultyDepartmentPage />} />
-            <Route path="subjects" element={<FacultySubjectsPage />} />
-            <Route path="assignments" element={<FacultyAssignmentsPage />} />
-            <Route path="academic" element={<FacultyAcademicYearsPage />} />
-            <Route path="semesters" element={<FacultySemestersPage />} />
-            <Route path="profile" element={<FacultyProfilePage />} />
-          </Route>
+            {/* Integrated Faculty Portal Module Routes */}
+            <Route path="/faculty" element={<FacultyLayout />}>
+              <Route index element={<FacultyDashboard />} />
+              <Route path="reminders" element={<FacultyRemindersPage />} />
+              <Route path="classes" element={<FacultyClassesPage />} />
+              <Route path="classes/:classId" element={<FacultyClassDetailsPage />} />
+              <Route path="classes/:classId/students" element={<FacultyClassStudentsPage />} />
+              <Route path="students/:studentId" element={<FacultyStudentDetailsPage />} />
+              <Route path="attendance" element={<FacultyAttendancePage />} />
+              <Route path="timetable" element={<FacultyTimetablePage />} />
+              <Route path="department" element={<FacultyDepartmentPage />} />
+              <Route path="subjects" element={<FacultySubjectsPage />} />
+              <Route path="assignments" element={<FacultyAssignmentsPage />} />
+              <Route path="academic" element={<FacultyAcademicYearsPage />} />
+              <Route path="semesters" element={<FacultySemestersPage />} />
+              <Route path="profile" element={<FacultyProfilePage />} />
+            </Route>
 
-          {/* Integrated Student Portal Module Routes */}
-          <Route path="/student" element={<StudentLayout />}>
-            <Route index element={<StudentDashboard />} />
-            <Route path="attendance" element={<StudentAttendancePage />} />
-            <Route path="timetable" element={<StudentTimetablePage />} />
-            <Route path="profile" element={<StudentProfilePage />} />
-            <Route path="class" element={<StudentClassPage />} />
-            <Route path="batch" element={<StudentBatchPage />} />
-            <Route path="program" element={<StudentProgramPage />} />
-            <Route path="department" element={<StudentDepartmentPage />} />
-            <Route path="subjects" element={<StudentSubjectsPage />} />
-            <Route path="assignments" element={<StudentAssignmentsPage />} />
-            <Route path="class-incharge" element={<StudentClassInchargePage />} />
-            <Route path="academic-calendar" element={<StudentAcademicYearsPage />} />
-            <Route path="academic-years" element={<StudentAcademicYearsPage />} />
-            <Route path="semesters" element={<StudentSemestersPage />} />
-          </Route>
-        </Routes>
+            {/* Integrated Student Portal Module Routes */}
+            <Route path="/student" element={<StudentLayout />}>
+              <Route index element={<StudentDashboard />} />
+              <Route path="attendance" element={<StudentAttendancePage />} />
+              <Route path="timetable" element={<StudentTimetablePage />} />
+              <Route path="profile" element={<StudentProfilePage />} />
+              <Route path="class" element={<StudentClassPage />} />
+              <Route path="batch" element={<StudentBatchPage />} />
+              <Route path="program" element={<StudentProgramPage />} />
+              <Route path="department" element={<StudentDepartmentPage />} />
+              <Route path="subjects" element={<StudentSubjectsPage />} />
+              <Route path="assignments" element={<StudentAssignmentsPage />} />
+              <Route path="class-incharge" element={<StudentClassInchargePage />} />
+              <Route path="academic-calendar" element={<StudentAcademicYearsPage />} />
+              <Route path="academic-years" element={<StudentAcademicYearsPage />} />
+              <Route path="semesters" element={<StudentSemestersPage />} />
+            </Route>
+          </Routes>
+        </Suspense>
       </BrowserRouter>
     </Provider>
   );

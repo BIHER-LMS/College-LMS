@@ -24,59 +24,54 @@ export class StudentService {
 
   /**
    * Derive and load complete student dashboard
+   * Optimized with parallelized stages and single-query hierarchy load.
    */
   async getDashboard(studentContext: StudentContext): Promise<StudentDashboardResponse> {
-    const profile = await this.getProfile(studentContext);
+    // Stage 1: Parallel fetch of profile, class full hierarchy, and academic years
+    const [profile, hierarchy, academicYears] = await Promise.all([
+      this.getProfile(studentContext),
+      studentContext.classId
+        ? this.studentRepo.getClassFullHierarchy(studentContext.classId)
+        : Promise.resolve({
+            classData: null,
+            batchData: null,
+            programData: null,
+            deptData: null,
+            classInchargeData: null,
+          }),
+      studentContext.collegeId
+        ? this.studentRepo.getAcademicYears(studentContext.collegeId)
+        : Promise.resolve([]),
+    ]);
 
-    let classData: ClassInfo | null = null;
-    let batchData: BatchInfo | null = null;
-    let programData: ProgramInfo | null = null;
-    let deptData: DepartmentInfo | null = null;
-    let classInchargeData: ClassInchargeInfo | null = null;
+    const { classData, batchData, programData, classInchargeData } = hierarchy;
+    let deptData = hierarchy.deptData;
 
-    if (studentContext.classId) {
-      classData = await this.studentRepo.getClassById(studentContext.classId);
-      if (classData?.batchId) {
-        batchData = await this.studentRepo.getBatchById(classData.batchId);
-        if (batchData?.programId) {
-          programData = await this.studentRepo.getProgramById(batchData.programId);
-        }
-      }
-      if (classData?.facultyUid) {
-        classInchargeData = await this.studentRepo.getClassIncharge(classData.facultyUid);
-      }
-    }
-
-    // Department: derived from program or authed_user department_id
+    // Fallback if department could not be resolved from class hierarchy
     const resolvedDeptId = programData?.departmentId || studentContext.departmentId;
-    if (resolvedDeptId) {
+    if (!deptData && resolvedDeptId) {
       deptData = await this.studentRepo.getDepartmentById(resolvedDeptId);
     }
 
-    // Subjects: filtered strictly by student's department and current semester
-    let subjects: SubjectInfo[] = [];
-    if (resolvedDeptId) {
-      const currentSem = classData?.currentSemester;
-      subjects = await this.studentRepo.getSubjectsByDepartment(resolvedDeptId, currentSem);
-      if (subjects.length === 0) {
-        // Fallback to all department subjects if current semester has no entries
-        subjects = await this.studentRepo.getSubjectsByDepartment(resolvedDeptId);
-      }
-    }
+    const currentYear = academicYears.find((ay) => ay.isCurrent) || academicYears[0] || null;
 
-    // Academic Year & Semesters
-    let academicYearData: AcademicYearInfo | null = null;
+    // Stage 2: Parallel fetch of subjects and semesters
+    const [subjects, semesters] = await Promise.all([
+      resolvedDeptId
+        ? this.studentRepo.getSubjectsByDepartment(resolvedDeptId, classData?.currentSemester).then(async (subs) => {
+            if (subs.length === 0) {
+              return this.studentRepo.getSubjectsByDepartment(resolvedDeptId);
+            }
+            return subs;
+          })
+        : Promise.resolve([]),
+      currentYear ? this.studentRepo.getSemesters(currentYear.id) : Promise.resolve([]),
+    ]);
+
     let semesterData: SemesterInfo | null = null;
-
-    if (studentContext.collegeId) {
-      const academicYears = await this.studentRepo.getAcademicYears(studentContext.collegeId);
-      academicYearData = academicYears.find((ay) => ay.isCurrent) || academicYears[0] || null;
-
-      if (academicYearData) {
-        const semesters = await this.studentRepo.getSemesters(academicYearData.id);
-        const currentSemNum = classData?.currentSemester || 1;
-        semesterData = semesters.find((s) => s.termNumber === currentSemNum) || semesters[0] || null;
-      }
+    if (semesters.length > 0) {
+      const currentSemNum = classData?.currentSemester || 1;
+      semesterData = semesters.find((s) => s.termNumber === currentSemNum) || semesters[0] || null;
     }
 
     return {
@@ -86,7 +81,7 @@ export class StudentService {
       program: programData,
       department: deptData,
       classIncharge: classInchargeData,
-      academicYear: academicYearData,
+      academicYear: currentYear,
       semester: semesterData,
       subjects,
     };
@@ -297,34 +292,37 @@ export class StudentService {
 
   /**
    * Get Student Attendance & Real Timetable Schedule
+   * Optimized with single date-range query and parallel base data loading.
    */
   async getAttendance(studentContext: StudentContext, selectedDateStr?: string): Promise<StudentAttendanceResponse> {
-    // 1. Overall Summary
-    const summary = await this.studentRepo.getStudentAttendanceSummary(studentContext.uid);
-
-    // 2. Subject Breakdown
-    let classData: ClassInfo | null = null;
-    if (studentContext.classId) {
-      classData = await this.studentRepo.getClassById(studentContext.classId);
-    }
-    const currentSem = classData?.currentSemester || 1;
-    const subjectBreakdown = await this.studentRepo.getSubjectAttendance(
-      studentContext.uid,
-      studentContext.departmentId,
-      currentSem
-    );
-
-    // 3. Real Daily Timetable & Period Verification
-    const allSlots = studentContext.classId
-      ? await this.studentRepo.getClassTimetable(studentContext.classId)
-      : [];
-
     // Calculate dates for current week (Monday - Friday)
     const now = selectedDateStr ? new Date(selectedDateStr) : new Date();
     const currentDayOfWeek = now.getDay();
     const diffToMonday = (currentDayOfWeek === 0 ? -6 : 1) - currentDayOfWeek;
     const monday = new Date(now);
     monday.setDate(now.getDate() + diffToMonday);
+
+    const friday = new Date(monday);
+    friday.setDate(monday.getDate() + 4);
+
+    const mondayStr = monday.toISOString().slice(0, 10);
+    const fridayStr = friday.toISOString().slice(0, 10);
+
+    // Parallel Stage 1: Load summary, class data, timetable slots, and weekly attendance records
+    const [summary, classData, allSlots, allWeeklyRecords] = await Promise.all([
+      this.studentRepo.getStudentAttendanceSummary(studentContext.uid),
+      studentContext.classId ? this.studentRepo.getClassById(studentContext.classId) : Promise.resolve(null),
+      studentContext.classId ? this.studentRepo.getClassTimetable(studentContext.classId) : Promise.resolve([]),
+      this.studentRepo.getAttendanceRecordsForDateRange(studentContext.uid, mondayStr, fridayStr),
+    ]);
+
+    // Subject Breakdown
+    const currentSem = classData?.currentSemester || 1;
+    const subjectBreakdown = await this.studentRepo.getSubjectAttendance(
+      studentContext.uid,
+      studentContext.departmentId,
+      currentSem
+    );
 
     const dayNames = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday'];
     const dailySchedule: StudentDayAttendance[] = [];
@@ -353,11 +351,11 @@ export class StudentService {
         (slot) => slot.day_of_week && slot.day_of_week.trim().toLowerCase() === dayOfWeek.toLowerCase()
       );
 
-      // Fetch any real attendance records for this date
-      const attendanceRecords = await this.studentRepo.getAttendanceRecordsForDate(
-        studentContext.uid,
-        dateStr
-      );
+      // Match attendance records for this date from the pre-fetched batch
+      const attendanceRecords = allWeeklyRecords.filter((rec: any) => {
+        const recDate = rec.date_str || (rec.date instanceof Date ? rec.date.toISOString().slice(0, 10) : String(rec.date).slice(0, 10));
+        return recDate === dateStr;
+      });
 
       const periodRecords: StudentPeriodAttendanceRecord[] = daySlots.map((slot, idx) => {
         const periodNum = parseInt(slot.period.replace(/\D/g, '')) || idx + 1;

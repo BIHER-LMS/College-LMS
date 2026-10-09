@@ -2,10 +2,14 @@ import { Request, Response } from 'express';
 import { FacultyService } from './faculty.service';
 import { updateProfileSchema, semesterQuerySchema, markAttendanceSchema } from './faculty.validation';
 import { firebaseAuth } from '../../config/firebase';
+import prisma from '../../config/database';
 
-// Faculty middleware currently permits development identities. Sensitive operations must
-// independently derive the UID from a Firebase Admin-verified token, never req.user.
+// Derive the UID from pre-verified middleware context (which verifies Firebase Admin ID token)
+// or fallback to verifyIdToken if called standalone.
 async function verifiedFacultyUid(req: Request): Promise<string> {
+  if (req.facultyUser?.uid) {
+    return req.facultyUser.uid;
+  }
   const match = /^Bearer (\S+)$/.exec(req.headers.authorization || '');
   if (!match) throw { status: 401, message: 'Firebase authentication required' };
   try {
@@ -17,27 +21,29 @@ async function verifiedFacultyUid(req: Request): Promise<string> {
   }
 }
 
-// Get verified UID and derive college/department from authed_users
+// Get verified UID and derive college/department from authed_users using the shared database client
 async function verifiedFacultyActor(req: Request): Promise<{ uid: string; collegeId: string; departmentId: string }> {
-  const uid = await verifiedFacultyUid(req);
-  const { PrismaClient } = await import('@prisma/client');
-  const prisma = new PrismaClient();
-  try {
-    const authedUser = await prisma.authedUser.findUnique({
-      where: { uid },
-      select: { college_id: true, department_id: true, role: true, approval_status: true }
-    });
-    if (!authedUser || !['FACULTY'].includes(authedUser.role || '') || authedUser.approval_status !== 'APPROVED') {
-      throw { status: 403, message: 'Faculty access required' };
-    }
+  if (req.facultyUser?.uid && req.facultyUser.college_id && req.facultyUser.department_id) {
     return {
-      uid,
-      collegeId: authedUser.college_id || '',
-      departmentId: authedUser.department_id || ''
+      uid: req.facultyUser.uid,
+      collegeId: req.facultyUser.college_id,
+      departmentId: req.facultyUser.department_id,
     };
-  } finally {
-    await prisma.$disconnect();
   }
+
+  const uid = await verifiedFacultyUid(req);
+  const authedUser = await prisma.authedUser.findUnique({
+    where: { uid },
+    select: { college_id: true, department_id: true, role: true, approval_status: true }
+  });
+  if (!authedUser || !['FACULTY'].includes(authedUser.role || '') || authedUser.approval_status !== 'APPROVED') {
+    throw { status: 403, message: 'Faculty access required' };
+  }
+  return {
+    uid,
+    collegeId: authedUser.college_id || '',
+    departmentId: authedUser.department_id || ''
+  };
 }
 
 export class FacultyController {

@@ -142,6 +142,122 @@ export class StudentRepository {
   }
 
   /**
+   * Optimized single-query load of full class hierarchy:
+   * class -> batch -> program -> department (with college & hod) + faculty
+   * Replaces 5+ sequential database queries with a single relation query.
+   */
+  async getClassFullHierarchy(classId: string): Promise<{
+    classData: ClassInfo | null;
+    batchData: BatchInfo | null;
+    programData: ProgramInfo | null;
+    deptData: DepartmentInfo | null;
+    classInchargeData: ClassInchargeInfo | null;
+  }> {
+    const data = await prisma.class.findUnique({
+      where: { id: classId },
+      include: {
+        batch: {
+          include: {
+            program: {
+              include: {
+                department: {
+                  include: {
+                    college: true,
+                    hod: true,
+                  },
+                },
+              },
+            },
+          },
+        },
+        faculty: true,
+      },
+    });
+
+    if (!data) {
+      return {
+        classData: null,
+        batchData: null,
+        programData: null,
+        deptData: null,
+        classInchargeData: null,
+      };
+    }
+
+    const classData: ClassInfo = {
+      id: data.id,
+      batchId: data.batch_id,
+      name: data.name,
+      currentSemester: data.current_semester || 1,
+      facultyUid: data.faculty_uid,
+      isActive: data.is_active ?? true,
+    };
+
+    const batch = data.batch;
+    const batchData: BatchInfo | null = batch ? {
+      id: batch.id,
+      programId: batch.program_id,
+      startYear: batch.start_year,
+      endYear: batch.end_year,
+      name: `${batch.start_year} - ${batch.end_year}`,
+      isActive: batch.is_active ?? true,
+    } : null;
+
+    const program = batch?.program;
+    const programData: ProgramInfo | null = program ? {
+      id: program.id,
+      departmentId: program.department_id,
+      name: program.name,
+      type: program.type,
+      durationYears: program.duration_years,
+      isActive: program.is_active ?? true,
+    } : null;
+
+    const dept = program?.department;
+    const deptData: DepartmentInfo | null = dept ? {
+      id: dept.id,
+      collegeId: dept.college_id,
+      name: dept.name,
+      code: dept.code,
+      hodUid: dept.hod_uid,
+      collegeName: dept.college?.name || 'Aura Academia College of Technology',
+      isActive: dept.is_active ?? true,
+      hod: dept.hod ? {
+        uid: dept.hod.uid,
+        displayName: dept.hod.display_name,
+        email: dept.hod.email,
+        photoURL: dept.hod.photo_url,
+      } : null,
+    } : null;
+
+    let classInchargeData: ClassInchargeInfo | null = null;
+    if (data.faculty) {
+      const userRecord = await prisma.user.findUnique({
+        where: { firebaseUid: data.faculty.uid },
+        include: { profile: true },
+      });
+      const profile = userRecord?.profile;
+      classInchargeData = {
+        facultyUid: data.faculty.uid,
+        name: data.faculty.display_name || 'Faculty Incharge',
+        email: data.faculty.email,
+        phone: profile?.phone || userRecord?.phone || null,
+        photoUrl: profile?.profilePhotoUrl || data.faculty.photo_url || null,
+        designation: profile?.designation || 'Class Incharge / Assistant Professor',
+        department: profile?.department || dept?.name || 'Department Faculty',
+      };
+    }
+
+    return {
+      classData,
+      batchData,
+      programData,
+      deptData,
+      classInchargeData,
+    };
+  }
+
+  /**
    * Fetch Batch by batchId
    */
   async getBatchById(batchId: string): Promise<BatchInfo | null> {
@@ -545,7 +661,7 @@ export class StudentRepository {
   async getAttendanceRecordsForDate(studentUid: string, dateStr: string): Promise<any[]> {
     try {
       const records: any = await prisma.$queryRawUnsafe(
-        `SELECT 
+        `SELECT
            s.id as session_id,
            s.period,
            s.remarks as session_remarks,
@@ -568,6 +684,42 @@ export class StudentRepository {
       return records || [];
     } catch (err: any) {
       console.error('StudentRepository.getAttendanceRecordsForDate error:', err);
+      return [];
+    }
+  }
+
+  /**
+   * Batch get attendance records for a date range (e.g. 5-day week).
+   * Replaces looping 5 separate round trips with 1 single query.
+   */
+  async getAttendanceRecordsForDateRange(studentUid: string, startDateStr: string, endDateStr: string): Promise<any[]> {
+    try {
+      const records: any = await prisma.$queryRawUnsafe(
+        `SELECT
+           s.id as session_id,
+           s.period,
+           s.remarks as session_remarks,
+           to_char(s.date, 'YYYY-MM-DD') as date_str,
+           s.date,
+           sub.id as subject_id,
+           sub.name as subject_name,
+           sub.code as subject_code,
+           f.display_name as faculty_name,
+           ar.status,
+           ar.remarks as student_remarks,
+           ar.created_at as marked_at
+         FROM attendance_records ar
+         JOIN attendance_sessions s ON ar.attendance_session_id = s.id
+         LEFT JOIN subjects sub ON s.subject_id = sub.id
+         LEFT JOIN authed_users f ON s.faculty_uid = f.uid
+         WHERE ar.student_uid = $1 AND s.date >= $2::date AND s.date <= $3::date;`,
+        studentUid,
+        startDateStr,
+        endDateStr
+      );
+      return records || [];
+    } catch (err: any) {
+      console.error('StudentRepository.getAttendanceRecordsForDateRange error:', err);
       return [];
     }
   }
