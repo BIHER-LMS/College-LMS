@@ -7,11 +7,12 @@ export class FacultyService {
   // A department ID supplied in a query/body is not an authorization scope.
   // Callers must pass the HOD context produced by authenticated middleware.
   private async scopedDepartment(hod?: HODContext) {
-    if (!hod?.uid || hod.role !== 'HOD' || !hod.departmentId || !hod.collegeId) {
+    const userRole = hod?.role?.toUpperCase();
+    if (!hod?.uid || !['HOD', 'ADMIN', 'COLLEGE_ADMIN'].includes(userRole || '') || !hod.departmentId || !hod.collegeId) {
       throw new ForbiddenError('Verified HOD department context is required');
     }
     const department = await prisma.department.findFirst({
-      where: { id: hod.departmentId, college_id: hod.collegeId, is_active: true },
+      where: { id: hod.departmentId, college_id: hod.collegeId, NOT: { is_active: false } },
     });
     if (!department) throw new ForbiddenError('No valid department is assigned to this account');
     return department;

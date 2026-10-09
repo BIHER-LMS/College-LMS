@@ -13,7 +13,7 @@ export const FacultyPage: React.FC = () => {
   
   const [activeTab, setActiveTab] = useState<'ACTIVE' | 'PENDING'>('ACTIVE');
   const [pendingFaculty, setPendingFaculty] = useState<any[]>([]);
-  const [, setPendingLoading] = useState(false);
+  const [pendingLoading, setPendingLoading] = useState(false);
   const [selectedPending, setSelectedPending] = useState<any | null>(null);
   
   const [selectedFaculty, setSelectedFaculty] = useState<any | null>(null);
@@ -291,7 +291,11 @@ export const FacultyPage: React.FC = () => {
 
       {activeTab === 'PENDING' && (
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
-          {pendingFaculty.length === 0 ? (
+          {pendingLoading && pendingFaculty.length === 0 ? (
+            <div className="col-span-full flex h-48 items-center justify-center">
+              <div className="h-8 w-8 animate-spin border-4 border-[#0b1c30] border-t-transparent"></div>
+            </div>
+          ) : pendingFaculty.length === 0 ? (
             <div className="col-span-full border border-dashed border-[#c5c6cd]/40 bg-white p-12 text-center text-xs text-gray-500">
               No pending faculty applications.
             </div>

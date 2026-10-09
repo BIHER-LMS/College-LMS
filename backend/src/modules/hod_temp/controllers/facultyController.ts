@@ -9,7 +9,7 @@ export class FacultyController {
       const limit = req.query.limit ? parseInt(req.query.limit as string, 10) : undefined;
       const search = req.query.search as string | undefined;
 
-      const { data, pagination } = await facultyService.getFacultyList({ page, limit, search });
+      const { data, pagination } = await facultyService.getFacultyList({ page, limit, search }, (req as any).hod);
 
       // If page or limit was specifically requested, return paginated structure
       if (req.query.page || req.query.limit) {
@@ -23,7 +23,7 @@ export class FacultyController {
 
   async getFacultyById(req: Request, res: Response, next: NextFunction) {
     try {
-      const data = await facultyService.getFacultyById(req.params.id);
+      const data = await facultyService.getFacultyById(req.params.id, (req as any).hod);
       return sendSuccess(res, data);
     } catch (err) {
       return next(err);
@@ -56,13 +56,14 @@ export class FacultyController {
       return next(err);
     }
   }
+
   async getPendingApplications(req: Request, res: Response, next: NextFunction) {
     try {
       const departmentId = (req as any).hod?.departmentId || (req as any).user?.departmentId;
       if (!departmentId) {
         return sendSuccess(res, []);
       }
-      const data = await facultyService.getPendingApplications(departmentId);
+      const data = await facultyService.getPendingApplications(departmentId, (req as any).hod);
       return sendSuccess(res, data);
     } catch (err) {
       return next(err);
@@ -71,7 +72,7 @@ export class FacultyController {
 
   async approveApplication(req: Request, res: Response, next: NextFunction) {
     try {
-      const data = await facultyService.approveApplication(req.params.id, req.body);
+      const data = await facultyService.approveApplication(req.params.id, req.body, (req as any).hod);
       return sendSuccess(res, data, 200, 'Application processed successfully');
     } catch (err) {
       return next(err);
