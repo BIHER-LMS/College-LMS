@@ -4,3 +4,4 @@ export * from './toolRegistry';
 export * from './hodAi.service';
 export * from './hodAi.controller';
 export { default as hodAiRoutes } from './hodAi.routes';
+export * from '../services/hodAnalyticsToolService';
