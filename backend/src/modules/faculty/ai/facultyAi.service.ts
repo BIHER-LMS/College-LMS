@@ -273,6 +273,22 @@ export class FacultyAiOrchestratorService {
       };
     }
 
+    // 19. Knowledge Context / Excerpt Intent
+    if (
+      lower.includes('context for') ||
+      lower.includes('excerpt for') ||
+      lower.includes('citations for') ||
+      lower.includes('official text on')
+    ) {
+      const topic = message
+        .replace(/^(?:get|show|retrieve)?\s*(?:the\s+)?(?:context|excerpt|citations?|official text)\s+(?:for|on|about)\s+/i, '')
+        .trim();
+      return {
+        toolName: 'faculty.getKnowledgeContext',
+        args: { topic: topic || 'Academic Regulations' },
+      };
+    }
+
     // 18. Policy / Regulation / Knowledge Intent
     if (
       lower.includes('policy') ||
