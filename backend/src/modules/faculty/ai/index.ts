@@ -6,6 +6,11 @@ export {
   FacultyToolRegistry,
   FACULTY_TOOL_METADATA,
 } from './toolRegistry';
+export {
+  facultyBackendToolService,
+  FacultyBackendToolService,
+  registerFacultyToolHandlers,
+} from '../services/facultyBackendToolService';
 
 export {
   FACULTY_TOOL_NAMES,
