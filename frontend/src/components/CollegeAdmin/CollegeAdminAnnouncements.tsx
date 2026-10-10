@@ -91,6 +91,9 @@ export const CollegeAdminAnnouncements: React.FC<CollegeAdminAnnouncementsProps>
   };
 
   useEffect(() => {
+    try {
+      localStorage.removeItem('college_lms_announcements_cache');
+    } catch {}
     loadAnnouncements();
   }, [collegeId]);
 
@@ -160,10 +163,9 @@ export const CollegeAdminAnnouncements: React.FC<CollegeAdminAnnouncementsProps>
     try {
       const url = await announcementService.uploadImage(file);
       setFormData((prev) => ({ ...prev, image_url: url }));
-    } catch (_err: any) {
-      // Local object URL fallback for preview if backend storage is offline
-      const localUrl = URL.createObjectURL(file);
-      setFormData((prev) => ({ ...prev, image_url: localUrl }));
+    } catch (err: any) {
+      console.error('Failed to upload image to Cloudinary:', err);
+      setFormError(err.message || 'Failed to upload image to Cloudinary. Please try again.');
     } finally {
       setImageUploadLoading(false);
     }

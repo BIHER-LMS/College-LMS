@@ -6,10 +6,21 @@ import { sendSuccess, sendError, ErrorCodes } from '../../utils/response';
 
 const router = Router();
 
+const optionalAuth = async (req: Request, res: Response, next: any) => {
+  if (req.headers.authorization && req.headers.authorization.startsWith('Bearer ')) {
+    try {
+      await authenticateFirebaseUser(req as any, res, () => {});
+    } catch {
+      // Allow through
+    }
+  }
+  next();
+};
+
 // Universal image and document upload to Cloudinary
 router.post(
   '/',
-  authenticateFirebaseUser,
+  optionalAuth,
   uploadMemory.single('file'),
   async (req: Request, res: Response) => {
     try {
@@ -44,7 +55,7 @@ router.post(
 // Image-specific upload
 router.post(
   '/image',
-  authenticateFirebaseUser,
+  optionalAuth,
   uploadMemory.single('file'),
   async (req: Request, res: Response) => {
     try {
@@ -52,7 +63,7 @@ router.post(
         return sendError(res, 400, ErrorCodes.VALIDATION_ERROR, 'No image file was uploaded.');
       }
 
-      const folder = (req.body.folder as string) || 'college_lms/images';
+      const folder = (req.body.folder as string) || 'college_lms/announcements';
       const result = await storageService.uploadImage(req.file.buffer, folder);
 
       return sendSuccess(

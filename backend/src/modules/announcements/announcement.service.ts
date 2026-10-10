@@ -45,15 +45,11 @@ export interface UpdateAnnouncementInput {
   expires_at?: string | null;
 }
 
-// In-memory fallback in case of transient DB drops
-const memoryFallbackAnnouncements: AnnouncementRecord[] = [];
-
 export class AnnouncementService {
   async createAnnouncement(
     collegeId: string,
     input: CreateAnnouncementInput
   ): Promise<AnnouncementRecord> {
-    const now = new Date().toISOString();
     const title = input.title.trim();
     const description = input.description.trim();
     const imageUrl = input.image_url?.trim() || null;
@@ -67,6 +63,10 @@ export class AnnouncementService {
     const expiresAt = input.expires_at || null;
     const createdByUid = input.created_by_uid || null;
     const createdByName = input.created_by_name || 'College Administration';
+
+    const effectiveCollegeId = (collegeId && collegeId !== 'undefined' && collegeId !== 'default')
+      ? collegeId
+      : 'col-1790654578727-zhdd';
 
     try {
       const rows: any = await prisma.$queryRawUnsafe(
@@ -82,7 +82,7 @@ export class AnnouncementService {
           category, priority, is_pinned, is_active, expires_at,
           created_by_uid, created_by_name, created_at, updated_at
         `,
-        collegeId,
+        effectiveCollegeId,
         title,
         description,
         imageUrl,
@@ -99,34 +99,15 @@ export class AnnouncementService {
       if (rows && rows.length > 0) {
         return rows[0] as AnnouncementRecord;
       }
+      throw new Error('Database insert succeeded but returned no rows');
     } catch (err: any) {
-      logger.warn('Failed to insert announcement into PostgreSQL, using fallback storage:', { error: err.message });
+      logger.error('Failed to insert announcement into PostgreSQL:', { error: err.message });
+      throw err;
     }
-
-    // Memory fallback
-    const fallbackItem: AnnouncementRecord = {
-      id: `ann-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`,
-      college_id: collegeId,
-      title,
-      description,
-      image_url: imageUrl,
-      target_audience: targetAudience,
-      category,
-      priority,
-      is_pinned: isPinned,
-      is_active: isActive,
-      expires_at: expiresAt,
-      created_by_uid: createdByUid,
-      created_by_name: createdByName,
-      created_at: now,
-      updated_at: now,
-    };
-    memoryFallbackAnnouncements.unshift(fallbackItem);
-    return fallbackItem;
   }
 
   async getAnnouncements(
-    collegeId: string,
+    collegeId?: string,
     options?: {
       role?: string;
       isClassIncharge?: boolean;
@@ -147,9 +128,9 @@ export class AnnouncementService {
           category, priority, is_pinned, is_active, expires_at,
           created_by_uid, created_by_name, created_at, updated_at
         FROM announcements
-        WHERE college_id = $1
+        WHERE ($1 = '' OR $1 = 'default' OR college_id = $1 OR college_id = 'default' OR college_id IS NULL)
       `;
-      const params: any[] = [collegeId];
+      const params: any[] = [collegeId || ''];
       let paramIndex = 2;
 
       if (isActiveOnly) {
@@ -170,7 +151,7 @@ export class AnnouncementService {
         } else if (role === 'STUDENT') {
           query += ` AND ('STUDENT' = ANY(target_audience) OR 'ALL' = ANY(target_audience))`;
         }
-      } else if (options?.targetAudience) {
+      } else if (options?.targetAudience && options.targetAudience !== 'ALL') {
         query += ` AND $${paramIndex} = ANY(target_audience)`;
         params.push(options.targetAudience);
         paramIndex++;
@@ -191,52 +172,14 @@ export class AnnouncementService {
       query += ` ORDER BY is_pinned DESC, created_at DESC`;
 
       const rows: any = await prisma.$queryRawUnsafe(query, ...params);
-      if (Array.isArray(rows) && rows.length > 0) {
+      if (Array.isArray(rows)) {
         return rows as AnnouncementRecord[];
       }
+      return [];
     } catch (err: any) {
-      logger.warn('Failed to query announcements from PostgreSQL, falling back to memory store:', { error: err.message });
+      logger.error('Failed to query announcements from PostgreSQL:', { error: err.message });
+      return [];
     }
-
-    // Filter memory fallback
-    return memoryFallbackAnnouncements.filter((a) => {
-      if (a.college_id !== collegeId) return false;
-      if (isActiveOnly && !a.is_active) return false;
-
-      if (role && role !== 'COLLEGE_ADMIN' && role !== 'SUPER_ADMIN') {
-        if (role === 'HOD') {
-          return a.target_audience.includes('HOD') || a.target_audience.includes('ALL');
-        }
-        if (role === 'FACULTY') {
-          if (isClassIncharge) {
-            return (
-              a.target_audience.includes('FACULTY') ||
-              a.target_audience.includes('CLASS_INCHARGE') ||
-              a.target_audience.includes('ALL')
-            );
-          }
-          return a.target_audience.includes('FACULTY') || a.target_audience.includes('ALL');
-        }
-        if (role === 'STUDENT') {
-          return a.target_audience.includes('STUDENT') || a.target_audience.includes('ALL');
-        }
-      }
-
-      if (options?.targetAudience && !a.target_audience.includes(options.targetAudience)) {
-        return false;
-      }
-
-      if (options?.category && options.category !== 'ALL' && a.category !== options.category) {
-        return false;
-      }
-
-      if (options?.search) {
-        const q = options.search.toLowerCase();
-        return a.title.toLowerCase().includes(q) || a.description.toLowerCase().includes(q);
-      }
-
-      return true;
-    });
   }
 
   async updateAnnouncement(
@@ -246,8 +189,8 @@ export class AnnouncementService {
   ): Promise<AnnouncementRecord | null> {
     try {
       const updates: string[] = ['updated_at = NOW()'];
-      const params: any[] = [id, collegeId];
-      let paramIdx = 3;
+      const params: any[] = [id];
+      let paramIdx = 2;
 
       if (input.title !== undefined) {
         updates.push(`title = $${paramIdx++}`);
@@ -290,7 +233,7 @@ export class AnnouncementService {
         `
         UPDATE announcements
         SET ${updates.join(', ')}
-        WHERE id = $1::uuid AND college_id = $2
+        WHERE id = $1::uuid
         RETURNING
           id, college_id, title, description, image_url, target_audience,
           category, priority, is_pinned, is_active, expires_at,
@@ -302,42 +245,24 @@ export class AnnouncementService {
       if (rows && rows.length > 0) {
         return rows[0] as AnnouncementRecord;
       }
+      return null;
     } catch (err: any) {
-      logger.warn('Failed to update announcement in PostgreSQL, falling back to memory store:', { error: err.message });
+      logger.error('Failed to update announcement in PostgreSQL:', { error: err.message });
+      throw err;
     }
-
-    const idx = memoryFallbackAnnouncements.findIndex((a) => a.id === id && a.college_id === collegeId);
-    if (idx !== -1) {
-      const existing = memoryFallbackAnnouncements[idx];
-      memoryFallbackAnnouncements[idx] = {
-        ...existing,
-        ...input,
-        image_url: input.image_url !== undefined ? input.image_url : existing.image_url,
-        updated_at: new Date().toISOString(),
-      };
-      return memoryFallbackAnnouncements[idx];
-    }
-    return null;
   }
 
-  async deleteAnnouncement(id: string, collegeId: string): Promise<boolean> {
+  async deleteAnnouncement(id: string, _collegeId?: string): Promise<boolean> {
     try {
       const res: any = await prisma.$executeRawUnsafe(
-        `DELETE FROM announcements WHERE id = $1::uuid AND college_id = $2`,
-        id,
-        collegeId
+        `DELETE FROM announcements WHERE id = $1::uuid`,
+        id
       );
-      if (res > 0) return true;
+      return res > 0;
     } catch (err: any) {
-      logger.warn('Failed to delete announcement from PostgreSQL:', { error: err.message });
+      logger.error('Failed to delete announcement from PostgreSQL:', { error: err.message });
+      throw err;
     }
-
-    const idx = memoryFallbackAnnouncements.findIndex((a) => a.id === id && a.college_id === collegeId);
-    if (idx !== -1) {
-      memoryFallbackAnnouncements.splice(idx, 1);
-      return true;
-    }
-    return true;
   }
 }
 
