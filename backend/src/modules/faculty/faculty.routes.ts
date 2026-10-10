@@ -3,6 +3,8 @@ import { FacultyRepository } from './faculty.repository';
 import { FacultyService } from './faculty.service';
 import { FacultyController } from './faculty.controller';
 import { facultyAuthMiddleware, requireFaculty } from './faculty.middleware';
+import { validate } from '../../middleware/validation.middleware';
+import { facultyAiRoutes, facultyAiController, facultyChatRequestSchema } from './ai';
 
 const router = Router();
 
@@ -15,6 +17,10 @@ router.use(facultyAuthMiddleware);
 
 // Enforce role = FACULTY / authorized academic staff on all faculty routes
 router.use(requireFaculty);
+
+// Faculty AI Orchestrator & Tool Endpoints
+router.post('/chat', validate(facultyChatRequestSchema), facultyAiController.chat);
+router.use('/ai', facultyAiRoutes);
 
 // Dashboard & Search
 router.get('/dashboard', controller.getDashboard);
