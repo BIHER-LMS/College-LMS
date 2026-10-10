@@ -11,6 +11,11 @@ export {
   FacultyBackendToolService,
   registerFacultyToolHandlers,
 } from '../services/facultyBackendToolService';
+export {
+  facultyKnowledgeService,
+  FacultyKnowledgeService,
+  registerFacultyRagHandlers,
+} from '../services/facultyKnowledgeService';
 
 export {
   FACULTY_TOOL_NAMES,
