@@ -15,13 +15,16 @@ import {
   LogOut,
   ShieldCheck,
   Edit3,
+  Sparkles,
 } from 'lucide-react';
 import { useFaculty } from '../modules/faculty/hooks/useFaculty';
 import { FacultySearchBar } from '../modules/faculty/components/FacultySearchBar';
+import { FacultyChatDrawer } from '../modules/faculty/components/FacultyChat/FacultyChatDrawer';
 import { auth } from '../config/firebase';
 
 export const FacultyLayout: React.FC = () => {
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [chatDrawerOpen, setChatDrawerOpen] = useState(false);
   const location = useLocation();
   const { dashboard, classes, loadDashboard, loadClasses } = useFaculty();
   const navigate = useNavigate();
@@ -48,6 +51,7 @@ export const FacultyLayout: React.FC = () => {
     { label: 'Assignments', path: '/faculty/assignments', icon: Edit3 },
     { label: 'Attendance', path: '/faculty/attendance', icon: ClipboardCheck },
     ...(isClassIncharge ? [{ label: 'Time Table', path: '/faculty/timetable', icon: Calendar }] : []),
+    { label: 'AI Assistant', path: '/faculty/chat', icon: Sparkles },
     { label: 'My Profile', path: '/faculty/profile', icon: User },
     { label: 'Department Overview', path: '/faculty/department', icon: Building2 },
     { label: 'Academic Calendar', path: '/faculty/academic', icon: Calendar },
@@ -279,6 +283,29 @@ export const FacultyLayout: React.FC = () => {
           <Outlet />
         </main>
       </div>
+
+      {/* Floating AI Assistant Trigger Button (when not on /faculty/chat) */}
+      {!location.pathname.startsWith('/faculty/chat') && (
+        <button
+          onClick={() => setChatDrawerOpen(true)}
+          className="fixed bottom-6 right-6 z-40 flex items-center gap-2.5 px-4 py-3 bg-gradient-to-r from-indigo-600 via-indigo-700 to-purple-600 text-white rounded-full shadow-lg hover:shadow-xl hover:scale-105 active:scale-95 transition-all duration-200 border border-indigo-400/30 group"
+          title="Open AI Assistant"
+          aria-label="Open AI Assistant"
+        >
+          <div className="relative">
+            <Sparkles className="w-5 h-5 text-amber-300 animate-pulse" />
+            <span className="absolute -top-1 -right-1 w-2 h-2 rounded-full bg-emerald-400" />
+          </div>
+          <span className="text-xs font-bold tracking-wide">AI Assistant</span>
+        </button>
+      )}
+
+      {/* Slide-over Global Chat Drawer */}
+      <FacultyChatDrawer
+        isOpen={chatDrawerOpen}
+        onClose={() => setChatDrawerOpen(false)}
+        facultyName={faculty?.name}
+      />
     </div>
   );
 };

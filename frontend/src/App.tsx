@@ -35,6 +35,7 @@ import { FacultyAssignmentsPage } from './modules/faculty/pages/FacultyAssignmen
 import { FacultyAcademicYearsPage } from './modules/faculty/pages/FacultyAcademicYearsPage';
 import { FacultySemestersPage } from './modules/faculty/pages/FacultySemestersPage';
 import { FacultyProfilePage } from './modules/faculty/pages/FacultyProfilePage';
+import { FacultyChatPage } from './modules/faculty/pages/FacultyChatPage';
 
 // HOD Module imports
 import { HodLayout } from './layouts/HodLayout';
@@ -124,6 +125,7 @@ function App() {
             {/* Integrated Faculty Portal Module Routes */}
             <Route path="/faculty" element={<FacultyLayout />}>
               <Route index element={<FacultyDashboard />} />
+              <Route path="chat" element={<FacultyChatPage />} />
               <Route path="reminders" element={<FacultyRemindersPage />} />
               <Route path="classes" element={<FacultyClassesPage />} />
               <Route path="classes/:classId" element={<FacultyClassDetailsPage />} />
