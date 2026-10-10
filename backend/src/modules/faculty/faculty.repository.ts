@@ -1,5 +1,6 @@
 import prisma from '../../config/database';
 import { isDatabaseAvailable, markDatabaseUnavailable } from '../../lib/dbHealth';
+import { leaveService } from '../leaves/leave.service';
 import {
   FacultyProfileUpdateInput,
   MarkAttendanceSessionInput,
@@ -1206,6 +1207,9 @@ export class FacultyRepository {
       }
     }
 
+    const leavesMap = await leaveService.getLeavesMapForClassDate(classId, date);
+    const isClassIncharge = cls?.faculty_uid === facultyUid;
+
     return {
       id: sessionMeta?.id,
       classId,
@@ -1216,15 +1220,28 @@ export class FacultyRepository {
       date,
       period,
       remarks: sessionMeta?.remarks || null,
+      isClassIncharge,
       records: students.map((s) => {
         const recorded = recordedMap.get(s.uid);
+        const studentLeave = leavesMap.get(s.uid) || null;
+        let defaultStatus: AttendanceStatusType = 'PRESENT';
+        if (!recorded && studentLeave) {
+          if (studentLeave.status === 'APPROVED') {
+            defaultStatus = 'EXCUSED';
+          }
+        }
         return {
           studentUid: s.uid,
           displayName: s.display_name || s.email,
           registerNumber: s.register_number,
           photoUrl: s.photo_url,
-          status: recorded ? recorded.status : 'PRESENT',
-          remarks: recorded ? recorded.remarks : null,
+          status: recorded ? recorded.status : defaultStatus,
+          remarks: recorded
+            ? recorded.remarks
+            : studentLeave
+            ? `${studentLeave.status === 'APPROVED' ? 'Approved Leave' : 'Pending Leave'}: ${studentLeave.explanation}`
+            : null,
+          leave: studentLeave,
         };
       }),
     };

@@ -210,6 +210,16 @@ export interface FacultySearchResults {
 
 export type AttendanceStatusType = 'PRESENT' | 'ABSENT' | 'LATE' | 'EXCUSED';
 
+export interface StudentLeaveInfo {
+  id: string;
+  reasonCategory: string;
+  explanation: string;
+  status: 'PENDING' | 'APPROVED' | 'REJECTED';
+  fromDate: string;
+  toDate: string;
+  reviewedByName?: string | null;
+}
+
 export interface StudentAttendanceRecord {
   studentUid: string;
   displayName: string;
@@ -217,6 +227,7 @@ export interface StudentAttendanceRecord {
   photoUrl: string | null;
   status: AttendanceStatusType;
   remarks?: string | null;
+  leave?: StudentLeaveInfo | null;
 }
 
 export interface AttendanceSessionDetail {
@@ -229,6 +240,7 @@ export interface AttendanceSessionDetail {
   date: string;
   period: string;
   remarks?: string | null;
+  isClassIncharge?: boolean;
   records: StudentAttendanceRecord[];
 }
 

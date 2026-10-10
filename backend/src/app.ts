@@ -87,10 +87,12 @@ app.use('/api/audit', auditRoutes);
 app.use('/api/student', studentRoutes);
 import hodRoutes from './modules/hod_temp/routes/index';
 import announcementRoutes from './modules/announcements/announcement.routes';
+import leaveRoutes from './modules/leaves/leave.routes';
 app.use('/api', hodRoutes);
 app.use('/api', secureDataRoutes);
 app.use('/api/upload', uploadRoutes);
 app.use('/api/announcements', announcementRoutes);
+app.use('/api/leaves', leaveRoutes);
 
 // ─── Error Handling ──────────────────────────────────
 app.use(notFoundHandler);

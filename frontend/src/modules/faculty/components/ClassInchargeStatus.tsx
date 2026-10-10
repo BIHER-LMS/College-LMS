@@ -62,13 +62,21 @@ export const ClassInchargeStatus: React.FC<ClassInchargeStatusProps> = ({ classI
             </div>
           </div>
 
-          <Link
-            to={`/faculty/classes/${cls.id}`}
-            className="inline-flex items-center justify-center gap-1.5 px-3 py-1.5 rounded bg-blue-600 hover:bg-blue-700 text-white text-xs font-semibold shadow-2xs transition-colors shrink-0"
-          >
-            <span>Manage Assigned Class</span>
-            <ArrowRight className="w-3.5 h-3.5" />
-          </Link>
+          <div className="flex items-center gap-2 flex-wrap sm:flex-nowrap">
+            <Link
+              to={`/faculty/attendance?tab=leaves&classId=${cls.id}`}
+              className="inline-flex items-center justify-center gap-1.5 px-3 py-1.5 rounded bg-emerald-50 hover:bg-emerald-100 text-emerald-800 border border-emerald-300 text-xs font-semibold shadow-2xs transition-colors shrink-0"
+            >
+              <span>Review Leave Applications</span>
+            </Link>
+            <Link
+              to={`/faculty/classes/${cls.id}`}
+              className="inline-flex items-center justify-center gap-1.5 px-3 py-1.5 rounded bg-blue-600 hover:bg-blue-700 text-white text-xs font-semibold shadow-2xs transition-colors shrink-0"
+            >
+              <span>Manage Assigned Class</span>
+              <ArrowRight className="w-3.5 h-3.5" />
+            </Link>
+          </div>
         </div>
       ) : (
         <div className="bg-slate-50 border border-slate-200 rounded-lg p-3 text-xs text-slate-600">
