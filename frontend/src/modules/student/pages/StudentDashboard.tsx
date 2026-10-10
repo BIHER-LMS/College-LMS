@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { useStudent } from '../hooks/useStudent';
 import { StudentAcademicSummary } from '../components/StudentAcademicSummary';
 import { LoadingSkeleton, ErrorState } from '../components/LoadingSkeleton';
+import { DashboardAnnouncements } from '../../../components/Announcements/DashboardAnnouncements';
 
 export const StudentDashboard: React.FC = () => {
   const navigate = useNavigate();
@@ -99,6 +100,9 @@ export const StudentDashboard: React.FC = () => {
         subjects={subjects}
         academicYear={academicYear || null}
       />
+
+      {/* ─── Official College & Campus Announcements ─── */}
+      <DashboardAnnouncements role="STUDENT" />
 
       {/* ─── Academic Calendar & Session Section (Matching Screenshot) ─── */}
       <div className="bg-white border border-slate-200 rounded-lg p-6 shadow-xs">

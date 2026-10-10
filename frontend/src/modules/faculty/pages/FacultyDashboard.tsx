@@ -14,6 +14,7 @@ import {
   Clock,
 } from 'lucide-react';
 import { Link } from 'react-router-dom';
+import { DashboardAnnouncements } from '../../../components/Announcements/DashboardAnnouncements';
 
 export const FacultyDashboard: React.FC = () => {
   const { dashboard, profile, loading, loadDashboard, loadProfile } = useFaculty();
@@ -62,6 +63,9 @@ export const FacultyDashboard: React.FC = () => {
 
       {/* Top 4 Metric KPI Cards */}
       <FacultyStats dashboard={dashboard} loading={loading.dashboard} />
+
+      {/* Official Campus & Administrative Announcements */}
+      <DashboardAnnouncements role="FACULTY" isClassIncharge={isClassIncharge} />
 
       {/* Daily Reminders & Action Items Section */}
       <TodayRemindersSection />

@@ -10,6 +10,7 @@ import {
 } from 'lucide-react';
 import { CollegeDepartments, CollegePrograms, CollegeBatches, CollegeClasses, CollegeSubjects, ManageHods, ManageFaculty, ManageStudents, CollegeProfile } from '../components/CollegeAdmin';
 import { TimetableModule, AttendanceModule, PerformanceModule, ExaminationsModule } from '../components/CollegeAdmin/Modules';
+import { CollegeAdminAnnouncements } from '../components/CollegeAdmin/CollegeAdminAnnouncements';
 import { fetchCollegeStats } from '../services/collegeService';
 import { getCollegeProfile } from '../services/api/collegeProfile';
 import type { CollegeRecord } from '../services/collegeService';
@@ -145,6 +146,8 @@ export default function CollegeAdmin() {
       case 'perf-departments':
       case 'perf-reports':
         return <PerformanceModule />;
+      case 'announcements':
+        return <CollegeAdminAnnouncements collegeId={currentUser.college_id} adminUser={currentUser} />;
       default:
         return (
           <div className="flex items-center justify-center h-[60vh]">

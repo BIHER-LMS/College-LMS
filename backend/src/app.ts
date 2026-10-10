@@ -86,9 +86,11 @@ app.use('/api/roles', roleRoutes);
 app.use('/api/audit', auditRoutes);
 app.use('/api/student', studentRoutes);
 import hodRoutes from './modules/hod_temp/routes/index';
+import announcementRoutes from './modules/announcements/announcement.routes';
 app.use('/api', hodRoutes);
 app.use('/api', secureDataRoutes);
 app.use('/api/upload', uploadRoutes);
+app.use('/api/announcements', announcementRoutes);
 
 // ─── Error Handling ──────────────────────────────────
 app.use(notFoundHandler);

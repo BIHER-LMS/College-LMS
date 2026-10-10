@@ -2,8 +2,8 @@ import React, { useEffect } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
 import { fetchHODDashboard, fetchAttendanceSummary, fetchFaculty } from "../store/slices/hodSlice";
 ;
-;
-import type { RootState, AppDispatch } from "../store/store";;
+import type { RootState, AppDispatch } from "../store/store";
+import { DashboardAnnouncements } from '../../../components/Announcements/DashboardAnnouncements';
 
 export const HODDashboard: React.FC = () => {
   const dispatch = useDispatch<AppDispatch>();
@@ -147,6 +147,9 @@ export const HODDashboard: React.FC = () => {
           </div>
         </div>
       </div>
+
+      {/* SECTION 2.5: CAMPUS & ADMINISTRATIVE ANNOUNCEMENTS */}
+      <DashboardAnnouncements role="HOD" />
 
       {/* SECTION 3: RESPONSIVE FACULTY TABLE CONTAINER */}
       <div className="border border-[#c5c6cd]/30 bg-white flex flex-col">
