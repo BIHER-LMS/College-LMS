@@ -33,6 +33,22 @@ vi.mock('../src/config/env', () => ({
 // ─── Mock Prisma Client ──────────────────────────────
 vi.mock('../src/config/database', () => {
   const mockPrisma = {
+    authedUser: {
+      findUnique: vi.fn(),
+      findMany: vi.fn(),
+      findFirst: vi.fn(),
+      create: vi.fn(),
+      update: vi.fn(),
+      count: vi.fn(),
+    },
+    department: {
+      findUnique: vi.fn(),
+      findMany: vi.fn(),
+      findFirst: vi.fn(),
+      create: vi.fn(),
+      update: vi.fn(),
+      count: vi.fn(),
+    },
     user: {
       findUnique: vi.fn(),
       findMany: vi.fn(),
