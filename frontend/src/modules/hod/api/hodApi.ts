@@ -1,5 +1,6 @@
 import type { DashboardData, Department, Faculty, Program, Batch, ClassItem, Student, Subject, AcademicYear, Semester, HODProfile, AttendanceSummary, CurriculumItem, AnnouncementItem, StudentAcademicAlert } from "../types/hod.types";
 import { auth } from '../../../config/firebase';
+import { hodAiApi } from './hodAiApi';
 
 const API_BASE_URL = (import.meta as any).env?.VITE_API_URL || '/api';
 
@@ -247,4 +248,15 @@ export const hodApi = {
   getAcademicAlerts: async (): Promise<StudentAcademicAlert[]> => {
     return request<StudentAcademicAlert[]>('/hod/academic-alerts');
   },
+
+  // 8. AI Chatbot & RAG Integration (Step 4 - Faisal)
+  ai: {
+    sendMessage: (payload: import('../types/hodAi.types').HodChatRequest) =>
+      hodAiApi.sendMessage(payload),
+    getTools: () => hodAiApi.getTools(),
+    executeTool: (toolName: import('../types/hodAi.types').HodToolName, args?: Record<string, any>) =>
+      hodAiApi.executeTool(toolName, args),
+  },
 };
+
+export { hodAiApi };
