@@ -77,3 +77,18 @@
   - Added a transactional database update in `createDepartment` (`backend/src/modules/college-admin/collegeAdmin.service.ts`) to sync both tables.
   - Rewrote `assignDepartment` in `ManageHods.tsx` to explicitly clear the previous department's `hod_uid`, assign the new department's `hod_uid`, and update `authed_users`.
   - Updated `HodRoute` (`App.tsx`) to directly query Supabase for the latest `department_id` and refresh `localStorage` automatically, unblocking the HOD without requiring a manual re-login.
+
+### 9. Elimination of Fake/Hallucinated AI Data in Faculty AI Module
+- **Context**: The Faculty AI chatbot was hallucinating dummy/fake student records (e.g., "Aarav Sharma", "Bhavna Patel", "Chetan Verma") when queried with "list my class students" for the active Faculty Class Incharge user ("Amirtha Varsshan", class "B.Sc AI & ML - Year III (Sec A)").
+- **Root Cause**:
+  1. In `facultyAi.service.ts`, `detectToolIntent` regex matched the generic word `"students"` from `"list my class students"`, passing `"students"` as `classId`.
+  2. Because `"students"` was not a valid UUID, the database lookup failed.
+  3. `facultyBackendToolService.ts` swallowed errors with `catch { // Fallback }` and returned hardcoded mock student records. Tools 1 through 17 had similar fallback arrays with fake people and fake classes.
+  4. In `frontend/src/modules/faculty/api/facultyApi.ts`, `sendChatMessage` had a fallback that called `getFallbackFacultyChatResponse(payload)`, generating fake mock messages if the server returned 404 or 500.
+- **Fix**:
+  - **Dynamic Incharge Class Resolution**: Implemented `resolveClassId(classId, context)` in `facultyBackendToolService.ts` to dynamically resolve the faculty's assigned/incharge class from PostgreSQL when omitted or when generic keywords are passed.
+  - **Sanitized Intent ID Extraction**: Replaced loose regexes with `extractExplicitClassId` and `extractExplicitStudentId` in `facultyAi.service.ts` so words like `"students"` or `"details"` are never captured as IDs.
+  - **Zero Fake Data Policy**: Removed all 17 dummy fallback mock arrays (Aarav Sharma, Alan Turing, CS501, etc.) from `facultyBackendToolService.ts`. Queries now hit PostgreSQL directly via `facultyService`, `facultyRepo`, or Prisma. If no records exist, factual empty states (e.g., "No enrolled students found in this class in the database") are returned.
+  - **Removed Frontend Fallback**: Deleted `getFallbackFacultyChatResponse` and ensured `sendChatMessage` propagates real backend errors directly without fabrication.
+  - **Test Suite Verification**: Verified that all 88 Faculty tests (`tests/faculty-rag-tools.test.ts`, `tests/faculty-backend-tools.test.ts`, `tests/faculty-ai-orchestrator.test.ts`) pass with 100% compliance.
+

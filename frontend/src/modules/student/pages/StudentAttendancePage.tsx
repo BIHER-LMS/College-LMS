@@ -13,7 +13,7 @@ export const StudentAttendancePage: React.FC = () => {
     loadAttendance,
     loadClass,
     classData,
-    classInchargeData,
+    classIncharge: classInchargeData,
     loadClassIncharge,
   } = useStudent();
 
@@ -228,11 +228,11 @@ export const StudentAttendancePage: React.FC = () => {
           </div>
           <div className="mt-3">
             <div className="text-3xl font-extrabold text-slate-900 tracking-tight font-mono">
-              {summary ? `${summary.attendedToday} / ${summary.totalToday}` : '0 / 0'}
+              {summary ? `${summary.todayAttended} / ${summary.todayTotal}` : '0 / 0'}
             </div>
             <div className="text-xs text-slate-500 mt-2 font-medium">
-              {summary && summary.totalToday > 0
-                ? `${summary.attendedToday} periods attended out of ${summary.totalToday}`
+              {summary && summary.todayTotal > 0
+                ? `${summary.todayAttended} periods attended out of ${summary.todayTotal}`
                 : 'No periods conducted today'}
             </div>
             <div className="text-[11px] text-slate-400 mt-1">
@@ -259,7 +259,7 @@ export const StudentAttendancePage: React.FC = () => {
               Periods Attended in Term {classData?.currentSemester || 6}
             </div>
             <div className="text-[11px] text-slate-400 mt-1">
-              Excused: {summary?.excusedSessions || 0} periods • Absent: {summary?.absentSessions || 0} periods
+              Excused: {summary?.excusedCount || 0} periods • Absent: {summary?.absentCount || 0} periods
             </div>
           </div>
         </div>
@@ -276,7 +276,7 @@ export const StudentAttendancePage: React.FC = () => {
           </div>
           <div className="mt-3">
             <div className="text-3xl font-extrabold text-slate-900 tracking-tight font-mono">
-              {summary?.safeAbsenceMargin !== undefined ? `${summary.safeAbsenceMargin} Periods` : '0 Periods'}
+              {summary?.safeMargin !== undefined ? `${summary.safeMargin} Periods` : '0 Periods'}
             </div>
             <div className="text-xs text-slate-500 mt-2 font-medium">
               Permitted leaves buffer available
@@ -457,13 +457,13 @@ export const StudentAttendancePage: React.FC = () => {
                 </tr>
               ) : (
                 subjectBreakdown.map((sub, idx) => (
-                  <tr key={sub.subjectId || idx} className="hover:bg-slate-50/70 transition-colors">
+                  <tr key={sub.id || idx} className="hover:bg-slate-50/70 transition-colors">
                     <td className="py-3.5 px-4">
                       <div className="flex items-center gap-2">
                         <span className="px-1.5 py-0.5 bg-slate-100 text-slate-600 font-mono font-bold text-[10px] rounded">
-                          {sub.subjectCode}
+                          {sub.code}
                         </span>
-                        <span className="font-semibold text-slate-800">{sub.subjectName}</span>
+                        <span className="font-semibold text-slate-800">{sub.name}</span>
                       </div>
                     </td>
                     <td className="py-3 px-4 text-center font-mono font-semibold text-slate-600">

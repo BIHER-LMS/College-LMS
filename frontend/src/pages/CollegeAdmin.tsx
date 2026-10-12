@@ -6,9 +6,20 @@ import {
   Calendar, FileEdit, ClipboardCheck, TrendingUp, 
   Megaphone, Bell, Shield, Download, FileText, 
   LifeBuoy, Settings, UserCircle, ChevronDown, 
-  ChevronRight, LogOut, Menu, X
+  ChevronRight, LogOut, Menu, X, Database
 } from 'lucide-react';
-import { CollegeDepartments, CollegePrograms, CollegeBatches, CollegeClasses, CollegeSubjects, ManageHods, ManageFaculty, ManageStudents, CollegeProfile } from '../components/CollegeAdmin';
+import { 
+  CollegeDepartments, 
+  CollegePrograms, 
+  CollegeBatches, 
+  CollegeClasses, 
+  CollegeSubjects, 
+  ManageHods, 
+  ManageFaculty, 
+  ManageStudents, 
+  CollegeProfile,
+  CollegeAdminRagVault 
+} from '../components/CollegeAdmin';
 import { TimetableModule, AttendanceModule, PerformanceModule, ExaminationsModule } from '../components/CollegeAdmin/Modules';
 import { CollegeAdminAnnouncements } from '../components/CollegeAdmin/CollegeAdminAnnouncements';
 import { fetchCollegeStats } from '../services/collegeService';
@@ -17,6 +28,8 @@ import type { CollegeRecord } from '../services/collegeService';
 
 const MENU_ITEMS = [
   { name: 'Dashboard', icon: LayoutDashboard, id: 'dashboard' },
+  { name: 'RAG Vault', icon: Database, id: 'rag-vault' },
+
   { 
     name: 'College', icon: Building2, id: 'college', 
     subItems: [
@@ -114,6 +127,8 @@ export default function CollegeAdmin() {
     switch (activeTab) {
       case 'dashboard':
         return <DashboardOverview collegeId={currentUser.college_id} />;
+      case 'rag-vault':
+        return <CollegeAdminRagVault collegeId={currentUser.college_id} />;
       case 'college-profile':
         return <CollegeProfile />;
       case 'college-departments':

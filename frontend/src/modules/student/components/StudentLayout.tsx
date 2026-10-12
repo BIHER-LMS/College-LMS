@@ -26,6 +26,7 @@ export const StudentLayout: React.FC = () => {
 
   const navLinks = [
     { to: '/student', label: 'Dashboard', icon: 'grid_view' },
+    { to: '/student/chat', label: 'AI Assistant', icon: 'smart_toy' },
     { to: '/student/class', label: 'My Class', icon: 'meeting_room' },
     { to: '/student/batch', label: 'My Batch', icon: 'group' },
     { to: '/student/program', label: 'My Program', icon: 'school' },

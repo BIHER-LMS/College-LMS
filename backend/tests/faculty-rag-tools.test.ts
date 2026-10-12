@@ -1,4 +1,3 @@
-import { beforeEach, describe, expect, it, vi } from 'vitest';
 import type { FacultyContext } from '../src/modules/faculty/ai/facultyAi.types';
 import {
   facultyKnowledgeService,

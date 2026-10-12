@@ -100,6 +100,8 @@ vi.mock('../src/config/database', () => {
       findUnique: vi.fn(),
     },
     $transaction: vi.fn((fn: (tx: any) => Promise<any>) => fn(mockPrisma)),
+    $queryRawUnsafe: vi.fn(),
+    $queryRaw: vi.fn(),
     $connect: vi.fn(),
     $disconnect: vi.fn(),
   };

@@ -22,6 +22,36 @@ const INJECTION_PATTERNS = [
   /select\s+\*\s+from/i,
 ];
 
+function extractExplicitClassId(message: string): string | undefined {
+  const uuidMatch = message.match(/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/i);
+  if (uuidMatch) return uuidMatch[0];
+
+  const explicitMatch = message.match(/class(?:Id)?\s*[:=]\s*([a-zA-Z0-9_-]+)/i);
+  if (explicitMatch) {
+    const val = explicitMatch[1].trim();
+    const blacklist = ['students', 'student', 'roster', 'details', 'detail', 'stats', 'history', 'timetable', 'my', 'class'];
+    if (!blacklist.includes(val.toLowerCase())) {
+      return val;
+    }
+  }
+  return undefined;
+}
+
+function extractExplicitStudentId(message: string): string | undefined {
+  const uuidMatch = message.match(/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/i);
+  if (uuidMatch) return uuidMatch[0];
+
+  const idMatch = message.match(/(?:student(?:Id)?|reg(?:ister)?(?:\s+no)?)\s*[:=]?\s*([a-zA-Z0-9_-]+)/i);
+  if (idMatch) {
+    const val = idMatch[1].trim();
+    const blacklist = ['details', 'detail', 'profile', 'attendance', 'stats', 'info', 'my', 'list', 'show'];
+    if (!blacklist.includes(val.toLowerCase())) {
+      return val;
+    }
+  }
+  return undefined;
+}
+
 export class FacultyAiOrchestratorService {
   /**
    * Sanitizes user inputs and verifies that prompt injection attempts
@@ -76,11 +106,10 @@ export class FacultyAiOrchestratorService {
       lower.includes('student') &&
       (lower.includes('attendance') || lower.includes('percentage') || lower.includes('defaulter') || lower.includes('present'))
     ) {
-      const idMatch = message.match(/(?:student(?:Id)?|reg(?:ister)?(?:\s+no)?)\s*[:=]?\s*([a-zA-Z0-9_-]+)/i);
-      const studentId = idMatch ? idMatch[1] : 'std-cse-001';
+      const studentId = extractExplicitStudentId(message);
       return {
         toolName: 'faculty.getStudentAttendance',
-        args: { studentId },
+        args: studentId ? { studentId } : {},
       };
     }
 
@@ -89,11 +118,10 @@ export class FacultyAiOrchestratorService {
       lower.includes('student') &&
       (lower.includes('detail') || lower.includes('profile') || lower.includes('info') || lower.includes('contact'))
     ) {
-      const idMatch = message.match(/(?:student(?:Id)?|reg(?:ister)?(?:\s+no)?)\s*[:=]?\s*([a-zA-Z0-9_-]+)/i);
-      const studentId = idMatch ? idMatch[1] : 'std-cse-001';
+      const studentId = extractExplicitStudentId(message);
       return {
         toolName: 'faculty.getStudentDetails',
-        args: { studentId },
+        args: studentId ? { studentId } : {},
       };
     }
 
@@ -102,11 +130,10 @@ export class FacultyAiOrchestratorService {
       (lower.includes('class') || lower.includes('batch')) &&
       (lower.includes('attendance stats') || lower.includes('attendance summary') || lower.includes('attendance rate') || lower.includes('defaulters in class'))
     ) {
-      const classMatch = message.match(/(?:class(?:Id)?)\s*[:=]?\s*([a-zA-Z0-9_-]+)/i);
-      const classId = classMatch ? classMatch[1] : 'cls-cse-3a';
+      const classId = extractExplicitClassId(message);
       return {
         toolName: 'faculty.getClassAttendanceStats',
-        args: { classId },
+        args: classId ? { classId } : {},
       };
     }
 
@@ -115,24 +142,22 @@ export class FacultyAiOrchestratorService {
       (lower.includes('attendance') || lower.includes('session')) &&
       (lower.includes('history') || lower.includes('past sessions') || lower.includes('logs'))
     ) {
-      const classMatch = message.match(/(?:class(?:Id)?)\s*[:=]?\s*([a-zA-Z0-9_-]+)/i);
-      const classId = classMatch ? classMatch[1] : 'cls-cse-3a';
+      const classId = extractExplicitClassId(message);
       return {
         toolName: 'faculty.getClassAttendanceHistory',
-        args: { classId, limit: 10 },
+        args: classId ? { classId, limit: 10 } : { limit: 10 },
       };
     }
 
     // 6. Class Students Intent
     if (
-      lower.includes('class') &&
-      (lower.includes('students') || lower.includes('roll') || lower.includes('roster') || lower.includes('enrolled'))
+      lower.includes('students') || lower.includes('roster') || lower.includes('enrolled') ||
+      (lower.includes('class') && lower.includes('roll'))
     ) {
-      const classMatch = message.match(/(?:class(?:Id)?)\s*[:=]?\s*([a-zA-Z0-9_-]+)/i);
-      const classId = classMatch ? classMatch[1] : 'cls-cse-3a';
+      const classId = extractExplicitClassId(message);
       return {
         toolName: 'faculty.getClassStudents',
-        args: { classId },
+        args: classId ? { classId } : {},
       };
     }
 
@@ -141,11 +166,16 @@ export class FacultyAiOrchestratorService {
       lower.includes('class') &&
       (lower.includes('detail') || lower.includes('incharge') || lower.includes('representative') || lower.includes('rep'))
     ) {
-      const classMatch = message.match(/(?:class(?:Id)?)\s*[:=]?\s*([a-zA-Z0-9_-]+)/i);
-      const classId = classMatch ? classMatch[1] : 'cls-cse-3a';
+      const classId = extractExplicitClassId(message);
+      if (classId) {
+        return {
+          toolName: 'faculty.getClassDetails',
+          args: { classId },
+        };
+      }
       return {
-        toolName: 'faculty.getClassDetails',
-        args: { classId },
+        toolName: 'faculty.getAssignedClasses',
+        args: { isActiveOnly: true },
       };
     }
 
@@ -167,11 +197,10 @@ export class FacultyAiOrchestratorService {
       (lower.includes('class') || lower.includes('section')) &&
       (lower.includes('timetable') || lower.includes('schedule') || lower.includes('periods'))
     ) {
-      const classMatch = message.match(/(?:class(?:Id)?)\s*[:=]?\s*([a-zA-Z0-9_-]+)/i);
-      const classId = classMatch ? classMatch[1] : 'cls-cse-3a';
+      const classId = extractExplicitClassId(message);
       return {
         toolName: 'faculty.getClassTimetable',
-        args: { classId },
+        args: classId ? { classId } : {},
       };
     }
 
@@ -375,12 +404,15 @@ export class FacultyAiOrchestratorService {
         );
 
       case 'faculty.getClassStudents':
+        if (!res.students || res.students.length === 0) {
+          return `### 👥 Enrolled Students in Class\n\nNo enrolled students found in this class in the database.`;
+        }
         return (
           `### 👥 Enrolled Students in Class (Total: ${res.total})\n\n` +
           res.students
             .map(
               (s: any) =>
-                `- **${s.name}** (${s.registerNumber || s.email}): Attendance: **${s.attendancePercentage}%** | Grade: **${s.performanceGrade || 'N/A'}**${s.isClassRep ? ' ⭐ [CR]' : ''}`,
+                `- **${s.name}** (${s.registerNumber || s.email}): Attendance: **${s.attendancePercentage !== null && s.attendancePercentage !== undefined ? `${s.attendancePercentage}%` : 'No logs'}** | Grade: **${s.performanceGrade || 'No exams'}**${s.isClassRep ? ' ⭐ [CR]' : ''}`,
             )
             .join('\n') +
           `\n\nAsk for detailed profiles using \`student details for <registerNumber>\`.`

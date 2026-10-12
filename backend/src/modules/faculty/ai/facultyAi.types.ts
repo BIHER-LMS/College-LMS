@@ -252,7 +252,7 @@ export interface FacultyGetClassDetailsOutput {
 
 // 4. faculty.getClassStudents
 export interface FacultyGetClassStudentsInput {
-  classId: string;
+  classId?: string;
 }
 export interface ClassStudentItem {
   uid: string;
@@ -328,7 +328,7 @@ export interface FacultyGetStudentAttendanceOutput {
 
 // 7. faculty.getClassAttendanceStats
 export interface FacultyGetClassAttendanceStatsInput {
-  classId: string;
+  classId?: string;
 }
 export interface FacultyGetClassAttendanceStatsOutput {
   classId: string;
@@ -343,7 +343,7 @@ export interface FacultyGetClassAttendanceStatsOutput {
 
 // 8. faculty.getClassAttendanceHistory
 export interface FacultyGetClassAttendanceHistoryInput {
-  classId: string;
+  classId?: string;
   limit?: number;
 }
 export interface AttendanceSessionSummaryItem {
@@ -366,7 +366,7 @@ export interface FacultyGetClassAttendanceHistoryOutput {
 
 // 9. faculty.getClassTimetable
 export interface FacultyGetClassTimetableInput {
-  classId: string;
+  classId?: string;
 }
 export interface ClassTimetableSlotItem {
   id: string;

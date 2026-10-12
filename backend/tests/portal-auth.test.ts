@@ -46,21 +46,21 @@ function response() {
 const next = () => vi.fn() as NextFunction;
 
 const originalEnv = process.env.NODE_ENV;
-beforeEach(() => {
-  process.env.NODE_ENV = 'production';
-  vi.clearAllMocks();
-  verifyFaculty.mockResolvedValue({ uid: 'verified-uid', email: 'verified@example.com' } as any);
-  verifyHod.mockResolvedValue({ uid: 'verified-uid', email: 'verified@example.com' } as any);
-  faculty.authedUser.findUnique.mockResolvedValue({ ...activeUser('FACULTY'), department });
-  faculty.user.findUnique.mockResolvedValue(null);
-  hod.authedUser.findUnique.mockResolvedValue(activeUser('HOD'));
-  hod.user.findUnique.mockResolvedValue(null);
-  hod.department.findUnique.mockResolvedValue(department);
-  hod.department.findMany.mockResolvedValue([department]);
-});
-afterEach(() => { process.env.NODE_ENV = originalEnv; });
 
 describe('faculty Firebase authentication', () => {
+  beforeEach(() => {
+    process.env.NODE_ENV = 'production';
+    vi.clearAllMocks();
+    verifyFaculty.mockResolvedValue({ uid: 'verified-uid', email: 'verified@example.com' } as any);
+    verifyHod.mockResolvedValue({ uid: 'verified-uid', email: 'verified@example.com' } as any);
+    faculty.authedUser.findUnique.mockResolvedValue({ ...activeUser('FACULTY'), department });
+    faculty.user.findUnique.mockResolvedValue(null);
+    hod.authedUser.findUnique.mockResolvedValue(activeUser('HOD'));
+    hod.user.findUnique.mockResolvedValue(null);
+    hod.department.findUnique.mockResolvedValue(department);
+    hod.department.findMany.mockResolvedValue([department]);
+  });
+  afterEach(() => { process.env.NODE_ENV = originalEnv; });
   it.each(['dev-user-verified-uid', 'verified-uid', 'unsigned.payload.signature'])('rejects unverified bearer %s', async (token) => {
     verifyFaculty.mockRejectedValue(new Error('Invalid signature'));
     const req = request(token);

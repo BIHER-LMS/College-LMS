@@ -1,4 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+import prisma from '../src/config/database';
 import type { FacultyContext } from '../src/modules/faculty/ai/facultyAi.types';
 import {
   facultyBackendToolService,
@@ -46,8 +47,311 @@ const mockFacultyContext: FacultyContext = {
 describe('Faculty & Class Incharge Backend Tools Suite (Step 2 - Ashik)', () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    // Register Ashik's live backend tool handlers for tools 1-17
+    // Register live backend tool handlers for tools 1-17
     registerFacultyToolHandlers();
+
+    const mockService = (facultyBackendToolService as any).facultyService;
+    const mockRepo = (facultyBackendToolService as any).facultyRepo;
+
+    vi.spyOn(mockRepo, 'getClassById').mockImplementation(async (id: string) => {
+      if (id.startsWith('unauth-') || id.includes('foreign')) return null;
+      return {
+        id,
+        name: 'CSE 3rd Year - Sec A',
+        faculty_uid: validFacultyUid,
+        current_semester: 5,
+        is_active: true,
+        batch: {
+          start_year: 2023,
+          end_year: 2027,
+          program: {
+            name: 'B.Tech CSE',
+            department: { name: 'Computer Science', college_id: validCollegeId },
+          },
+        },
+        _count: { students: 48 },
+      };
+    });
+
+    vi.spyOn(mockRepo, 'getAssignedClasses').mockResolvedValue([
+      {
+        id: 'cls-cse-3a',
+        name: 'CSE 3rd Year - Sec A',
+        faculty_uid: validFacultyUid,
+        current_semester: 5,
+        is_active: true,
+        batch: {
+          start_year: 2023,
+          end_year: 2027,
+          program: {
+            name: 'B.Tech CSE',
+            department: { name: 'Computer Science', college_id: validCollegeId },
+          },
+        },
+        _count: { students: 48 },
+      },
+    ]);
+
+    vi.spyOn(mockService, 'getDashboard').mockResolvedValue({
+      faculty: {
+        uid: validFacultyUid,
+        name: 'Prof. Ada Lovelace',
+        email: 'ada.lovelace@institution.edu',
+        phone: '+91 98765 43210',
+        employeeId: 'EMP-001',
+        designation: 'Assistant Professor',
+        profilePhoto: null,
+      },
+      department: {
+        id: validDepartmentId,
+        name: 'Computer Science and Engineering',
+        code: 'CSE',
+        hodName: 'Dr. Alan Turing',
+      },
+      classIncharge: {
+        isAssigned: true,
+        class: {
+          id: 'cls-cse-3a',
+          name: 'CSE 3rd Year - Sec A',
+          currentSemester: 5,
+          batch: '2023-2027',
+          program: 'B.Tech CSE',
+          studentCount: 48,
+        },
+      },
+      assignedSubject: {
+        id: 'sub-cse-501',
+        name: 'Design and Analysis of Algorithms',
+        code: 'CS501',
+        credits: 4,
+        semesterNumber: 5,
+      },
+      assignedSubjects: [],
+      academicYear: {
+        id: 'ay-2026-2027',
+        name: '2026-2027',
+        startDate: '2026-06-01',
+        endDate: '2027-05-31',
+      },
+      semester: {
+        id: 'sem-5',
+        termNumber: 5,
+        startDate: '2026-06-15',
+        endDate: '2026-11-30',
+      },
+    });
+
+    vi.spyOn(mockService, 'getAssignedClasses').mockResolvedValue([
+      {
+        id: 'cls-cse-3a',
+        name: 'CSE 3rd Year - Sec A',
+        batch: '2023-2027',
+        program: 'B.Tech CSE',
+        department: 'Computer Science and Engineering',
+        currentSemester: 5,
+        isActive: true,
+        inchargeFaculty: { uid: validFacultyUid, name: 'You (Class Incharge)' },
+        studentCount: 48,
+      },
+    ]);
+
+    vi.spyOn(mockService, 'getClassDetails').mockResolvedValue({
+      id: 'cls-cse-3a',
+      name: 'CSE 3rd Year - Sec A',
+      batch: '2023-2027',
+      program: 'B.Tech CSE',
+      department: 'Computer Science and Engineering',
+      currentSemester: 5,
+      isActive: true,
+      inchargeFaculty: { uid: validFacultyUid, name: 'Prof. Ada Lovelace' },
+      studentCount: 48,
+      classRep: { uid: 'stu-rep-01', name: 'Rahul Sharma', email: 'rahul@college.edu', registerNumber: 'RA01' },
+      overallAttendance: 86.5,
+      overallPerformance: '82% avg score',
+    });
+
+    vi.spyOn(mockService, 'getClassStudents').mockResolvedValue([
+      {
+        uid: 'stu-cse-001',
+        name: 'Aarav Sharma',
+        registerNumber: 'RA2311003010001',
+        email: 'aarav@college.edu',
+        dob: '2003-01-01',
+        phone: '+91 9999999999',
+        parentPhone: null,
+        profilePhoto: null,
+        accountStatus: 'ACTIVE',
+        isClassRep: false,
+        attendancePercentage: 88.5,
+        performanceGrade: 'A',
+        performanceScore: 82,
+      },
+    ]);
+
+    vi.spyOn(mockService, 'getStudentDetails').mockImplementation(async (studentId: string) => {
+      if (studentId.startsWith('unauth-') || studentId.includes('foreign')) {
+        throw { status: 403, message: 'Forbidden' };
+      }
+      return {
+        uid: studentId,
+        firstName: 'Aarav',
+        lastName: 'Sharma',
+        displayName: 'Aarav Sharma',
+        registerNumber: 'RA2311003010001',
+        email: 'aarav@college.edu',
+        phone: '+91 9999999999',
+        profilePhoto: null,
+        accountStatus: 'ACTIVE',
+        className: 'CSE 3rd Year - Sec A',
+        classId: 'cls-cse-3a',
+        departmentName: 'Computer Science and Engineering',
+        enrollmentYear: 2023,
+        city: 'Chennai',
+        state: 'Tamil Nadu',
+      };
+    });
+
+    vi.spyOn(mockService, 'getClassAttendanceStats').mockResolvedValue({
+      classId: 'cls-cse-3a',
+      className: 'CSE 3rd Year - Sec A',
+      totalStudents: 48,
+      averageAttendancePercentage: 86.2,
+      totalSessionsConducted: 42,
+      shortageCount: 3,
+      students: new Array(48).fill({}) as any,
+    });
+
+    vi.spyOn(mockService, 'getClassAttendanceHistory').mockResolvedValue([
+      {
+        id: 'sess-01',
+        classId: 'cls-cse-3a',
+        date: '2026-10-09',
+        period: 1,
+        subjectName: 'DAA',
+        presentCount: 44,
+        absentCount: 4,
+        attendancePercentage: 91.7,
+      },
+    ]);
+
+    vi.spyOn(mockService, 'getClassTimetable').mockResolvedValue([
+      {
+        id: 'slot-01',
+        class_id: 'cls-cse-3a',
+        day_of_week: '1',
+        period: 1,
+        start_time: '09:00 AM',
+        end_time: '09:50 AM',
+        subject_name: 'DAA',
+        subject_code: 'CS501',
+        faculty_name: 'Prof. Ada Lovelace',
+        room: 'LH-101',
+      },
+    ]);
+
+    vi.spyOn(mockService, 'getTimetable').mockResolvedValue([
+      {
+        id: 'slot-01',
+        day_of_week: '1',
+        period: 1,
+        start_time: '09:00 AM',
+        end_time: '09:50 AM',
+        subject_name: 'DAA',
+        subject_code: 'CS501',
+        class_name: 'CSE 3rd Year - Sec A',
+        class_id: 'cls-cse-3a',
+        room: 'LH-101',
+      },
+    ]);
+
+    vi.spyOn(mockService, 'getReminders').mockResolvedValue([
+      {
+        id: 'rem-01',
+        title: 'Submit Marks',
+        description: 'Mid terms',
+        due_date: '2026-10-10',
+        due_time: '17:00',
+        priority: 'HIGH',
+        status: 'PENDING',
+        type: 'ACADEMIC',
+      },
+    ]);
+
+    vi.spyOn(mockService, 'search').mockResolvedValue({
+      students: [{ uid: 'stu-01', name: 'Student 1', registerNumber: 'RA01', className: 'CSE-3A' }],
+      classes: [{ id: 'cls-cse-3a', name: 'CSE-3A', studentCount: 48 }],
+      subjects: [{ id: 'sub-01', name: 'DAA', code: 'CS501' }],
+    });
+
+    vi.spyOn(mockService, 'getDepartment').mockResolvedValue({
+      id: validDepartmentId,
+      name: 'Computer Science and Engineering',
+      code: 'CSE',
+      collegeName: 'Institution',
+      hodName: 'Dr. Alan Turing',
+      programs: [{ id: 'prog-01', name: 'B.Tech CSE', type: 'UG', durationYears: 4 }],
+      subjectsCount: 42,
+      status: 'ACTIVE',
+    });
+
+    vi.spyOn(mockService, 'getSubjects').mockResolvedValue([
+      {
+        id: 'sub-01',
+        name: 'DAA',
+        code: 'CS501',
+        credits: 4,
+        semesterNumber: 5,
+        isActive: true,
+        departmentId: validDepartmentId,
+      },
+    ]);
+
+    vi.spyOn(mockService, 'getAcademicYears').mockResolvedValue([
+      {
+        id: 'ay-2026-2027',
+        name: '2026-2027',
+        startDate: '2026-06-01',
+        endDate: '2027-05-31',
+        isCurrent: true,
+        status: 'ACTIVE',
+      },
+    ]);
+
+    vi.spyOn(mockService, 'getSemesters').mockResolvedValue([
+      {
+        id: 'sem-5',
+        academicYearId: 'ay-2026-2027',
+        academicYearName: '2026-2027',
+        termNumber: 5,
+        startDate: '2026-06-15',
+        endDate: '2026-11-30',
+        isCurrent: true,
+      },
+    ]);
+
+    vi.spyOn(prisma, '$queryRawUnsafe').mockResolvedValue([
+      {
+        status: 'PRESENT',
+        date: '2026-10-09',
+        period: 1,
+        subject_name: 'Design and Analysis of Algorithms',
+      },
+    ]);
+
+    vi.spyOn(mockService, 'getFacultySubjectsWithClassPerformance').mockResolvedValue([
+      {
+        subject: { id: 'sub-cse-501', name: 'Design and Analysis of Algorithms', code: 'CS501' },
+        classes: [
+          {
+            classId: 'cls-cse-3a',
+            className: 'CSE 3rd Year - Sec A',
+            studentCount: 48,
+            sessionCount: 10,
+            averageAttendance: 85.5,
+          },
+        ],
+      },
+    ]);
   });
 
   describe('1. Direct Service Execution & Canonical Schema Validation (Tools 1 to 17)', () => {

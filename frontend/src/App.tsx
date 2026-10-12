@@ -70,6 +70,7 @@ import { StudentAcademicYearsPage } from './modules/student/pages/StudentAcademi
 import { StudentSemestersPage } from './modules/student/pages/StudentSemestersPage';
 import { StudentAttendancePage } from './modules/student/pages/StudentAttendancePage';
 import { StudentTimetablePage } from './modules/student/pages/StudentTimetablePage';
+import { StudentChatPage } from './modules/student/pages/StudentChatPage';
 
 function App() {
   useEffect(() => {
@@ -144,6 +145,7 @@ function App() {
             {/* Integrated Student Portal Module Routes */}
             <Route path="/student" element={<StudentLayout />}>
               <Route index element={<StudentDashboard />} />
+              <Route path="chat" element={<StudentChatPage />} />
               <Route path="attendance" element={<StudentAttendancePage />} />
               <Route path="timetable" element={<StudentTimetablePage />} />
               <Route path="profile" element={<StudentProfilePage />} />

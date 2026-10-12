@@ -61,7 +61,7 @@ export const facultyGetClassDetailsInputSchema = z.object({
 
 // 4. faculty.getClassStudents
 export const facultyGetClassStudentsInputSchema = z.object({
-  classId: z.string().min(1, 'classId is required'),
+  classId: z.string().optional(),
 });
 
 // 5. faculty.getStudentDetails
@@ -79,18 +79,18 @@ export const facultyGetStudentAttendanceInputSchema = z.object({
 
 // 7. faculty.getClassAttendanceStats
 export const facultyGetClassAttendanceStatsInputSchema = z.object({
-  classId: z.string().min(1, 'classId is required'),
+  classId: z.string().optional(),
 });
 
 // 8. faculty.getClassAttendanceHistory
 export const facultyGetClassAttendanceHistoryInputSchema = z.object({
-  classId: z.string().min(1, 'classId is required'),
+  classId: z.string().optional(),
   limit: z.number().int().positive().max(100).optional().default(20),
 });
 
 // 9. faculty.getClassTimetable
 export const facultyGetClassTimetableInputSchema = z.object({
-  classId: z.string().min(1, 'classId is required'),
+  classId: z.string().optional(),
 });
 
 // 10. faculty.getTimetable

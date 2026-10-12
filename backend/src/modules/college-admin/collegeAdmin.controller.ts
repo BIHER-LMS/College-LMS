@@ -1,6 +1,7 @@
 import { Response, NextFunction } from 'express';
 import { AuthenticatedRequest } from '../../middleware/auth.middleware';
 import { getCollegeProfile, updateCollegeProfile, createDepartment } from './collegeAdmin.service';
+import { collegeAdminRagVaultService } from './collegeAdminRagVault.service';
 import { sendSuccess } from '../../utils/response';
 import { AppError } from '../../utils/errors';
 import { ErrorCodes } from '../../utils/response';
@@ -47,3 +48,62 @@ export async function createDepartmentHandler(req: AuthenticatedRequest, res: Re
     next(error);
   }
 }
+
+export async function uploadVaultDocHandler(req: AuthenticatedRequest, res: Response, next: NextFunction) {
+  try {
+    const user = req.user;
+    if (!user || !user.collegeId) {
+      throw new AppError(403, ErrorCodes.FORBIDDEN, 'No college is assigned to this account.');
+    }
+
+    const result = await collegeAdminRagVaultService.uploadDocument(user.collegeId, user.id, req.body);
+    sendSuccess(res, result, 201);
+  } catch (error) {
+    next(error);
+  }
+}
+
+export async function listVaultDocsHandler(req: AuthenticatedRequest, res: Response, next: NextFunction) {
+  try {
+    const user = req.user;
+    if (!user || !user.collegeId) {
+      throw new AppError(403, ErrorCodes.FORBIDDEN, 'No college is assigned to this account.');
+    }
+
+    const category = req.query.category as string | undefined;
+    const docs = await collegeAdminRagVaultService.listDocuments(user.collegeId, category);
+    sendSuccess(res, docs);
+  } catch (error) {
+    next(error);
+  }
+}
+
+export async function deleteVaultDocHandler(req: AuthenticatedRequest, res: Response, next: NextFunction) {
+  try {
+    const user = req.user;
+    if (!user || !user.collegeId) {
+      throw new AppError(403, ErrorCodes.FORBIDDEN, 'No college is assigned to this account.');
+    }
+
+    const { id } = req.params;
+    await collegeAdminRagVaultService.deleteDocument(user.collegeId, id);
+    sendSuccess(res, { deleted: true, id });
+  } catch (error) {
+    next(error);
+  }
+}
+
+export async function getVaultStatsHandler(req: AuthenticatedRequest, res: Response, next: NextFunction) {
+  try {
+    const user = req.user;
+    if (!user || !user.collegeId) {
+      throw new AppError(403, ErrorCodes.FORBIDDEN, 'No college is assigned to this account.');
+    }
+
+    const stats = await collegeAdminRagVaultService.getStats(user.collegeId);
+    sendSuccess(res, stats);
+  } catch (error) {
+    next(error);
+  }
+}
+

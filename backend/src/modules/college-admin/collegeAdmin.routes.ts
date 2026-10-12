@@ -3,7 +3,16 @@ import { authenticateFirebaseUser, requireUser } from '../../middleware/auth.mid
 import { requireRole } from '../../middleware/rbac.middleware';
 import { validate } from '../../middleware/validation.middleware';
 import { updateCollegeProfileSchema, createDepartmentSchema } from '../../schemas/collegeAdmin.schema';
-import { getProfileHandler, updateProfileHandler, createDepartmentHandler } from './collegeAdmin.controller';
+import { createVaultDocumentSchema } from '../../schemas/collegeAdminRagVault.schema';
+import {
+  getProfileHandler,
+  updateProfileHandler,
+  createDepartmentHandler,
+  uploadVaultDocHandler,
+  listVaultDocsHandler,
+  deleteVaultDocHandler,
+  getVaultStatsHandler,
+} from './collegeAdmin.controller';
 
 const router = Router();
 
@@ -28,4 +37,13 @@ router.patch('/college/profile', validate(updateCollegeProfileSchema), updatePro
  */
 router.post('/departments', validate(createDepartmentSchema), createDepartmentHandler);
 
+/**
+ * RAG Vault Routes for Institutional Policies, Dress Code, Handbook, and General Info
+ */
+router.get('/rag-vault/stats', getVaultStatsHandler);
+router.get('/rag-vault/documents', listVaultDocsHandler);
+router.post('/rag-vault/documents', validate(createVaultDocumentSchema), uploadVaultDocHandler);
+router.delete('/rag-vault/documents/:id', deleteVaultDocHandler);
+
 export default router;
+

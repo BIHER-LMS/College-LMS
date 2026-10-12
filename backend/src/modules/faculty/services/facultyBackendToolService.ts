@@ -1,3 +1,4 @@
+import prisma from '../../../config/database';
 import { FacultyService } from '../faculty.service';
 import { FacultyRepository } from '../faculty.repository';
 import { facultyToolRegistry } from '../ai/toolRegistry';
@@ -134,7 +135,6 @@ export class FacultyBackendToolService {
   ): Promise<void> {
     this.assertContext(context);
 
-    // In dummy/mock mode where classId is unauthorized
     if (classId.startsWith('unauth-') || classId.includes('foreign')) {
       throw {
         status: 403,
@@ -142,23 +142,74 @@ export class FacultyBackendToolService {
       };
     }
 
-    try {
-      const cls = await this.facultyRepo.getClassById(classId);
-      if (cls) {
-        if (
-          cls.batch?.program?.department?.college_id &&
-          cls.batch.program.department.college_id !== context.collegeId
-        ) {
-          throw { status: 403, message: 'Forbidden: Cross-college class access denied' };
-        }
-        if (mustBeIncharge && cls.faculty_uid !== context.uid) {
-          throw { status: 403, message: 'Forbidden: You are not the Class Incharge for this class' };
+    const cls = await this.facultyRepo.getClassById(classId).catch(() => null);
+    if (!cls) {
+      throw {
+        status: 404,
+        message: `Class with ID '${classId}' was not found in the database.`,
+      };
+    }
+
+    if (
+      cls.batch?.program?.department?.college_id &&
+      cls.batch.program.department.college_id !== context.collegeId
+    ) {
+      throw { status: 403, message: 'Forbidden: Cross-college class access denied' };
+    }
+    if (mustBeIncharge && cls.faculty_uid !== context.uid) {
+      throw { status: 403, message: 'Forbidden: You are not the Class Incharge for this class' };
+    }
+  }
+
+  /**
+   * Resolves a valid class ID for the faculty:
+   * 1. If a valid UUID is provided, verify it exists.
+   * 2. If no valid UUID is provided (e.g. user asked 'my class', 'students', etc.),
+   *    look up the faculty's assigned/incharge classes from the PostgreSQL database.
+   */
+  public async resolveClassId(
+    classId: string | undefined,
+    context: FacultyContext,
+  ): Promise<string> {
+    this.assertContext(context);
+    const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+    if (classId && typeof classId === 'string') {
+      const trimmed = classId.trim();
+      const normalized = trimmed.toLowerCase();
+      const skipWords = ['students', 'student', 'roster', 'my', 'class', 'classes', 'all', 'details', 'stats', 'history', 'timetable'];
+      if (!skipWords.includes(normalized)) {
+        if (UUID_REGEX.test(trimmed) || trimmed.startsWith('unauth-') || trimmed.includes('foreign') || trimmed.startsWith('cls-')) {
+          return trimmed;
         }
       }
-    } catch (err: any) {
-      if (err.status) throw err;
-      // If database not reachable in dev, continue
     }
+
+    // Query real assigned classes from database for this faculty
+    const assignedClasses = await this.facultyRepo.getAssignedClasses(context.uid).catch(() => []);
+    if (!assignedClasses || assignedClasses.length === 0) {
+      throw {
+        status: 404,
+        message: 'No classes assigned to you were found in the database. Please ensure you are assigned to a class.',
+      };
+    }
+
+    // If a class name query was passed (not generic filler words), match by name
+    if (classId && typeof classId === 'string') {
+      const normalized = classId.trim().toLowerCase();
+      const skipWords = ['students', 'student', 'roster', 'my', 'class', 'classes', 'all', 'details', 'stats', 'history', 'timetable'];
+      if (!skipWords.includes(normalized)) {
+        const matched = assignedClasses.find((c: any) =>
+          (c.name || '').toLowerCase().includes(normalized) ||
+          (c.batch?.program?.name || '').toLowerCase().includes(normalized)
+        );
+        if (matched) return matched.id;
+      }
+    }
+
+    // Prioritize incharge class, otherwise take the first assigned class
+    const inchargeClass = assignedClasses.find((c: any) => c.faculty_uid === context.uid);
+    return inchargeClass ? inchargeClass.id : assignedClasses[0].id;
   }
 
   // ==========================================================================
@@ -170,135 +221,79 @@ export class FacultyBackendToolService {
   ): Promise<FacultyGetDashboardOutput> {
     this.assertContext(context);
 
-    try {
-      const dbDash = await this.facultyService.getDashboard(context.uid);
-      if (dbDash && dbDash.faculty) {
-        return {
-          faculty: {
-            uid: context.uid,
-            name: dbDash.faculty.name || context.displayName || 'Faculty Member',
-            email: dbDash.faculty.email || context.email,
-            phone: dbDash.faculty.phone ?? null,
-            employeeId: dbDash.faculty.employeeId ?? null,
-            designation: dbDash.faculty.designation || 'Faculty Member',
-            profilePhoto: dbDash.faculty.profilePhoto ?? null,
-          },
-          department: dbDash.department
-            ? {
-                id: dbDash.department.id ?? null,
-                name: dbDash.department.name ?? null,
-                code: dbDash.department.code ?? null,
-                hodName: dbDash.department.hodName ?? null,
-              }
-            : null,
-          classIncharge: {
-            isAssigned: dbDash.classIncharge?.isAssigned ?? false,
-            class: dbDash.classIncharge?.class
-              ? {
-                  id: dbDash.classIncharge.class.id,
-                  name: dbDash.classIncharge.class.name,
-                  currentSemester: dbDash.classIncharge.class.currentSemester ?? null,
-                  batch: dbDash.classIncharge.class.batch ?? null,
-                  program: dbDash.classIncharge.class.program ?? null,
-                  studentCount: dbDash.classIncharge.class.studentCount ?? 0,
-                }
-              : null,
-          },
-          assignedSubject: dbDash.assignedSubject
-            ? {
-                id: dbDash.assignedSubject.id,
-                name: dbDash.assignedSubject.name,
-                code: dbDash.assignedSubject.code,
-                credits: dbDash.assignedSubject.credits ?? null,
-                semesterNumber: dbDash.assignedSubject.semesterNumber,
-              }
-            : null,
-          assignedSubjects: dbDash.assignedSubjects || [],
-          academicYear: dbDash.academicYear
-            ? {
-                id: dbDash.academicYear.id,
-                name: dbDash.academicYear.name,
-                startDate: dbDash.academicYear.startDate instanceof Date
-                  ? dbDash.academicYear.startDate.toISOString().split('T')[0]
-                  : String(dbDash.academicYear.startDate),
-                endDate: dbDash.academicYear.endDate instanceof Date
-                  ? dbDash.academicYear.endDate.toISOString().split('T')[0]
-                  : String(dbDash.academicYear.endDate),
-              }
-            : null,
-          semester: dbDash.semester
-            ? {
-                id: dbDash.semester.id,
-                termNumber: dbDash.semester.termNumber,
-                startDate: dbDash.semester.startDate instanceof Date
-                  ? dbDash.semester.startDate.toISOString().split('T')[0]
-                  : String(dbDash.semester.startDate),
-                endDate: dbDash.semester.endDate instanceof Date
-                  ? dbDash.semester.endDate.toISOString().split('T')[0]
-                  : String(dbDash.semester.endDate),
-              }
-            : null,
-        };
-      }
-    } catch {
-      // Fallback
+    const dbDash = await this.facultyService.getDashboard(context.uid);
+    if (!dbDash || !dbDash.faculty) {
+      throw {
+        status: 404,
+        message: 'Faculty profile not found in database',
+      };
     }
 
     return {
       faculty: {
         uid: context.uid,
-        name: context.displayName || 'Faculty Member',
-        email: context.email,
-        phone: '+91 98765 43210',
-        employeeId: 'EMP-FAC-042',
-        designation: 'Assistant Professor',
-        profilePhoto: null,
+        name: dbDash.faculty.name || context.displayName || 'Faculty Member',
+        email: dbDash.faculty.email || context.email,
+        phone: dbDash.faculty.phone ?? null,
+        employeeId: dbDash.faculty.employeeId ?? null,
+        designation: dbDash.faculty.designation || 'Faculty Member',
+        profilePhoto: dbDash.faculty.profilePhoto ?? null,
       },
-      department: {
-        id: context.departmentId || 'dept-cse-01',
-        name: 'Department of Computer Science and Engineering',
-        code: 'CSE',
-        hodName: 'Dr. Alan Turing',
-      },
+      department: dbDash.department
+        ? {
+            id: dbDash.department.id ?? null,
+            name: dbDash.department.name ?? null,
+            code: dbDash.department.code ?? null,
+            hodName: dbDash.department.hodName ?? null,
+          }
+        : null,
       classIncharge: {
-        isAssigned: true,
-        class: {
-          id: 'cls-cse-3a',
-          name: 'CSE 3rd Year - Sec A',
-          currentSemester: 5,
-          batch: '2023-2027',
-          program: 'B.Tech Computer Science and Engineering',
-          studentCount: 48,
-        },
+        isAssigned: dbDash.classIncharge?.isAssigned ?? false,
+        class: dbDash.classIncharge?.class
+          ? {
+              id: dbDash.classIncharge.class.id,
+              name: dbDash.classIncharge.class.name,
+              currentSemester: dbDash.classIncharge.class.currentSemester ?? null,
+              batch: dbDash.classIncharge.class.batch ?? null,
+              program: dbDash.classIncharge.class.program ?? null,
+              studentCount: dbDash.classIncharge.class.studentCount ?? 0,
+            }
+          : null,
       },
-      assignedSubject: {
-        id: 'sub-cse-501',
-        name: 'Design and Analysis of Algorithms',
-        code: 'CS501',
-        credits: 4,
-        semesterNumber: 5,
-      },
-      assignedSubjects: [
-        {
-          id: 'sub-cse-501',
-          name: 'Design and Analysis of Algorithms',
-          code: 'CS501',
-          classId: 'cls-cse-3a',
-          className: 'CSE 3rd Year - Sec A',
-        },
-      ],
-      academicYear: {
-        id: 'ay-2026-2027',
-        name: '2026-2027',
-        startDate: '2026-06-01',
-        endDate: '2027-05-31',
-      },
-      semester: {
-        id: 'sem-2026-odd',
-        termNumber: 5,
-        startDate: '2026-06-15',
-        endDate: '2026-11-30',
-      },
+      assignedSubject: dbDash.assignedSubject
+        ? {
+            id: dbDash.assignedSubject.id,
+            name: dbDash.assignedSubject.name,
+            code: dbDash.assignedSubject.code,
+            credits: dbDash.assignedSubject.credits ?? null,
+            semesterNumber: dbDash.assignedSubject.semesterNumber,
+          }
+        : null,
+      assignedSubjects: dbDash.assignedSubjects || [],
+      academicYear: dbDash.academicYear
+        ? {
+            id: dbDash.academicYear.id,
+            name: dbDash.academicYear.name,
+            startDate: dbDash.academicYear.startDate instanceof Date
+              ? dbDash.academicYear.startDate.toISOString().split('T')[0]
+              : String(dbDash.academicYear.startDate),
+            endDate: dbDash.academicYear.endDate instanceof Date
+              ? dbDash.academicYear.endDate.toISOString().split('T')[0]
+              : String(dbDash.academicYear.endDate),
+          }
+        : null,
+      semester: dbDash.semester
+        ? {
+            id: dbDash.semester.id,
+            termNumber: dbDash.semester.termNumber,
+            startDate: dbDash.semester.startDate instanceof Date
+              ? dbDash.semester.startDate.toISOString().split('T')[0]
+              : String(dbDash.semester.startDate),
+            endDate: dbDash.semester.endDate instanceof Date
+              ? dbDash.semester.endDate.toISOString().split('T')[0]
+              : String(dbDash.semester.endDate),
+          }
+        : null,
     };
   }
 
@@ -311,63 +306,25 @@ export class FacultyBackendToolService {
   ): Promise<FacultyGetAssignedClassesOutput> {
     this.assertContext(context);
 
-    try {
-      const classes = await this.facultyService.getAssignedClasses(context.uid);
-      if (classes && classes.length > 0) {
-        return {
-          classes: classes.map((c) => ({
-            id: c.id,
-            name: c.name,
-            batch: c.batch ?? null,
-            program: c.program ?? null,
-            department: c.department ?? null,
-            currentSemester: c.currentSemester ?? null,
-            isActive: c.isActive,
-            inchargeFaculty: {
-              uid: c.inchargeFaculty?.uid || context.uid,
-              name: c.inchargeFaculty?.name || context.displayName || 'Prof. Faculty Member',
-            },
-            studentCount: c.studentCount,
-          })),
-          total: classes.length,
-        };
-      }
-    } catch {
-      // Fallback
-    }
+    const classes = await this.facultyService.getAssignedClasses(context.uid).catch(() => []);
+    const mapped = (classes || []).map((c: any) => ({
+      id: c.id,
+      name: c.name,
+      batch: c.batch ?? null,
+      program: c.program ?? null,
+      department: c.department ?? null,
+      currentSemester: c.currentSemester ?? null,
+      isActive: c.isActive,
+      inchargeFaculty: {
+        uid: c.inchargeFaculty?.uid || context.uid,
+        name: c.inchargeFaculty?.name || context.displayName || 'Prof. Faculty Member',
+      },
+      studentCount: c.studentCount || 0,
+    }));
 
     return {
-      classes: [
-        {
-          id: 'cls-cse-3a',
-          name: 'CSE 3rd Year - Sec A',
-          batch: '2023-2027',
-          program: 'B.Tech Computer Science and Engineering',
-          department: 'Computer Science and Engineering',
-          currentSemester: 5,
-          isActive: true,
-          inchargeFaculty: {
-            uid: context.uid,
-            name: context.displayName || 'Prof. Faculty Member',
-          },
-          studentCount: 48,
-        },
-        {
-          id: 'cls-cse-3b',
-          name: 'CSE 3rd Year - Sec B',
-          batch: '2023-2027',
-          program: 'B.Tech Computer Science and Engineering',
-          department: 'Computer Science and Engineering',
-          currentSemester: 5,
-          isActive: true,
-          inchargeFaculty: {
-            uid: 'faculty-other-02',
-            name: 'Prof. Dennis Ritchie',
-          },
-          studentCount: 44,
-        },
-      ],
-      total: 2,
+      classes: mapped,
+      total: mapped.length,
     };
   }
 
@@ -378,65 +335,41 @@ export class FacultyBackendToolService {
     input: FacultyGetClassDetailsInput,
     context: FacultyContext,
   ): Promise<FacultyGetClassDetailsOutput> {
-    await this.assertClassAccess(input.classId, context);
+    const classId = await this.resolveClassId(input.classId, context);
+    await this.assertClassAccess(classId, context);
 
-    try {
-      const cls = await this.facultyService.getClassDetails(input.classId, context.uid);
-      if (cls) {
-        return {
-          id: cls.id,
-          name: cls.name,
-          batch: cls.batch ?? null,
-          program: cls.program ?? null,
-          department: cls.department ?? null,
-          currentSemester: cls.currentSemester ?? null,
-          isActive: cls.isActive,
-          inchargeFaculty: {
-            uid: cls.inchargeFaculty?.uid || context.uid,
-            name: cls.inchargeFaculty?.name || context.displayName || 'Prof. Faculty Member',
-          },
-          studentCount: cls.studentCount,
-          classRep: cls.classRep
-            ? {
-                uid: cls.classRep.uid || 'stu-cr-01',
-                name: cls.classRep.name,
-                email: cls.classRep.email || 'cr@institution.edu',
-                registerNumber: cls.classRep.registerNumber ?? null,
-              }
-            : null,
-          overallAttendance: cls.overallAttendance ?? 86.4,
-          overallPerformance: typeof cls.overallPerformance === 'string'
-            ? cls.overallPerformance
-            : (cls.overallPerformance?.averageScore !== undefined
-                ? `${cls.overallPerformance.averageScore}% avg score`
-                : 'Good'),
-        };
-      }
-    } catch {
-      // Fallback
+    const cls = await this.facultyService.getClassDetails(classId, context.uid);
+    if (!cls) {
+      throw { status: 404, message: 'Class not found in database' };
     }
 
     return {
-      id: input.classId,
-      name: 'CSE 3rd Year - Sec A',
-      batch: '2023-2027',
-      program: 'B.Tech Computer Science and Engineering',
-      department: 'Computer Science and Engineering',
-      currentSemester: 5,
-      isActive: true,
+      id: cls.id,
+      name: cls.name,
+      batch: cls.batch ?? null,
+      program: cls.program ?? null,
+      department: cls.department ?? null,
+      currentSemester: cls.currentSemester ?? null,
+      isActive: cls.isActive,
       inchargeFaculty: {
-        uid: context.uid,
-        name: context.displayName || 'Prof. Faculty Member',
+        uid: cls.inchargeFaculty?.uid || context.uid,
+        name: cls.inchargeFaculty?.name || context.displayName || 'Prof. Faculty Member',
       },
-      studentCount: 48,
-      classRep: {
-        uid: 'stu-rep-001',
-        name: 'Aarav Sharma',
-        email: 'aarav.sharma@institution.edu',
-        registerNumber: 'RA2311003010001',
-      },
-      overallAttendance: 87.5,
-      overallPerformance: 'A',
+      studentCount: cls.studentCount || 0,
+      classRep: cls.classRep
+        ? {
+            uid: cls.classRep.uid || '',
+            name: cls.classRep.name,
+            email: cls.classRep.email || '',
+            registerNumber: cls.classRep.registerNumber ?? null,
+          }
+        : null,
+      overallAttendance: cls.overallAttendance ?? null,
+      overallPerformance: typeof cls.overallPerformance === 'string'
+        ? cls.overallPerformance
+        : (cls.overallPerformance?.averageScore !== undefined
+            ? `${cls.overallPerformance.averageScore}% avg score`
+            : null),
     };
   }
 
@@ -447,85 +380,28 @@ export class FacultyBackendToolService {
     input: FacultyGetClassStudentsInput,
     context: FacultyContext,
   ): Promise<FacultyGetClassStudentsOutput> {
-    await this.assertClassAccess(input.classId, context);
+    const classId = await this.resolveClassId(input.classId, context);
+    await this.assertClassAccess(classId, context);
 
-    try {
-      const students = await this.facultyService.getClassStudents(input.classId, context.uid);
-      if (students && students.length > 0) {
-        return {
-          classId: input.classId,
-          students: students.map((s) => ({
-            uid: s.uid,
-            name: s.name,
-            registerNumber: s.registerNumber ?? null,
-            email: s.email,
-            dob: s.dob ?? null,
-            phone: s.phone ?? null,
-            parentPhone: s.parentPhone ?? null,
-            profilePhoto: s.profilePhoto ?? null,
-            accountStatus: s.accountStatus,
-            isClassRep: !!s.isClassRep,
-            attendancePercentage: s.attendancePercentage ?? 85.0,
-            performanceGrade: s.performanceGrade ?? 'B',
-            performanceScore: s.performanceScore ?? 80,
-          })),
-          total: students.length,
-        };
-      }
-    } catch {
-      // Fallback
-    }
-
+    const students = await this.facultyService.getClassStudents(classId, context.uid);
     return {
-      classId: input.classId,
-      students: [
-        {
-          uid: 'stu-cse-001',
-          name: 'Aarav Sharma',
-          registerNumber: 'RA2311003010001',
-          email: 'aarav.sharma@institution.edu',
-          dob: '2004-05-14',
-          phone: '+91 98765 00001',
-          parentPhone: '+91 98765 99901',
-          profilePhoto: null,
-          accountStatus: 'ACTIVE',
-          isClassRep: true,
-          attendancePercentage: 92.5,
-          performanceGrade: 'A',
-          performanceScore: 92,
-        },
-        {
-          uid: 'stu-cse-002',
-          name: 'Bhavna Patel',
-          registerNumber: 'RA2311003010002',
-          email: 'bhavna.patel@institution.edu',
-          dob: '2004-08-22',
-          phone: '+91 98765 00002',
-          parentPhone: '+91 98765 99902',
-          profilePhoto: null,
-          accountStatus: 'ACTIVE',
-          isClassRep: false,
-          attendancePercentage: 88.0,
-          performanceGrade: 'B+',
-          performanceScore: 84,
-        },
-        {
-          uid: 'stu-cse-003',
-          name: 'Chetan Verma',
-          registerNumber: 'RA2311003010003',
-          email: 'chetan.verma@institution.edu',
-          dob: '2004-11-03',
-          phone: '+91 98765 00003',
-          parentPhone: '+91 98765 99903',
-          profilePhoto: null,
-          accountStatus: 'ACTIVE',
-          isClassRep: false,
-          attendancePercentage: 68.5,
-          performanceGrade: 'C',
-          performanceScore: 65,
-        },
-      ],
-      total: 3,
+      classId,
+      students: (students || []).map((s: any) => ({
+        uid: s.uid,
+        name: s.name,
+        registerNumber: s.registerNumber ?? null,
+        email: s.email,
+        dob: s.dob ?? null,
+        phone: s.phone ?? null,
+        parentPhone: s.parentPhone ?? null,
+        profilePhoto: s.profilePhoto ?? null,
+        accountStatus: s.accountStatus,
+        isClassRep: !!s.isClassRep,
+        attendancePercentage: s.attendancePercentage ?? null,
+        performanceGrade: s.performanceGrade ?? null,
+        performanceScore: s.performanceScore ?? null,
+      })),
+      total: (students || []).length,
     };
   }
 
@@ -545,47 +421,30 @@ export class FacultyBackendToolService {
       };
     }
 
-    try {
-      const stu = await this.facultyService.getStudentDetails(input.studentId, context.uid);
-      if (stu) {
-        return {
-          uid: stu.uid,
-          firstName: stu.firstName ?? null,
-          lastName: stu.lastName ?? null,
-          displayName: stu.displayName || `${stu.firstName || ''} ${stu.lastName || ''}`.trim() || stu.email,
-          registerNumber: stu.registerNumber ?? null,
-          email: stu.email,
-          phone: stu.phone ?? null,
-          profilePhoto: stu.profilePhoto ?? null,
-          accountStatus: stu.accountStatus,
-          className: stu.className,
-          classId: stu.classId,
-          departmentName: stu.departmentName ?? null,
-          enrollmentYear: typeof stu.enrollmentYear === 'number' ? stu.enrollmentYear : 2023,
-          city: stu.city ?? null,
-          state: stu.state ?? null,
-        };
-      }
-    } catch {
-      // Fallback
+    const stu = await this.facultyService.getStudentDetails(input.studentId, context.uid);
+    if (!stu) {
+      throw {
+        status: 404,
+        message: `Student with ID "${input.studentId}" not found in database`,
+      };
     }
 
     return {
-      uid: input.studentId,
-      firstName: 'Aarav',
-      lastName: 'Sharma',
-      displayName: 'Aarav Sharma',
-      registerNumber: 'RA2311003010001',
-      email: 'aarav.sharma@institution.edu',
-      phone: '+91 98765 00001',
-      profilePhoto: null,
-      accountStatus: 'ACTIVE',
-      className: 'CSE 3rd Year - Sec A',
-      classId: 'cls-cse-3a',
-      departmentName: 'Computer Science and Engineering',
-      enrollmentYear: 2023,
-      city: 'Chennai',
-      state: 'Tamil Nadu',
+      uid: stu.uid,
+      firstName: stu.firstName ?? null,
+      lastName: stu.lastName ?? null,
+      displayName: stu.displayName || `${stu.firstName || ''} ${stu.lastName || ''}`.trim() || stu.email,
+      registerNumber: stu.registerNumber ?? null,
+      email: stu.email,
+      phone: stu.phone ?? null,
+      profilePhoto: stu.profilePhoto ?? null,
+      accountStatus: stu.accountStatus,
+      className: stu.className,
+      classId: stu.classId,
+      departmentName: stu.departmentName ?? null,
+      enrollmentYear: typeof stu.enrollmentYear === 'number' ? stu.enrollmentYear : 2023,
+      city: stu.city ?? null,
+      state: stu.state ?? null,
     };
   }
 
@@ -605,42 +464,67 @@ export class FacultyBackendToolService {
       };
     }
 
-    const present = 37;
-    const absent = 5;
-    const total = 42;
-    const overallPercentage = safePercentage(present, total);
+    const stu = await this.facultyService.getStudentDetails(input.studentId, context.uid);
+    if (!stu) {
+      throw {
+        status: 404,
+        message: `Student with ID "${input.studentId}" not found in database`,
+      };
+    }
+
+    const classId = stu.classId || (input.classId ? await this.resolveClassId(input.classId, context) : await this.resolveClassId(undefined, context));
+
+    // Query real attendance records from database
+    let records: any[] = [];
+    if (prisma && typeof (prisma as any).$queryRawUnsafe === 'function') {
+      try {
+        records = (await (prisma as any).$queryRawUnsafe(
+          `SELECT ar.status, s.date, s.period, sub.name as subject_name
+           FROM attendance_records ar
+           JOIN attendance_sessions s ON ar.attendance_session_id = s.id
+           LEFT JOIN subjects sub ON s.subject_id = sub.id
+           WHERE ar.student_uid = $1
+           ORDER BY s.date DESC
+           LIMIT 50;`,
+          stu.uid,
+        )) || [];
+      } catch {
+        records = [];
+      }
+    }
+
+    let present = 0;
+    let absent = 0;
+    records.forEach((r) => {
+      if (r.status === 'PRESENT' || r.status === 'LATE' || r.status === 'EXCUSED') {
+        present++;
+      } else if (r.status === 'ABSENT') {
+        absent++;
+      }
+    });
+
+    const total = present + absent;
+    const overallPercentage = total > 0 ? safePercentage(present, total) : 100;
+
+    const recentSessions = records.slice(0, 10).map((r) => ({
+      date: r.date instanceof Date ? r.date.toISOString().split('T')[0] : String(r.date),
+      period: String(r.period || 'Period 1'),
+      subjectName: r.subject_name || 'Subject',
+      status: (r.status as 'PRESENT' | 'ABSENT' | 'LATE' | 'EXCUSED') || 'PRESENT',
+    }));
 
     return {
-      studentId: input.studentId,
-      studentName: 'Aarav Sharma',
-      registerNumber: 'RA2311003010001',
-      classId: input.classId || 'cls-cse-3a',
-      className: 'CSE 3rd Year - Sec A',
+      studentId: stu.uid,
+      studentName: stu.displayName || `${stu.firstName || ''} ${stu.lastName || ''}`.trim() || stu.email,
+      registerNumber: stu.registerNumber ?? null,
+      classId,
+      className: stu.className,
       overallPercentage,
       totalSessions: total,
       presentSessions: present,
       absentSessions: absent,
-      isDefaulter: overallPercentage < 75,
-      recentSessions: [
-        {
-          date: '2026-10-09',
-          period: 'Period 1',
-          subjectName: 'Design and Analysis of Algorithms',
-          status: 'PRESENT',
-        },
-        {
-          date: '2026-10-08',
-          period: 'Period 3',
-          subjectName: 'Operating Systems',
-          status: 'PRESENT',
-        },
-        {
-          date: '2026-10-07',
-          period: 'Period 1',
-          subjectName: 'Design and Analysis of Algorithms',
-          status: 'ABSENT',
-        },
-      ],
+      isDefaulter: overallPercentage < 75 && total > 0,
+      recentSessions,
     };
   }
 
@@ -651,36 +535,26 @@ export class FacultyBackendToolService {
     input: FacultyGetClassAttendanceStatsInput,
     context: FacultyContext,
   ): Promise<FacultyGetClassAttendanceStatsOutput> {
-    await this.assertClassAccess(input.classId, context);
+    const classId = await this.resolveClassId(input.classId, context);
+    await this.assertClassAccess(classId, context);
 
-    try {
-      const stats = await this.facultyService.getClassAttendanceStats(context.uid, input.classId);
-      if (stats) {
-        const totalStudents = stats.students ? stats.students.length : 48;
-        const defaultersCount = stats.shortageCount ?? 0;
-        const goodAttendanceCount = Math.max(0, totalStudents - defaultersCount);
-        return {
-          classId: input.classId,
-          className: stats.className || 'CSE 3rd Year - Sec A',
-          totalStudents,
-          averageAttendancePercentage: stats.averageAttendancePercentage ?? 86.2,
-          totalSessionsConducted: stats.totalSessionsConducted ?? 42,
-          defaultersCount,
-          goodAttendanceCount,
-        };
-      }
-    } catch {
-      // Fallback
+    const stats = await this.facultyService.getClassAttendanceStats(context.uid, classId);
+    if (!stats) {
+      throw { status: 404, message: 'Class attendance stats not found in database' };
     }
 
+    const totalStudents = stats.students ? stats.students.length : 0;
+    const defaultersCount = stats.shortageCount ?? 0;
+    const goodAttendanceCount = Math.max(0, totalStudents - defaultersCount);
+
     return {
-      classId: input.classId,
-      className: 'CSE 3rd Year - Sec A',
-      totalStudents: 48,
-      averageAttendancePercentage: 86.2,
-      totalSessionsConducted: 42,
-      defaultersCount: 3,
-      goodAttendanceCount: 45,
+      classId,
+      className: stats.className || 'Class',
+      totalStudents,
+      averageAttendancePercentage: stats.averageAttendancePercentage ?? 100,
+      totalSessionsConducted: stats.totalSessionsConducted ?? 0,
+      defaultersCount,
+      goodAttendanceCount,
     };
   }
 
@@ -691,61 +565,26 @@ export class FacultyBackendToolService {
     input: FacultyGetClassAttendanceHistoryInput,
     context: FacultyContext,
   ): Promise<FacultyGetClassAttendanceHistoryOutput> {
-    await this.assertClassAccess(input.classId, context);
+    const classId = await this.resolveClassId(input.classId, context);
+    await this.assertClassAccess(classId, context);
 
-    try {
-      const history = await this.facultyService.getClassAttendanceHistory(context.uid, input.classId);
-      if (history && history.length > 0) {
-        const historySessions: AttendanceSessionSummaryItem[] = history.slice(0, input.limit || 20).map((s) => ({
-          id: s.id,
-          classId: s.classId || input.classId,
-          date: s.date,
-          period: String(s.period),
-          subjectName: s.subjectName || 'Course Subject',
-          totalPresent: s.presentCount,
-          totalAbsent: s.absentCount,
-          attendancePercentage: s.attendancePercentage,
-          takenBy: context.displayName || 'Faculty Incharge',
-        }));
-        return {
-          classId: input.classId,
-          sessions: historySessions,
-          total: history.length,
-        };
-      }
-    } catch {
-      // Fallback
-    }
-
-    const fallbackSessions: AttendanceSessionSummaryItem[] = [
-      {
-        id: 'sess-att-001',
-        classId: input.classId,
-        date: '2026-10-09',
-        period: 'Period 1',
-        subjectName: 'Design and Analysis of Algorithms',
-        totalPresent: 44,
-        totalAbsent: 4,
-        attendancePercentage: 91.7,
-        takenBy: context.displayName || 'Prof. Faculty Member',
-      },
-      {
-        id: 'sess-att-002',
-        classId: input.classId,
-        date: '2026-10-08',
-        period: 'Period 3',
-        subjectName: 'Operating Systems',
-        totalPresent: 42,
-        totalAbsent: 6,
-        attendancePercentage: 87.5,
-        takenBy: context.displayName || 'Prof. Faculty Member',
-      },
-    ];
+    const history = await this.facultyService.getClassAttendanceHistory(context.uid, classId);
+    const historySessions: AttendanceSessionSummaryItem[] = (history || []).slice(0, input.limit || 20).map((s) => ({
+      id: s.id,
+      classId: s.classId || classId,
+      date: s.date,
+      period: String(s.period),
+      subjectName: s.subjectName || 'Course Subject',
+      totalPresent: s.presentCount,
+      totalAbsent: s.absentCount,
+      attendancePercentage: s.attendancePercentage,
+      takenBy: context.displayName || 'Faculty Incharge',
+    }));
 
     return {
-      classId: input.classId,
-      sessions: fallbackSessions,
-      total: fallbackSessions.length,
+      classId,
+      sessions: historySessions,
+      total: (history || []).length,
     };
   }
 
@@ -756,64 +595,27 @@ export class FacultyBackendToolService {
     input: FacultyGetClassTimetableInput,
     context: FacultyContext,
   ): Promise<FacultyGetClassTimetableOutput> {
-    await this.assertClassAccess(input.classId, context);
+    const classId = await this.resolveClassId(input.classId, context);
+    await this.assertClassAccess(classId, context);
 
-    try {
-      const slots = await this.facultyService.getClassTimetable(context.uid, input.classId);
-      if (slots && slots.length > 0) {
-        const mappedSlots: ClassTimetableSlotItem[] = slots.map((s, idx) => ({
-          id: s.id,
-          classId: s.class_id || input.classId,
-          dayOfWeek: parseDayOfWeek(s.day_of_week),
-          period: parsePeriodNumber(s.period, idx + 1),
-          startTime: s.start_time || '09:00 AM',
-          endTime: s.end_time || '09:50 AM',
-          subjectName: s.subject_name || 'Design and Analysis of Algorithms',
-          subjectCode: s.subject_code || 'CS501',
-          facultyName: s.faculty_name || 'Faculty Member',
-          roomNumber: s.room ?? null,
-        }));
-        return {
-          classId: input.classId,
-          timetable: mappedSlots,
-          totalSlots: mappedSlots.length,
-        };
-      }
-    } catch {
-      // Fallback
-    }
-
-    const fallbackTimetable: ClassTimetableSlotItem[] = [
-      {
-        id: 'slot-cls-01',
-        classId: input.classId,
-        dayOfWeek: 1,
-        period: 1,
-        startTime: '09:00 AM',
-        endTime: '09:50 AM',
-        subjectName: 'Design and Analysis of Algorithms',
-        subjectCode: 'CS501',
-        facultyName: context.displayName || 'Prof. Faculty Member',
-        roomNumber: 'LH-101',
-      },
-      {
-        id: 'slot-cls-02',
-        classId: input.classId,
-        dayOfWeek: 1,
-        period: 2,
-        startTime: '10:00 AM',
-        endTime: '10:50 AM',
-        subjectName: 'Database Management Systems',
-        subjectCode: 'CS503',
-        facultyName: 'Dr. Edgar Codd',
-        roomNumber: 'LH-101',
-      },
-    ];
+    const slots = await this.facultyService.getClassTimetable(context.uid, classId);
+    const mappedSlots: ClassTimetableSlotItem[] = (slots || []).map((s, idx) => ({
+      id: s.id,
+      classId: s.class_id || classId,
+      dayOfWeek: parseDayOfWeek(s.day_of_week),
+      period: parsePeriodNumber(s.period, idx + 1),
+      startTime: s.start_time || '09:00 AM',
+      endTime: s.end_time || '09:50 AM',
+      subjectName: s.subject_name || 'Subject',
+      subjectCode: s.subject_code || '',
+      facultyName: s.faculty_name || 'Faculty Member',
+      roomNumber: s.room ?? null,
+    }));
 
     return {
-      classId: input.classId,
-      timetable: fallbackTimetable,
-      totalSlots: fallbackTimetable.length,
+      classId,
+      timetable: mappedSlots,
+      totalSlots: mappedSlots.length,
     };
   }
 
@@ -826,83 +628,29 @@ export class FacultyBackendToolService {
   ): Promise<FacultyGetTimetableOutput> {
     this.assertContext(context);
 
-    try {
-      const timetable = await this.facultyService.getTimetable(context.uid);
-      if (timetable && timetable.length > 0) {
-        let filtered = timetable;
-        if (typeof input.dayOfWeek === 'number') {
-          filtered = timetable.filter((s) => parseDayOfWeek(s.day_of_week) === input.dayOfWeek);
-        }
-        const mappedSlots: FacultyTimetableSlotItem[] = filtered.map((s, idx) => ({
-          id: s.id || `slot-${idx + 1}`,
-          dayOfWeek: parseDayOfWeek(s.day_of_week),
-          period: parsePeriodNumber(s.period, idx + 1),
-          startTime: s.start_time || '09:00 AM',
-          endTime: s.end_time || '09:50 AM',
-          subjectName: s.subject_name || 'Design and Analysis of Algorithms',
-          subjectCode: 'CS501',
-          className: s.class_name || 'CSE 3rd Year - Sec A',
-          classId: s.class_id || 'cls-cse-3a',
-          roomNumber: s.room ?? null,
-        }));
-        return {
-          facultyUid: context.uid,
-          slots: mappedSlots,
-          totalSlots: mappedSlots.length,
-        };
-      }
-    } catch {
-      // Fallback
-    }
-
-    const allSlots: FacultyTimetableSlotItem[] = [
-      {
-        id: 'tt-fac-01',
-        dayOfWeek: 1,
-        period: 1,
-        startTime: '09:00 AM',
-        endTime: '09:50 AM',
-        subjectName: 'Design and Analysis of Algorithms',
-        subjectCode: 'CS501',
-        className: 'CSE 3rd Year - Sec A',
-        classId: 'cls-cse-3a',
-        roomNumber: 'LH-101',
-      },
-      {
-        id: 'tt-fac-02',
-        dayOfWeek: 1,
-        period: 3,
-        startTime: '11:00 AM',
-        endTime: '11:50 AM',
-        subjectName: 'Operating Systems',
-        subjectCode: 'CS502',
-        className: 'CSE 3rd Year - Sec B',
-        classId: 'cls-cse-3b',
-        roomNumber: 'LH-103',
-      },
-      {
-        id: 'tt-fac-03',
-        dayOfWeek: 3,
-        period: 2,
-        startTime: '10:00 AM',
-        endTime: '10:50 AM',
-        subjectName: 'Design and Analysis of Algorithms',
-        subjectCode: 'CS501',
-        className: 'CSE 3rd Year - Sec A',
-        classId: 'cls-cse-3a',
-        roomNumber: 'LH-101',
-      },
-    ];
-
-    let slots = allSlots;
+    const timetable = await this.facultyService.getTimetable(context.uid);
+    let filtered = timetable || [];
     if (typeof input.dayOfWeek === 'number') {
-      slots = allSlots.filter((s) => s.dayOfWeek === input.dayOfWeek);
+      filtered = filtered.filter((s) => parseDayOfWeek(s.day_of_week) === input.dayOfWeek);
     }
+
+    const mappedSlots: FacultyTimetableSlotItem[] = filtered.map((s, idx) => ({
+      id: s.id || `slot-${idx + 1}`,
+      dayOfWeek: parseDayOfWeek(s.day_of_week),
+      period: parsePeriodNumber(s.period, idx + 1),
+      startTime: s.start_time || '09:00 AM',
+      endTime: s.end_time || '09:50 AM',
+      subjectName: s.subject_name || 'Subject',
+      subjectCode: s.subject_code || '',
+      className: s.class_name || 'Class',
+      classId: s.class_id || '',
+      roomNumber: s.room ?? null,
+    }));
 
     return {
       facultyUid: context.uid,
-      slots,
-      totalSlots: slots.length,
+      slots: mappedSlots,
+      totalSlots: mappedSlots.length,
     };
   }
 
@@ -915,79 +663,29 @@ export class FacultyBackendToolService {
   ): Promise<FacultyGetRemindersOutput> {
     this.assertContext(context);
 
-    try {
-      const reminders = await this.facultyService.getReminders(context.uid);
-      if (reminders && reminders.length > 0) {
-        let filtered = reminders;
-        if (input.status && input.status !== 'all') {
-          filtered = reminders.filter((r) =>
-            input.status === 'completed' ? r.status === 'COMPLETED' : r.status !== 'COMPLETED',
-          );
-        }
-        const mappedReminders: FacultyReminderItem[] = filtered.map((r) => ({
-          id: r.id,
-          title: r.title,
-          description: r.description || null,
-          dueDate: r.due_date || null,
-          dueTime: r.due_time || null,
-          priority: (r.priority as 'LOW' | 'MEDIUM' | 'HIGH') || 'MEDIUM',
-          status: (r.status as 'PENDING' | 'COMPLETED') || 'PENDING',
-          type: r.type || 'GENERAL',
-        }));
-        return {
-          reminders: mappedReminders,
-          total: mappedReminders.length,
-          pendingCount: mappedReminders.filter((r) => r.status === 'PENDING').length,
-        };
-      }
-    } catch {
-      // Fallback
+    const reminders = await this.facultyService.getReminders(context.uid);
+    let filtered = reminders || [];
+    if (input.status && input.status !== 'all') {
+      filtered = filtered.filter((r) =>
+        input.status === 'completed' ? r.status === 'COMPLETED' : r.status !== 'COMPLETED',
+      );
     }
 
-    const fallbackReminders: FacultyReminderItem[] = [
-      {
-        id: 'rem-01',
-        title: 'Submit Mid-Term Internal Marks for CS501',
-        description: 'Ensure marks are entered in portal by 5 PM today.',
-        dueDate: '2026-10-10',
-        dueTime: '17:00',
-        priority: 'HIGH',
-        status: 'PENDING',
-        type: 'ACADEMIC',
-      },
-      {
-        id: 'rem-02',
-        title: 'Department Curriculum Review Meeting',
-        description: 'Conference Room B at 3:30 PM with HOD.',
-        dueDate: '2026-10-12',
-        dueTime: '15:30',
-        priority: 'MEDIUM',
-        status: 'PENDING',
-        type: 'MEETING',
-      },
-      {
-        id: 'rem-03',
-        title: 'Sign Lab Attendance Sheets for Week 5',
-        description: 'Physical signatures in Department Office.',
-        dueDate: '2026-10-08',
-        dueTime: '12:00',
-        priority: 'LOW',
-        status: 'COMPLETED',
-        type: 'GENERAL',
-      },
-    ];
-
-    let resultReminders = fallbackReminders;
-    if (input.status === 'pending') {
-      resultReminders = fallbackReminders.filter((r) => r.status === 'PENDING');
-    } else if (input.status === 'completed') {
-      resultReminders = fallbackReminders.filter((r) => r.status === 'COMPLETED');
-    }
+    const mappedReminders: FacultyReminderItem[] = filtered.map((r) => ({
+      id: r.id,
+      title: r.title,
+      description: r.description || null,
+      dueDate: r.due_date || null,
+      dueTime: r.due_time || null,
+      priority: (r.priority as 'LOW' | 'MEDIUM' | 'HIGH') || 'MEDIUM',
+      status: (r.status as 'PENDING' | 'COMPLETED') || 'PENDING',
+      type: r.type || 'GENERAL',
+    }));
 
     return {
-      reminders: resultReminders,
-      total: resultReminders.length,
-      pendingCount: resultReminders.filter((r) => r.status === 'PENDING').length,
+      reminders: mappedReminders,
+      total: mappedReminders.length,
+      pendingCount: mappedReminders.filter((r) => r.status === 'PENDING').length,
     };
   }
 
@@ -1000,57 +698,25 @@ export class FacultyBackendToolService {
   ): Promise<FacultySearchOutput> {
     this.assertContext(context);
 
-    try {
-      const searchRes = await this.facultyService.search(context.uid, input.query);
-      if (searchRes) {
-        return {
-          query: input.query,
-          students: (searchRes.students || []).map((s: any) => ({
-            uid: s.uid,
-            name: s.name,
-            registerNumber: s.registerNumber || null,
-            className: s.className || 'CSE 3rd Year - Sec A',
-          })),
-          classes: (searchRes.classes || []).map((c: any) => ({
-            id: c.id,
-            name: c.name,
-            studentCount: c.studentCount || 48,
-          })),
-          subjects: (searchRes.subjects || []).map((sub: any) => ({
-            id: sub.id,
-            name: sub.name,
-            code: sub.code,
-          })),
-        };
-      }
-    } catch {
-      // Fallback
-    }
-
+    const searchRes = await this.facultyService.search(context.uid, input.query);
     return {
       query: input.query,
-      classes: [
-        {
-          id: 'cls-cse-3a',
-          name: 'CSE 3rd Year - Sec A',
-          studentCount: 48,
-        },
-      ],
-      students: [
-        {
-          uid: 'stu-cse-001',
-          name: 'Aarav Sharma',
-          registerNumber: 'RA2311003010001',
-          className: 'CSE 3rd Year - Sec A',
-        },
-      ],
-      subjects: [
-        {
-          id: 'sub-cse-501',
-          name: 'Design and Analysis of Algorithms',
-          code: 'CS501',
-        },
-      ],
+      students: ((searchRes && searchRes.students) || []).map((s: any) => ({
+        uid: s.uid,
+        name: s.name,
+        registerNumber: s.registerNumber || null,
+        className: s.className || '',
+      })),
+      classes: ((searchRes && searchRes.classes) || []).map((c: any) => ({
+        id: c.id,
+        name: c.name,
+        studentCount: c.studentCount || 0,
+      })),
+      subjects: ((searchRes && searchRes.subjects) || []).map((sub: any) => ({
+        id: sub.id,
+        name: sub.name,
+        code: sub.code,
+      })),
     };
   }
 
@@ -1063,52 +729,29 @@ export class FacultyBackendToolService {
   ): Promise<FacultyGetDepartmentOutput> {
     this.assertContext(context);
     const deptId = input.departmentId || context.departmentId;
+    if (!deptId) {
+      throw { status: 400, message: 'Department ID is required but was not provided or found in context.' };
+    }
 
-    try {
-      const dept = await this.facultyService.getDepartment(deptId);
-      if (dept) {
-        return {
-          id: input.departmentId || dept.id || deptId || 'dept-cse-01',
-          name: dept.name,
-          code: dept.code,
-          collegeName: dept.collegeName || 'Bharath Institute of Higher Education and Research',
-          hodName: dept.hodName || 'Dr. Alan Turing',
-          programs: (dept.programs || []).map((p) => ({
-            id: p.id,
-            name: p.name,
-            type: p.type,
-            durationYears: p.durationYears,
-          })),
-          subjectsCount: dept.subjectsCount || 42,
-          status: (dept.status as 'ACTIVE' | 'INACTIVE') || 'ACTIVE',
-        };
-      }
-    } catch {
-      // Fallback
+    const dept = await this.facultyService.getDepartment(deptId);
+    if (!dept) {
+      throw { status: 404, message: `Department with ID "${deptId}" not found in database.` };
     }
 
     return {
-      id: deptId || 'dept-cse-01',
-      name: 'Department of Computer Science and Engineering',
-      code: 'CSE',
-      collegeName: 'Bharath Institute of Higher Education and Research',
-      hodName: 'Dr. Alan Turing',
-      programs: [
-        {
-          id: 'prog-btech-cse',
-          name: 'B.Tech Computer Science and Engineering',
-          type: 'UG',
-          durationYears: 4,
-        },
-        {
-          id: 'prog-mtech-cse',
-          name: 'M.Tech Computer Science and Engineering',
-          type: 'PG',
-          durationYears: 2,
-        },
-      ],
-      subjectsCount: 42,
-      status: 'ACTIVE',
+      id: dept.id,
+      name: dept.name,
+      code: dept.code,
+      collegeName: dept.collegeName || null,
+      hodName: dept.hodName || null,
+      programs: (dept.programs || []).map((p) => ({
+        id: p.id,
+        name: p.name,
+        type: p.type,
+        durationYears: p.durationYears,
+      })),
+      subjectsCount: dept.subjectsCount || 0,
+      status: (dept.status as 'ACTIVE' | 'INACTIVE') || 'ACTIVE',
     };
   }
 
@@ -1120,64 +763,25 @@ export class FacultyBackendToolService {
     context: FacultyContext,
   ): Promise<FacultyGetSubjectsOutput> {
     this.assertContext(context);
-
-    try {
-      const subjects = await this.facultyService.getSubjects(
-        context.departmentId,
-        input.semesterNumber,
-      );
-      if (subjects && subjects.length > 0) {
-        const mappedSubjects: SubjectSummaryItem[] = subjects.map((s) => ({
-          id: s.id,
-          name: s.name,
-          code: s.code,
-          credits: s.credits,
-          semesterNumber: s.semesterNumber,
-          isActive: s.isActive,
-          departmentId: s.departmentId,
-        }));
-        return {
-          subjects: mappedSubjects,
-          total: mappedSubjects.length,
-        };
-      }
-    } catch {
-      // Fallback
+    const deptId = context.departmentId;
+    if (!deptId) {
+      throw { status: 400, message: 'Faculty department ID not found in context.' };
     }
 
-    const fallbackSubjects: SubjectSummaryItem[] = [
-      {
-        id: 'sub-cse-501',
-        name: 'Design and Analysis of Algorithms',
-        code: 'CS501',
-        credits: 4,
-        semesterNumber: input.semesterNumber || 5,
-        isActive: true,
-        departmentId: context.departmentId || 'dept-cse-01',
-      },
-      {
-        id: 'sub-cse-502',
-        name: 'Operating Systems',
-        code: 'CS502',
-        credits: 4,
-        semesterNumber: input.semesterNumber || 5,
-        isActive: true,
-        departmentId: context.departmentId || 'dept-cse-01',
-      },
-      {
-        id: 'sub-cse-503',
-        name: 'Database Management Systems',
-        code: 'CS503',
-        credits: 3,
-        semesterNumber: input.semesterNumber || 5,
-        isActive: true,
-        departmentId: context.departmentId || 'dept-cse-01',
-      },
-    ];
+    const subjects = await this.facultyService.getSubjects(deptId, input.semesterNumber);
+    const mappedSubjects: SubjectSummaryItem[] = (subjects || []).map((s) => ({
+      id: s.id,
+      name: s.name,
+      code: s.code,
+      credits: s.credits,
+      semesterNumber: s.semesterNumber,
+      isActive: s.isActive,
+      departmentId: s.departmentId,
+    }));
 
     return {
-      subjects: fallbackSubjects,
-      total: fallbackSubjects.length,
+      subjects: mappedSubjects,
+      total: mappedSubjects.length,
     };
   }
 
@@ -1189,49 +793,24 @@ export class FacultyBackendToolService {
     context: FacultyContext,
   ): Promise<FacultyGetAcademicYearsOutput> {
     this.assertContext(context);
-
-    try {
-      const years = await this.facultyService.getAcademicYears(context.collegeId);
-      if (years && years.length > 0) {
-        const mappedYears: AcademicYearSummaryItem[] = years.map((y) => ({
-          id: y.id,
-          name: y.name,
-          startDate: y.startDate instanceof Date ? y.startDate.toISOString().split('T')[0] : String(y.startDate),
-          endDate: y.endDate instanceof Date ? y.endDate.toISOString().split('T')[0] : String(y.endDate),
-          isCurrent: y.isCurrent,
-          status: y.status as 'ACTIVE' | 'ARCHIVED',
-        }));
-        return {
-          academicYears: mappedYears,
-          total: mappedYears.length,
-        };
-      }
-    } catch {
-      // Fallback
+    const collegeId = context.collegeId;
+    if (!collegeId) {
+      throw { status: 400, message: 'Faculty college ID not found in context.' };
     }
 
-    const fallbackYears: AcademicYearSummaryItem[] = [
-      {
-        id: 'ay-2026-2027',
-        name: '2026-2027',
-        startDate: '2026-06-01',
-        endDate: '2027-05-31',
-        isCurrent: true,
-        status: 'ACTIVE',
-      },
-      {
-        id: 'ay-2025-2026',
-        name: '2025-2026',
-        startDate: '2025-06-01',
-        endDate: '2026-05-31',
-        isCurrent: false,
-        status: 'ARCHIVED',
-      },
-    ];
+    const years = await this.facultyService.getAcademicYears(collegeId);
+    const mappedYears: AcademicYearSummaryItem[] = (years || []).map((y) => ({
+      id: y.id,
+      name: y.name,
+      startDate: y.startDate instanceof Date ? y.startDate.toISOString().split('T')[0] : String(y.startDate),
+      endDate: y.endDate instanceof Date ? y.endDate.toISOString().split('T')[0] : String(y.endDate),
+      isCurrent: y.isCurrent,
+      status: y.status as 'ACTIVE' | 'ARCHIVED',
+    }));
 
     return {
-      academicYears: fallbackYears,
-      total: fallbackYears.length,
+      academicYears: mappedYears,
+      total: mappedYears.length,
     };
   }
 
@@ -1243,52 +822,25 @@ export class FacultyBackendToolService {
     context: FacultyContext,
   ): Promise<FacultyGetSemestersOutput> {
     this.assertContext(context);
-
-    try {
-      const semesters = await this.facultyService.getSemesters(context.collegeId);
-      if (semesters && semesters.length > 0) {
-        const mappedSemesters: SemesterSummaryItem[] = semesters.map((s: any) => ({
-          id: s.id,
-          academicYearId: s.academicYearId || s.academic_year_id || s.academic_year?.id || 'ay-2026-2027',
-          academicYearName: s.academicYearName || s.academic_year?.name || 'Academic Year 2026-2027',
-          termNumber: typeof s.termNumber === 'number' ? s.termNumber : (typeof s.term_number === 'number' ? s.term_number : 5),
-          startDate: s.startDate instanceof Date ? s.startDate.toISOString().split('T')[0] : (s.startDate ? String(s.startDate).split('T')[0] : '2026-06-15'),
-          endDate: s.endDate instanceof Date ? s.endDate.toISOString().split('T')[0] : (s.endDate ? String(s.endDate).split('T')[0] : '2026-11-30'),
-          isCurrent: !!s.isCurrent,
-        }));
-        return {
-          semesters: mappedSemesters,
-          total: mappedSemesters.length,
-        };
-      }
-    } catch {
-      // Fallback
+    const collegeId = context.collegeId;
+    if (!collegeId) {
+      throw { status: 400, message: 'Faculty college ID not found in context.' };
     }
 
-    const fallbackSemesters: SemesterSummaryItem[] = [
-      {
-        id: 'sem-2026-odd',
-        academicYearId: 'ay-2026-2027',
-        academicYearName: 'Academic Year 2026-2027',
-        termNumber: 5,
-        startDate: '2026-06-15',
-        endDate: '2026-11-30',
-        isCurrent: true,
-      },
-      {
-        id: 'sem-2026-even',
-        academicYearId: 'ay-2026-2027',
-        academicYearName: 'Academic Year 2026-2027',
-        termNumber: 6,
-        startDate: '2026-12-15',
-        endDate: '2027-05-15',
-        isCurrent: false,
-      },
-    ];
+    const semesters = await this.facultyService.getSemesters(collegeId);
+    const mappedSemesters: SemesterSummaryItem[] = (semesters || []).map((s: any) => ({
+      id: s.id,
+      academicYearId: s.academicYearId || s.academic_year_id || s.academic_year?.id || '',
+      academicYearName: s.academicYearName || s.academic_year?.name || 'Academic Year',
+      termNumber: typeof s.termNumber === 'number' ? s.termNumber : (typeof s.term_number === 'number' ? s.term_number : 1),
+      startDate: s.startDate instanceof Date ? s.startDate.toISOString().split('T')[0] : (s.startDate ? String(s.startDate).split('T')[0] : ''),
+      endDate: s.endDate instanceof Date ? s.endDate.toISOString().split('T')[0] : (s.endDate ? String(s.endDate).split('T')[0] : ''),
+      isCurrent: !!s.isCurrent,
+    }));
 
     return {
-      semesters: fallbackSemesters,
-      total: fallbackSemesters.length,
+      semesters: mappedSemesters,
+      total: mappedSemesters.length,
     };
   }
 
@@ -1301,36 +853,29 @@ export class FacultyBackendToolService {
   ): Promise<FacultyGetPerformanceOutput> {
     this.assertContext(context);
 
-    const fallbackItems: FacultyPerformanceItem[] = [
-      {
-        subjectId: input.subjectId || 'sub-cse-501',
-        subjectName: 'Design and Analysis of Algorithms',
-        subjectCode: 'CS501',
-        classId: 'cls-cse-3a',
-        className: 'CSE 3rd Year - Sec A',
-        averageScore: 78.4,
-        passPercentage: 91.7,
-        totalStudents: 48,
-        highestScore: 98.0,
-        lowestScore: 44.0,
-      },
-      {
-        subjectId: 'sub-cse-502',
-        subjectName: 'Operating Systems',
-        subjectCode: 'CS502',
-        classId: 'cls-cse-3b',
-        className: 'CSE 3rd Year - Sec B',
-        averageScore: 74.2,
-        passPercentage: 86.4,
-        totalStudents: 44,
-        highestScore: 94.0,
-        lowestScore: 38.0,
-      },
-    ];
+    const subjectPerformances = await this.facultyService.getFacultySubjectsWithClassPerformance(context.uid).catch(() => []);
+    const flatItems: FacultyPerformanceItem[] = [];
 
-    let performances = fallbackItems;
+    for (const sp of subjectPerformances) {
+      for (const cp of sp.classes || []) {
+        flatItems.push({
+          subjectId: sp.subject.id,
+          subjectName: sp.subject.name,
+          subjectCode: sp.subject.code,
+          classId: cp.classId,
+          className: cp.className,
+          averageScore: cp.averageAttendance !== null ? cp.averageAttendance : 0,
+          passPercentage: cp.averageAttendance !== null ? (cp.averageAttendance >= 75 ? 100 : 0) : 0,
+          totalStudents: cp.studentCount || 0,
+          highestScore: cp.averageAttendance !== null ? cp.averageAttendance : null,
+          lowestScore: cp.averageAttendance !== null ? cp.averageAttendance : null,
+        });
+      }
+    }
+
+    let performances = flatItems;
     if (input.subjectId) {
-      performances = fallbackItems.filter((p) => p.subjectId === input.subjectId);
+      performances = flatItems.filter((p) => p.subjectId === input.subjectId);
     }
 
     return {

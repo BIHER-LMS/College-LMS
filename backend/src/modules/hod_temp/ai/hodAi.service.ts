@@ -123,20 +123,7 @@ export class HodAiOrchestratorService {
       };
     }
 
-    // 5. Attendance Summary Intent (general/cohorts)
-    if (
-      lower.includes('attendance') ||
-      lower.includes('summary') ||
-      lower.includes('cohort') ||
-      lower.includes('average')
-    ) {
-      return {
-        toolName: 'hod.getAttendanceSummary',
-        args: {},
-      };
-    }
-
-    // 6. Knowledge / Document Context Intent
+    // 5. Knowledge / Document Context Intent
     if (
       lower.includes('document') ||
       lower.includes('section') ||
@@ -146,12 +133,12 @@ export class HodAiOrchestratorService {
       return {
         toolName: 'hod.getKnowledgeContext',
         args: {
-          documentId: docMatch ? docMatch[1] : 'doc-policy-01',
+          documentId: docMatch ? docMatch[1] : 'doc-hod-att-01',
         },
       };
     }
 
-    // 7. Policy / Regulations / Search Intent
+    // 6. Policy / Regulations / Search Intent (RAG Knowledge)
     if (
       lower.includes('policy') ||
       lower.includes('regulation') ||
@@ -159,14 +146,29 @@ export class HodAiOrchestratorService {
       lower.includes('guideline') ||
       lower.includes('condonation') ||
       lower.includes('handbook') ||
-      lower.includes('search')
+      lower.includes('search') ||
+      lower.includes('syllabus') ||
+      lower.includes('curriculum')
     ) {
       return {
         toolName: 'hod.searchKnowledge',
         args: {
           query: message.slice(0, 100),
-          category: lower.includes('handbook') ? 'handbook' : 'policy',
+          category: lower.includes('handbook') ? 'handbook' : lower.includes('curriculum') || lower.includes('syllabus') ? 'curriculum' : 'policy',
         },
+      };
+    }
+
+    // 7. Attendance Summary Intent (general/cohorts live transactional database)
+    if (
+      lower.includes('attendance') ||
+      lower.includes('summary') ||
+      lower.includes('cohort') ||
+      lower.includes('average')
+    ) {
+      return {
+        toolName: 'hod.getAttendanceSummary',
+        args: {},
       };
     }
 

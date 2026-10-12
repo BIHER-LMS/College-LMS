@@ -7,3 +7,4 @@ export * from './ManageHods';
 export * from './ManageFaculty';
 export * from './ManageStudents';
 export * from './CollegeProfile';
+export * from './CollegeAdminRagVault';

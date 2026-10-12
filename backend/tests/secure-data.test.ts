@@ -20,19 +20,18 @@ app.use((err: any, _req: any, res: any, _next: any) => res.status(err.statusCode
 const token = (verb: 'get' | 'post' | 'patch' | 'delete', path: string) => request(app)[verb](path).set('Authorization', 'Bearer firebase-id-token');
 const approved = (role = 'COLLEGE_ADMIN', extras = {}) => ({ uid: 'real-uid', email: 'verified@example.com', role, approval_status: 'APPROVED', college_id: 'college-a', department_id: null, class_id: null, ...extras });
 
-beforeEach(() => {
-  vi.clearAllMocks();
-  verify.mockResolvedValue({ uid: 'real-uid', email: 'verified@example.com', email_verified: true } as any);
-  db.authedUser.findUnique.mockResolvedValue(approved());
-  db.user.findUnique.mockResolvedValue(null);
-  db.college.findFirst.mockResolvedValue({ id: 'college-a' });
-  db.department.findFirst.mockResolvedValue({ id: 'dept-a', college_id: 'college-a', is_active: true });
-  db.department.findMany.mockResolvedValue([]);
-  db.$transaction.mockImplementation((fn: any) => fn(db));
-  db.$queryRaw.mockResolvedValue([{ id: 'college-a' }]);
-});
-
 describe('secure-data BFF', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    verify.mockResolvedValue({ uid: 'real-uid', email: 'verified@example.com', email_verified: true } as any);
+    db.authedUser.findUnique.mockResolvedValue(approved());
+    db.user.findUnique.mockResolvedValue(null);
+    db.college.findFirst.mockResolvedValue({ id: 'college-a' });
+    db.department.findFirst.mockResolvedValue({ id: 'dept-a', college_id: 'college-a', is_active: true });
+    db.department.findMany.mockResolvedValue([]);
+    db.$transaction.mockImplementation((fn: any) => fn(db));
+    db.$queryRaw.mockResolvedValue([{ id: 'college-a' }]);
+  });
   it('public discovery exposes only active ID/name/code and no user data', async () => {
     db.college.findMany.mockResolvedValue([{ id: 'college-a', name: 'A', code: 'A' }]);
     expect((await request(app).get('/api/public/colleges')).body.data).toEqual([{ id: 'college-a', name: 'A', code: 'A' }]);

@@ -34,24 +34,23 @@ const tx = {
   accountApproval: { findFirst: vi.fn(), updateMany: vi.fn() },
 };
 
-beforeEach(() => {
-  vi.resetAllMocks();
-  db.department.findFirst.mockImplementation(({ where }: any) =>
-    Promise.resolve(where.id === dept.id && where.college_id === dept.college_id ? dept : null));
-  db.$transaction.mockImplementation((run: (tx: typeof tx) => unknown) => run(tx));
-  tx.authedUser.findFirst.mockResolvedValue(applicant);
-  tx.authedUser.updateMany.mockResolvedValue({ count: 1 });
-  tx.authedUser.findUniqueOrThrow.mockResolvedValue({ ...applicant, role: 'FACULTY' });
-  tx.user.findUnique.mockResolvedValue(null);
-  tx.user.updateMany.mockResolvedValue({ count: 1 });
-  tx.subject.findFirst.mockResolvedValue({ id: 'subject-a' });
-  tx.class.findFirst.mockResolvedValue(null);
-  tx.class.updateMany.mockResolvedValue({ count: 1 });
-  tx.accountApproval.findFirst.mockResolvedValue({ id: 'request-a' });
-  tx.accountApproval.updateMany.mockResolvedValue({ count: 1 });
-});
-
 describe('college-scoped HOD academic data', () => {
+  beforeEach(() => {
+    vi.resetAllMocks();
+    db.department.findFirst.mockImplementation(({ where }: any) =>
+      Promise.resolve(where.id === dept.id && where.college_id === dept.college_id ? dept : null));
+    db.$transaction.mockImplementation((run: (tx: typeof tx) => unknown) => run(tx));
+    tx.authedUser.findFirst.mockResolvedValue(applicant);
+    tx.authedUser.updateMany.mockResolvedValue({ count: 1 });
+    tx.authedUser.findUniqueOrThrow.mockResolvedValue({ ...applicant, role: 'FACULTY' });
+    tx.user.findUnique.mockResolvedValue(null);
+    tx.user.updateMany.mockResolvedValue({ count: 1 });
+    tx.subject.findFirst.mockResolvedValue({ id: 'subject-a' });
+    tx.class.findFirst.mockResolvedValue(null);
+    tx.class.updateMany.mockResolvedValue({ count: 1 });
+    tx.accountApproval.findFirst.mockResolvedValue({ id: 'request-a' });
+    tx.accountApproval.updateMany.mockResolvedValue({ count: 1 });
+  });
   it('filters years and semesters by the assigned college', async () => {
     db.academicYear.findMany.mockResolvedValue([]);
     db.semester.findMany.mockResolvedValue([]);

@@ -14,6 +14,12 @@ import type {
   ClassTimetableSlot,
   StudentAttendanceResponse,
 } from '../types/student.types';
+import type {
+  StudentChatRequest,
+  StudentChatResponseData,
+  CanonicalToolMeta,
+  ToolExecutionResult,
+} from '../types/studentAi.types';
 import { auth } from '../../../config/firebase';
 
 const BASE_URL = import.meta.env.VITE_API_BASE_URL || '/api';
@@ -140,4 +146,20 @@ export const studentApi = {
       body: formData,
     });
   },
+
+  // 15. Student AI Assistant Endpoints
+  sendChatMessage: (data: StudentChatRequest) =>
+    request<StudentChatResponseData>('/student/ai/chat', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    }),
+
+  getAiTools: () =>
+    request<{ tools: CanonicalToolMeta[] }>('/student/ai/tools'),
+
+  executeAiTool: (toolName: string, args: Record<string, any> = {}) =>
+    request<ToolExecutionResult>('/student/ai/tools/execute', {
+      method: 'POST',
+      body: JSON.stringify({ toolName, args }),
+    }),
 };

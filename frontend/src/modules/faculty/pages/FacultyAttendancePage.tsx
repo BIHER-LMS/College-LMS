@@ -293,7 +293,7 @@ export const FacultyAttendancePage: React.FC = () => {
 
   const pendingLeavesCount = classLeaves.filter((l) => l.status === 'PENDING').length;
 
-  const getCategoryInfo = (category: LeaveReasonCategory) => {
+  const getCategoryInfo = (category?: LeaveReasonCategory | string) => {
     switch (category) {
       case 'HEALTH':
         return {
