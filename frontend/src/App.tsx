@@ -54,6 +54,7 @@ import {
   ReportsAnalyticsPage, 
   AuditExportPage 
 } from './modules/hod/pages/RemainingPages';
+import { HodChatPage } from './modules/hod/pages/HodChatPage';
 
 // Student Module imports
 import { StudentLayout } from './modules/student/components/StudentLayout';
@@ -109,6 +110,7 @@ function App() {
             <Route path="/waiting-approval" element={<WaitingApproval />} />
             <Route path="/hod" element={<HodRoute />}>
               <Route index element={<HODDashboard />} />
+              <Route path="chat" element={<HodChatPage />} />
               <Route path="department" element={<DepartmentOverviewPage />} />
               <Route path="faculty" element={<FacultyPage />} />
               <Route path="programs" element={<ProgramsPage />} />

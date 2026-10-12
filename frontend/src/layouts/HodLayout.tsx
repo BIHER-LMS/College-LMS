@@ -21,6 +21,7 @@ export const HodLayout: React.FC = () => {
 
   const navItems = [
     { id: '', label: 'Dashboard Overview', icon: 'grid_view' },
+    { id: 'chat', label: 'AI Executive Assistant', icon: 'smart_toy' },
     { id: 'department', label: 'Department Overview', icon: 'domain' },
     { id: 'faculty', label: 'Faculty Management', icon: 'badge' },
     { id: 'programs', label: 'Academic Programs', icon: 'school' },
