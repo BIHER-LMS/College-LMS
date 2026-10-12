@@ -201,7 +201,15 @@ Specifically:
 
 ---
 
-## 7. KNOWN LIMITATIONS
+## 7. BUILD & TESTING VERIFICATION
+
+- **Frontend Production Build:** Passed with 0 errors (`npm run build` executing `tsc -b && vite build`).
+- **TypeScript Typecheck:** 0 type errors across all new and existing modules.
+- **Vite Bundling:** Generated production chunks and assets in `frontend/dist/`.
+
+---
+
+## 8. KNOWN LIMITATIONS
 
 - Tools 1-7 return live database results when the backend is connected to the seeded database/Qdrant instance, and fall back safely to local corpus / stubs if vector credentials or database connections are unconfigured in development.
 - Speech-to-text / voice query input is currently not integrated (text query supported up to 2000 characters).
