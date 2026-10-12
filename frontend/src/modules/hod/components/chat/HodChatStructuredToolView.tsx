@@ -3,17 +3,9 @@ import {
   BookOpen,
   CheckCircle2,
   AlertTriangle,
-  Clock,
-  GraduationCap,
-  Users,
-  Award,
   ExternalLink,
-  ShieldCheck,
   TrendingUp,
   BarChart3,
-  Calendar,
-  Layers,
-  FileText,
   AlertCircle,
   Eye,
 } from 'lucide-react';
@@ -512,7 +504,6 @@ export const HodChatStructuredToolView: React.FC<HodChatStructuredToolViewProps>
     const data = result as HodAttendanceAnalyticsOutput;
     const { below65 = 0, between65And75 = 0, above75 = 0 } =
       data.defaulterBuckets || {};
-    const totalDefaulters = below65 + between65And75;
 
     return (
       <div className="my-3 space-y-2.5">

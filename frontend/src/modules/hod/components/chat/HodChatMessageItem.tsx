@@ -7,7 +7,6 @@ import {
   Check,
   Copy,
   RotateCcw,
-  Sparkles,
 } from 'lucide-react';
 import type { HodChatMessage } from '../../types/hodAi.types';
 import { HodChatStructuredToolView } from './HodChatStructuredToolView';

@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { X, BookOpen, Clock, ExternalLink, Loader2, AlertCircle } from 'lucide-react';
+import { X, BookOpen, Loader2, AlertCircle } from 'lucide-react';
 import { hodAiApi } from '../../api/hodAiApi';
 import type { HodGetKnowledgeContextOutput } from '../../types/hodAi.types';
 

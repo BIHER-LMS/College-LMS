@@ -1,13 +1,11 @@
 import React, { useState, useRef, useEffect } from 'react';
 import {
   Bot,
-  Sparkles,
   Trash2,
   BookOpen,
   BarChart3,
   TrendingUp,
   ShieldCheck,
-  AlertCircle,
   Wrench,
   Users,
   GraduationCap,
