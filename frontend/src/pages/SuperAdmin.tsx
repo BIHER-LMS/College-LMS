@@ -7,8 +7,9 @@ import {
   updateCollege, 
   deleteCollege,
   fetchAuthedUsers,
-  updateUserProfile,
-  deleteAuthedUser
+  deleteAuthedUser,
+  assignCollegeAdmin,
+  unassignCollegeAdmin
 } from '../services/collegeService';
 import { CollegeLogsModal } from '../components/SuperAdmin/CollegeLogsModal';
 
@@ -205,28 +206,33 @@ export default function SuperAdmin() {
 
   const handleAssignAdmin = async (collegeId: string, user: AuthedUserRecord) => {
     try {
-      const updated = await updateCollege(collegeId, {
-        adminEmail: user.email,
-        adminName: user.displayName || user.email.split('@')[0],
-        adminUid: user.uid,
-      });
-      
-      // Crucial: Update the user's role and college_id in authed_users
-      await updateUserProfile(user.uid, {
-        role: 'COLLEGE_ADMIN',
-        college_id: collegeId,
-      });
-
-      setColleges(updated);
-      setAuthedUsers(prev => prev.map(u => 
-        u.uid === user.uid 
-          ? { ...u, role: 'COLLEGE_ADMIN', college_id: collegeId } 
-          : u
-      ));
+      await assignCollegeAdmin(collegeId, user.uid);
+      const [updatedColleges, updatedUsers] = await Promise.all([
+        fetchColleges(),
+        fetchAuthedUsers()
+      ]);
+      setColleges(updatedColleges);
+      setAuthedUsers(updatedUsers);
       setAssigningCollege(null);
       notify(`Assigned ${user.email} as College Admin!`);
     } catch (err: any) {
       notify('Failed to assign admin: ' + err.message, 'error');
+    }
+  };
+
+  const handleUnassignAdmin = async (collegeId: string, uid?: string, userEmail?: string) => {
+    if (!confirm(`Remove ${userEmail || 'assigned admin'} as College Admin?`)) return;
+    try {
+      await unassignCollegeAdmin(collegeId, uid);
+      const [updatedColleges, updatedUsers] = await Promise.all([
+        fetchColleges(),
+        fetchAuthedUsers()
+      ]);
+      setColleges(updatedColleges);
+      setAuthedUsers(updatedUsers);
+      notify(`Removed ${userEmail || 'admin'} as College Admin`);
+    } catch (err: any) {
+      notify('Failed to unassign admin: ' + err.message, 'error');
     }
   };
 
@@ -458,17 +464,24 @@ Database policy changes must be coordinated with verified backend API cutover.`;
                           <div className="text-xs font-semibold text-white truncate">{col.adminName || 'Admin'}</div>
                           <div className="text-[11px] text-brand-accent font-mono truncate">{col.adminEmail}</div>
                         </div>
-                        <button 
-                          onClick={() => setAssigningCollege(col)}
-                          className="text-[11px] text-slate-400 hover:text-white underline ml-2 shrink-0">
-                          Change
-                        </button>
+                        <div className="flex items-center gap-2 shrink-0">
+                          <button 
+                            onClick={() => setAssigningCollege(col)}
+                            className="text-[11px] text-slate-400 hover:text-white underline ml-2">
+                            Change
+                          </button>
+                          <button 
+                            onClick={() => handleUnassignAdmin(col.id, col.adminUid || undefined, col.adminEmail || undefined)}
+                            className="text-[11px] text-rose-400 hover:text-rose-300 underline">
+                            Unassign
+                          </button>
+                        </div>
                       </div>
                     ) : (
                       <button 
                         onClick={() => setAssigningCollege(col)}
                         className="w-full py-1.5 px-2 rounded border border-dashed border-brand-accent/40 text-brand-accent hover:bg-brand-accent/10 text-xs font-medium flex items-center justify-center gap-1 transition-colors">
-                        <span>+ Assign Google-Authed Admin</span>
+                        <span>+ Assign College Admin</span>
                       </button>
                     )}
                   </div>
@@ -515,12 +528,12 @@ Database policy changes must be coordinated with verified backend API cutover.`;
           </div>
         )}
 
-        {/* Recently Google-Authed Users Table */}
+        {/* Authenticated Users Table */}
         <section className="mt-14 pt-8 border-t border-slate-800">
           <div className="flex items-center justify-between mb-4">
             <div>
-              <h2 className="font-heading font-semibold text-lg text-white">Google Authenticated Users</h2>
-              <p className="text-xs text-slate-400">Users who authenticated via Google Auth and can be assigned as College Admins</p>
+              <h2 className="font-heading font-semibold text-lg text-white">Authenticated Users</h2>
+              <p className="text-xs text-slate-400">Users who authenticated via Google or created accounts and can be assigned as College Admins</p>
             </div>
             <span className="text-xs font-mono text-slate-400 bg-slate-800 px-2.5 py-1 rounded">
               {authedUsers.length} Recorded Users
@@ -529,7 +542,7 @@ Database policy changes must be coordinated with verified backend API cutover.`;
 
           {authedUsers.length === 0 ? (
             <div className="p-6 rounded-lg bg-slate-800/30 border border-slate-700/60 text-center text-xs text-slate-400">
-              No users have authenticated via Google yet. Once any student, faculty, or staff signs in with Google, their profile will appear here ready to be assigned as a College Admin.
+              No authenticated users found. Once any student, faculty, or staff signs in with Google or creates an account, their profile will appear here ready to be assigned as a College Admin.
             </div>
           ) : (
             <div className="overflow-x-auto rounded-xl border border-slate-700/80 bg-slate-800/40">
@@ -554,11 +567,15 @@ Database policy changes must be coordinated with verified backend API cutover.`;
                             {u.email.charAt(0).toUpperCase()}
                           </div>
                         )}
-                        <span className="font-medium text-white">{u.displayName || 'Google User'}</span>
+                        <span className="font-medium text-white">{u.displayName || u.email.split('@')[0]}</span>
                       </td>
                       <td className="py-3 px-4 font-mono text-slate-300">{u.email}</td>
                       <td className="py-3 px-4">
-                        <span className="px-2 py-0.5 rounded bg-emerald-950 text-emerald-300 border border-emerald-500/30 text-[10px] uppercase font-mono">
+                        <span className={`px-2 py-0.5 rounded text-[10px] uppercase font-mono border ${
+                          u.provider === 'google.com' || u.provider === 'google'
+                            ? 'bg-emerald-950 text-emerald-300 border-emerald-500/30'
+                            : 'bg-indigo-950 text-indigo-300 border-indigo-500/30'
+                        }`}>
                           {u.provider}
                         </span>
                       </td>
@@ -572,22 +589,7 @@ Database policy changes must be coordinated with verified backend API cutover.`;
                               Assigned to {colleges.find(c => c.id === u.college_id)?.name || 'College'}
                             </span>
                             <button
-                              onClick={async () => {
-                                if (confirm(`Remove ${u.email} as College Admin?`)) {
-                                  // Update user role back to user
-                                  await updateUserProfile(u.uid, { role: 'USER', college_id: null });
-                                  
-                                  // Update college record if needed
-                                  const college = colleges.find(c => c.id === u.college_id);
-                                  if (college) {
-                                    const updated = await updateCollege(college.id, { adminEmail: null, adminName: null, adminUid: null });
-                                    setColleges(updated);
-                                  }
-                                  
-                                  setAuthedUsers(prev => prev.map(user => user.uid === u.uid ? { ...user, role: 'USER', college_id: undefined } : user));
-                                  notify(`Removed ${u.email} as College Admin`);
-                                }
-                              }}
+                              onClick={() => handleUnassignAdmin(u.college_id!, u.uid, u.email)}
                               className="text-xs text-rose-400 hover:text-rose-300 underline underline-offset-2 ml-2"
                             >
                               Unassign
@@ -769,7 +771,7 @@ Database policy changes must be coordinated with verified backend API cutover.`;
               {/* Assign College Admin directly */}
               <div className="p-3 bg-slate-800/60 rounded-lg border border-slate-700">
                 <label className="block text-xs font-semibold text-brand-accent uppercase mb-1">
-                  Assign College Admin (from Google-Authed Users)
+                  Assign College Admin (from Authenticated Users)
                 </label>
                 <select 
                   value={formData.adminEmail}
@@ -843,12 +845,12 @@ Database policy changes must be coordinated with verified backend API cutover.`;
               Assign Admin for {assigningCollege.name}
             </h3>
             <p className="text-xs text-slate-400 mb-4">
-              Select any user who has signed in through Google Auth:
+              Select any user who has authenticated via Google or registered an account:
             </p>
 
             {authedUsers.length === 0 ? (
               <div className="p-4 bg-slate-800 rounded text-xs text-slate-400 text-center mb-4">
-                No users have signed in via Google yet. Sign in once with a Google account to assign them here.
+                No users have authenticated yet. Sign in or register an account to assign them here.
               </div>
             ) : (
               <div className="space-y-2 max-h-60 overflow-y-auto pr-1">
@@ -858,7 +860,7 @@ Database policy changes must be coordinated with verified backend API cutover.`;
                     onClick={() => handleAssignAdmin(assigningCollege.id, u)}
                     className="w-full p-2.5 rounded-lg bg-slate-800 hover:bg-brand-900 border border-slate-700 hover:border-brand-accent flex items-center justify-between text-left transition-all">
                     <div>
-                      <div className="text-xs font-semibold text-white">{u.displayName || 'Google User'}</div>
+                      <div className="text-xs font-semibold text-white">{u.displayName || u.email.split('@')[0]}</div>
                       <div className="text-[11px] font-mono text-brand-accent">{u.email}</div>
                     </div>
                     <span className="text-[10px] text-slate-400 uppercase font-mono">Assign &rarr;</span>

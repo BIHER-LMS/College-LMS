@@ -12,7 +12,7 @@ export interface UploadResult {
 export interface UploadOptions {
   folder?: string;
   publicId?: string;
-  resourceType?: 'image' | 'raw' | 'auto';
+  resourceType?: 'image' | 'raw' | 'auto' | 'video';
   tags?: string[];
 }
 

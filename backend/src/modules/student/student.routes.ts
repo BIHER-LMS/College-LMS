@@ -1,5 +1,6 @@
 import { Router } from 'express';
 import { studentController } from './student.controller';
+import { studentContentController } from './studentContent.controller';
 import { authenticateFirebaseUser } from '../../middleware/auth.middleware';
 import prisma from '../../config/database';
 import { StudentContext } from './student.types';
@@ -99,9 +100,16 @@ router.get('/attendance', (req, res, next) => studentController.getAttendance(re
 
 // 13. Assignments API
 router.get('/assignments', (req, res, next) => studentController.getAssignments(req, res, next));
-router.post('/assignments/:assignmentId/submit', uploadMemory.single('file'), (req, res, next) => studentController.submitAssignment(req, res, next));
+router.post('/assignments/:assignmentId/submit', uploadMemory.single('file'), (req, res) => studentContentController.submitAssignment(req, res));
+router.post('/assignments/:assignmentId/submit-version', uploadMemory.single('file'), (req, res) => studentContentController.submitAssignment(req, res));
 
-// 14. Student AI Chatbot APIs (/api/student/ai/* and /api/student/chat)
+// 14. Learning Content & Telemetry Analytics APIs
+router.get('/content', (req, res) => studentContentController.getStudentSubjectsAndContents(req, res));
+router.get('/content/:id', (req, res) => studentContentController.getContentDetails(req, res));
+router.post('/content/:id/events', (req, res) => studentContentController.recordLearningEvent(req, res));
+router.get('/content/:id/download', (req, res) => studentContentController.getAuthorizedDownload(req, res));
+
+// 15. Student AI Chatbot APIs (/api/student/ai/* and /api/student/chat)
 router.use('/ai', studentAiRoutes);
 router.post('/chat', validate(studentChatRequestBodySchema), (req, res, next) => studentAiController.chat(req, res, next));
 

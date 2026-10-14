@@ -4,7 +4,7 @@ import request from 'supertest';
 
 vi.mock('../src/config/firebase', () => ({ firebaseAuth: { verifyIdToken: vi.fn() } }));
 vi.mock('../src/config/database', () => {
-  const method = () => ({ findUnique: vi.fn(), findFirst: vi.fn(), findMany: vi.fn(), count: vi.fn(), update: vi.fn(), updateMany: vi.fn(), create: vi.fn(), delete: vi.fn() });
+  const method = () => ({ findUnique: vi.fn(), findFirst: vi.fn(), findMany: vi.fn(), count: vi.fn(), update: vi.fn(), updateMany: vi.fn(), create: vi.fn(), delete: vi.fn(), deleteMany: vi.fn() });
   const db = { authedUser: method(), user: method(), college: method(), department: method(), program: method(), batch: method(), class: method(), subject: method(), accountApproval: method(), academicYear: method(), userRole: method(), role: method(), auditLog: method(), $queryRaw: vi.fn(), $transaction: vi.fn() };
   return { default: db };
 });
@@ -119,4 +119,87 @@ describe('secure-data BFF', () => {
     expect((await token('post', '/api/secure-data/approvals/other').send({ decision: 'APPROVED' })).status).toBe(404);
     expect(db.authedUser.updateMany).not.toHaveBeenCalled();
   });
+  it('assigns and unassigns college admin atomically with legacy sync', async () => {
+    db.authedUser.findUnique.mockImplementation(({ where }: any) => {
+      if (where.uid === 'real-uid') return approved('SUPER_ADMIN', { college_id: null });
+      if (where.uid === 'target-user') return approved('USER', { uid: 'target-user', college_id: null });
+      return null;
+    });
+    db.college.findUnique.mockResolvedValue({ id: 'college-a', adminUid: 'old-admin', adminEmail: 'old@example.com' });
+    db.college.update.mockResolvedValue({ id: 'college-a', adminUid: 'target-user', adminEmail: 'target@example.com' });
+    db.authedUser.findMany.mockResolvedValue([{ uid: 'old-admin' }]);
+    db.authedUser.update.mockResolvedValue(approved('COLLEGE_ADMIN', { uid: 'target-user', college_id: 'college-a' }));
+    db.user.findUnique.mockImplementation(({ where }: any) => {
+      if (where.firebaseUid === 'old-admin') return { id: 'legacy-old-id', firebaseUid: 'old-admin' };
+      if (where.firebaseUid === 'target-user') return { id: 'legacy-target-id', firebaseUid: 'target-user' };
+      return null;
+    });
+    db.role.findFirst.mockResolvedValue({ id: 'role-college-admin', name: 'COLLEGE_ADMIN' });
+
+    const assignRes = await token('post', '/api/secure-data/colleges/college-a/assign-admin').send({ uid: 'target-user' });
+    expect(assignRes.status).toBe(200);
+    expect(db.authedUser.update).toHaveBeenCalledWith(expect.objectContaining({
+      where: { uid: 'target-user' },
+      data: expect.objectContaining({ role: 'COLLEGE_ADMIN', college_id: 'college-a', approval_status: 'APPROVED' })
+    }));
+    expect(db.userRole.deleteMany).toHaveBeenCalledWith({ where: { userId: 'legacy-old-id' } });
+    expect(db.userRole.create).toHaveBeenCalledWith({ data: { userId: 'legacy-target-id', roleId: 'role-college-admin' } });
+
+    // Now unassign
+    db.authedUser.findMany.mockResolvedValue([{ uid: 'target-user' }]);
+    const unassignRes = await token('post', '/api/secure-data/colleges/college-a/unassign-admin').send({ uid: 'target-user' });
+    expect(unassignRes.status).toBe(200);
+    expect(db.college.update).toHaveBeenCalledWith(expect.objectContaining({
+      where: { id: 'college-a' },
+      data: expect.objectContaining({ adminUid: null, adminEmail: null, adminName: null })
+    }));
+    expect(db.userRole.deleteMany).toHaveBeenCalledWith({ where: { userId: 'legacy-target-id' } });
+    // Verify no attempt was made to search for invalid role 'USER'
+    expect(db.role.findFirst).not.toHaveBeenCalledWith({ where: { name: 'USER' } });
+  });
+
+  it('allows college admin to assign and unassign HOD department atomically', async () => {
+    const deptId = '00000000-0000-4000-8000-000000000001';
+    // 1. Assign HOD to deptId
+    db.authedUser.findFirst.mockResolvedValue(approved('HOD', { uid: 'hod-user', department_id: null }));
+    db.department.findFirst.mockResolvedValue({ id: deptId, college_id: 'college-a', is_active: true });
+    db.department.count.mockResolvedValue(0);
+    db.department.findUnique.mockResolvedValue({ id: deptId, hod_uid: null });
+    db.authedUser.updateMany.mockResolvedValue({ count: 1 });
+    db.authedUser.findUnique.mockImplementation(({ where }: any) => {
+      if (where.uid === 'real-uid') return approved();
+      return approved('HOD', { uid: 'hod-user', department_id: deptId });
+    });
+
+    const assignRes = await token('patch', '/api/secure-data/users/hod-user').send({ department_id: deptId });
+    expect(assignRes.status).toBe(200);
+    expect(db.department.update).toHaveBeenCalledWith(expect.objectContaining({
+      where: { id: deptId },
+      data: { hod_uid: 'hod-user' }
+    }));
+    expect(db.authedUser.updateMany).toHaveBeenCalledWith(expect.objectContaining({
+      where: expect.objectContaining({ uid: 'hod-user', role: 'HOD' }),
+      data: expect.objectContaining({ department_id: deptId })
+    }));
+
+    // 2. Unassign HOD (department_id: null)
+    db.authedUser.findFirst.mockResolvedValue(approved('HOD', { uid: 'hod-user', department_id: deptId }));
+    db.department.updateMany.mockResolvedValue({ count: 1 });
+    db.authedUser.findUnique.mockImplementation(({ where }: any) => {
+      if (where.uid === 'real-uid') return approved();
+      return approved('HOD', { uid: 'hod-user', department_id: null });
+    });
+
+    const unassignRes = await token('patch', '/api/secure-data/users/hod-user').send({ department_id: null });
+    expect(unassignRes.status).toBe(200);
+    expect(db.department.updateMany).toHaveBeenCalledWith(expect.objectContaining({
+      where: expect.objectContaining({ hod_uid: 'hod-user', college_id: 'college-a' }),
+      data: { hod_uid: null }
+    }));
+    expect(db.authedUser.updateMany).toHaveBeenCalledWith(expect.objectContaining({
+      where: expect.objectContaining({ uid: 'hod-user', role: 'HOD' }),
+      data: expect.objectContaining({ department_id: null })
+    }));
+  });
 });
+

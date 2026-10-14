@@ -5,6 +5,8 @@ import { FacultyController } from './faculty.controller';
 import { facultyAuthMiddleware, requireFaculty } from './faculty.middleware';
 import { validate } from '../../middleware/validation.middleware';
 import { facultyAiRoutes, facultyAiController, facultyChatRequestSchema } from './ai';
+import { facultyContentController } from './facultyContent.controller';
+import { uploadContentMemory } from '../../middleware/upload.middleware';
 
 const router = Router();
 
@@ -58,10 +60,29 @@ router.get('/subjects', controller.getSubjects);
 router.get('/my-subjects', controller.getMySubjects);
 router.get('/my-subjects/performance', controller.getMySubjectsPerformance);
 
-// Assignments
+// Learning Content Management (Topics & Materials)
+router.get('/topics', facultyContentController.getTopics);
+router.post('/topics', facultyContentController.createTopic);
+router.patch('/topics/:id', facultyContentController.updateTopic);
+router.delete('/topics/:id', facultyContentController.deleteTopic);
+
+router.get('/content', facultyContentController.getContents);
+router.get('/content/:id', facultyContentController.getContentById);
+router.post('/content', facultyContentController.createContent);
+router.post('/content/upload', uploadContentMemory.single('file'), facultyContentController.uploadContent);
+router.patch('/content/:id', facultyContentController.updateContent);
+router.delete('/content/:id', facultyContentController.deleteContent);
+
+// Assignments & Versioned Grading
 router.post('/assignments', controller.createAssignment);
 router.get('/assignments', controller.getAssignments);
 router.get('/assignments/:assignmentId/submissions', controller.getAssignmentSubmissions);
+router.post('/assignments/:id/submissions/:submissionId/grade', facultyContentController.gradeSubmission);
+router.get('/assignments/:id/submissions/:submissionId/versions', facultyContentController.getSubmissionVersions);
+
+// Learning Analytics
+router.get('/analytics/classes/:classSubjectId', facultyContentController.getClassSubjectAnalytics);
+router.get('/analytics/classes/:classSubjectId/students/:studentUid', facultyContentController.getStudentDrillDownAnalytics);
 
 // Academic Info
 router.get('/academic-years', controller.getAcademicYears);

@@ -224,6 +224,7 @@ export async function updateCollege(
       logoUrl: updates.logoUrl,
       adminEmail: updates.adminEmail,
       adminName: updates.adminName,
+      adminUid: updates.adminUid,
       isActive: updates.isActive,
     });
   } catch (error) {
@@ -232,6 +233,24 @@ export async function updateCollege(
   }
 
   return current;
+}
+
+export async function assignCollegeAdmin(collegeId: string, uid: string) {
+  try {
+    return await secureDataApi.assignCollegeAdmin(collegeId, uid);
+  } catch (error) {
+    console.error('Secure data assign college admin error:', error);
+    throw error;
+  }
+}
+
+export async function unassignCollegeAdmin(collegeId: string, uid?: string) {
+  try {
+    return await secureDataApi.unassignCollegeAdmin(collegeId, uid);
+  } catch (error) {
+    console.error('Secure data unassign college admin error:', error);
+    throw error;
+  }
 }
 
 export async function deleteCollege(id: string): Promise<CollegeRecord[]> {
@@ -261,6 +280,30 @@ export function getLocalAuthedUsers(): AuthedUserRecord[] {
 }
 
 const inFlightSync = new Map<string, Promise<AuthedUserRecord>>();
+
+export async function registerAccount(data: {
+  email: string;
+  password: string;
+  phone?: string;
+  displayName?: string;
+}): Promise<{ uid: string; email: string; phone?: string | null }> {
+  const response = await fetch('/api/auth/register', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify(data),
+  });
+
+  const resJson = await response.json();
+  if (!response.ok || !resJson.success) {
+    const errorMsg =
+      resJson?.error?.message || resJson?.message || 'Failed to create account.';
+    throw new Error(errorMsg);
+  }
+
+  return resJson.data;
+}
 
 export async function recordAuthedUser(user: AuthedUserRecord, token?: string): Promise<AuthedUserRecord> {
   let finalUser = { ...user, role: 'USER' };
@@ -332,9 +375,9 @@ export async function getAuthedUserProfile(params: { uid?: string; email?: strin
       uid: identity.uid,
       email: identity.email,
       displayName: identity.display_name,
-      photoURL: null,
-      provider: 'google',
-      lastLogin: identity.created_at,
+      photoURL: (identity as any).photo_url || null,
+      provider: (identity as any).provider || 'password',
+      lastLogin: (identity as any).last_login || identity.created_at,
       role: identity.role,
       college_id: identity.college_id,
       department_id: identity.department_id,
@@ -351,16 +394,15 @@ export async function getAuthedUserProfile(params: { uid?: string; email?: strin
 
 export async function fetchAuthedUsers(): Promise<AuthedUserRecord[]> {
   try {
-    // This is only for SUPER_ADMIN - list all users
-    // For other roles, use listUsers with role filter
+    // This is for SUPER_ADMIN - list all users from PostgreSQL
     const data = await secureDataApi.listUsers({});
     const formatted: AuthedUserRecord[] = data.map((d: any) => ({
       uid: d.uid,
       email: d.email,
       displayName: d.display_name,
-      photoURL: null,
-      provider: 'google',
-      lastLogin: d.created_at,
+      photoURL: d.photo_url || null,
+      provider: d.provider || 'password',
+      lastLogin: d.last_login || d.created_at || new Date().toISOString(),
       role: d.role,
       college_id: d.college_id,
     }));
@@ -662,8 +704,15 @@ export const fetchPendingUsers = async (_collegeId: string, requestedRole: strin
   }
 };
 
+export const reviewUserApproval = async (uid: string, decision: 'APPROVED' | 'REJECTED') => {
+  return await secureDataApi.reviewApproval(uid, decision);
+};
+
 export const updateUserProfile = async (identifier: string, updates: any) => {
   try {
+    if (updates.approval_status === 'APPROVED' || updates.approval_status === 'REJECTED') {
+      return await secureDataApi.reviewApproval(identifier, updates.approval_status);
+    }
     // If identifier is email, we need to find the uid first
     // For now, assume it's a uid
     const data = await secureDataApi.assignUser(identifier, {

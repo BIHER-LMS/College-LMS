@@ -36,6 +36,8 @@ import { FacultyAcademicYearsPage } from './modules/faculty/pages/FacultyAcademi
 import { FacultySemestersPage } from './modules/faculty/pages/FacultySemestersPage';
 import { FacultyProfilePage } from './modules/faculty/pages/FacultyProfilePage';
 import { FacultyChatPage } from './modules/faculty/pages/FacultyChatPage';
+import { FacultyContentPage } from './modules/faculty/pages/FacultyContentPage';
+import { FacultyAnalyticsPage } from './modules/faculty/pages/FacultyAnalyticsPage';
 
 // HOD Module imports
 import { HodLayout } from './layouts/HodLayout';
@@ -72,102 +74,7 @@ import { StudentSemestersPage } from './modules/student/pages/StudentSemestersPa
 import { StudentAttendancePage } from './modules/student/pages/StudentAttendancePage';
 import { StudentTimetablePage } from './modules/student/pages/StudentTimetablePage';
 import { StudentChatPage } from './modules/student/pages/StudentChatPage';
-
-function App() {
-  useEffect(() => {
-    // Automatically sync any Firebase Auth user to our system on app load
-    // This ensures users who logged in previously (or via another device)
-    // are still captured in the Super Admin dashboard.
-    const unsubscribe = onAuthStateChanged(auth, async (user) => {
-      if (user) {
-        try {
-          const token = await user.getIdToken();
-          await recordAuthedUser({
-            uid: user.uid,
-            email: user.email || '',
-            displayName: user.displayName || null,
-            photoURL: user.photoURL || null,
-            provider: user.providerData[0]?.providerId || 'google',
-            lastLogin: new Date().toISOString(),
-          }, token);
-        } catch (error) {
-          console.error('Failed to sync auth state', error);
-        }
-      }
-    });
-    return () => unsubscribe();
-  }, []);
-
-  return (
-    <Provider store={store}>
-      <BrowserRouter>
-        <Suspense fallback={<PageLoader />}>
-          <Routes>
-            <Route path="/" element={<Home />} />
-            <Route path="/login" element={<Login />} />
-            <Route path="/super-admin" element={<SuperAdmin />} />
-            <Route path="/college-admin" element={<CollegeAdmin />} />
-            <Route path="/waiting-approval" element={<WaitingApproval />} />
-            <Route path="/hod" element={<HodRoute />}>
-              <Route index element={<HODDashboard />} />
-              <Route path="chat" element={<HodChatPage />} />
-              <Route path="department" element={<DepartmentOverviewPage />} />
-              <Route path="faculty" element={<FacultyPage />} />
-              <Route path="programs" element={<ProgramsPage />} />
-              <Route path="batches" element={<BatchesPage />} />
-              <Route path="classes" element={<ClassesPage />} />
-              <Route path="students" element={<StudentsPage />} />
-              <Route path="subjects" element={<SubjectsPage />} />
-              <Route path="attendance" element={<AttendanceSurveillancePage />} />
-              <Route path="calendar" element={<AcademicCalendarPage />} />
-              <Route path="analytics" element={<AcademicPerformancePage />} />
-              <Route path="reports" element={<ReportsAnalyticsPage />} />
-              <Route path="audit" element={<AuditExportPage />} />
-            </Route>
-
-            {/* Integrated Faculty Portal Module Routes */}
-            <Route path="/faculty" element={<FacultyLayout />}>
-              <Route index element={<FacultyDashboard />} />
-              <Route path="chat" element={<FacultyChatPage />} />
-              <Route path="reminders" element={<FacultyRemindersPage />} />
-              <Route path="classes" element={<FacultyClassesPage />} />
-              <Route path="classes/:classId" element={<FacultyClassDetailsPage />} />
-              <Route path="classes/:classId/students" element={<FacultyClassStudentsPage />} />
-              <Route path="students/:studentId" element={<FacultyStudentDetailsPage />} />
-              <Route path="attendance" element={<FacultyAttendancePage />} />
-              <Route path="timetable" element={<FacultyTimetablePage />} />
-              <Route path="department" element={<FacultyDepartmentPage />} />
-              <Route path="subjects" element={<FacultySubjectsPage />} />
-              <Route path="assignments" element={<FacultyAssignmentsPage />} />
-              <Route path="academic" element={<FacultyAcademicYearsPage />} />
-              <Route path="semesters" element={<FacultySemestersPage />} />
-              <Route path="profile" element={<FacultyProfilePage />} />
-            </Route>
-
-            {/* Integrated Student Portal Module Routes */}
-            <Route path="/student" element={<StudentLayout />}>
-              <Route index element={<StudentDashboard />} />
-              <Route path="chat" element={<StudentChatPage />} />
-              <Route path="attendance" element={<StudentAttendancePage />} />
-              <Route path="timetable" element={<StudentTimetablePage />} />
-              <Route path="profile" element={<StudentProfilePage />} />
-              <Route path="class" element={<StudentClassPage />} />
-              <Route path="batch" element={<StudentBatchPage />} />
-              <Route path="program" element={<StudentProgramPage />} />
-              <Route path="department" element={<StudentDepartmentPage />} />
-              <Route path="subjects" element={<StudentSubjectsPage />} />
-              <Route path="assignments" element={<StudentAssignmentsPage />} />
-              <Route path="class-incharge" element={<StudentClassInchargePage />} />
-              <Route path="academic-calendar" element={<StudentAcademicYearsPage />} />
-              <Route path="academic-years" element={<StudentAcademicYearsPage />} />
-              <Route path="semesters" element={<StudentSemestersPage />} />
-            </Route>
-          </Routes>
-        </Suspense>
-      </BrowserRouter>
-    </Provider>
-  );
-}
+import { StudentContentPage } from './modules/student/pages/StudentContentPage';
 
 const HodRoute = () => {
   const [user, setUser] = useState(JSON.parse(localStorage.getItem('lms_user') || '{}'));
@@ -225,5 +132,154 @@ const HodRoute = () => {
   }
   return <HodLayout />;
 };
+
+const FacultyRoute = () => {
+  const [user, setUser] = useState(() => JSON.parse(localStorage.getItem('lms_user') || '{}'));
+
+  useEffect(() => {
+    const local = JSON.parse(localStorage.getItem('lms_user') || '{}');
+    setUser(local);
+  }, []);
+
+  if (!user.role) return <Navigate to="/login" replace />;
+  if (user.role === 'STUDENT') return <Navigate to="/student" replace />;
+  if (!['FACULTY', 'HOD', 'COLLEGE_ADMIN', 'SUPER_ADMIN'].includes(user.role)) {
+    return <Navigate to="/login" replace />;
+  }
+  return <FacultyLayout />;
+};
+
+const StudentRoute = () => {
+  const [user, setUser] = useState(() => JSON.parse(localStorage.getItem('lms_user') || '{}'));
+
+  useEffect(() => {
+    const local = JSON.parse(localStorage.getItem('lms_user') || '{}');
+    setUser(local);
+  }, []);
+
+  if (!user.role) return <Navigate to="/login" replace />;
+  if (user.role !== 'STUDENT') {
+    if (['FACULTY', 'HOD'].includes(user.role)) return <Navigate to="/faculty" replace />;
+    if (user.role === 'COLLEGE_ADMIN') return <Navigate to="/college-admin" replace />;
+    if (user.role === 'SUPER_ADMIN') return <Navigate to="/super-admin" replace />;
+    return <Navigate to="/login" replace />;
+  }
+  return <StudentLayout />;
+};
+
+function App() {
+  useEffect(() => {
+    // Automatically sync any Firebase Auth user to our system on app load
+    // This ensures users who logged in previously (or via another device)
+    // are still captured in the Super Admin dashboard.
+    const unsubscribe = onAuthStateChanged(auth, async (user) => {
+      if (user) {
+        try {
+          const token = await user.getIdToken();
+          const record = await recordAuthedUser({
+            uid: user.uid,
+            email: user.email || '',
+            displayName: user.displayName || null,
+            photoURL: user.photoURL || null,
+            provider: user.providerData[0]?.providerId || 'google',
+            lastLogin: new Date().toISOString(),
+          }, token);
+          if (record && record.role) {
+            const current = JSON.parse(localStorage.getItem('lms_user') || '{}');
+            if (current.email !== user.email || current.role !== record.role) {
+              const isSuper = user.email === 'amirthavarsshan0806@gmail.com' || record.role === 'SUPER_ADMIN';
+              localStorage.setItem('lms_user', JSON.stringify({
+                ...current,
+                email: user.email,
+                name: user.displayName || (record as any).display_name || (record as any).displayName,
+                role: record.role,
+                isSuperAdmin: isSuper,
+                college_id: (record as any).college_id || null,
+                department_id: (record as any).department_id || null,
+              }));
+            }
+          }
+        } catch (error) {
+          console.error('Failed to sync auth state', error);
+        }
+      }
+    });
+    return () => unsubscribe();
+  }, []);
+
+  return (
+    <Provider store={store}>
+      <BrowserRouter>
+        <Suspense fallback={<PageLoader />}>
+          <Routes>
+            <Route path="/" element={<Home />} />
+            <Route path="/login" element={<Login />} />
+            <Route path="/super-admin" element={<SuperAdmin />} />
+            <Route path="/college-admin" element={<CollegeAdmin />} />
+            <Route path="/waiting-approval" element={<WaitingApproval />} />
+            <Route path="/hod" element={<HodRoute />}>
+              <Route index element={<HODDashboard />} />
+              <Route path="chat" element={<HodChatPage />} />
+              <Route path="department" element={<DepartmentOverviewPage />} />
+              <Route path="faculty" element={<FacultyPage />} />
+              <Route path="programs" element={<ProgramsPage />} />
+              <Route path="batches" element={<BatchesPage />} />
+              <Route path="classes" element={<ClassesPage />} />
+              <Route path="students" element={<StudentsPage />} />
+              <Route path="subjects" element={<SubjectsPage />} />
+              <Route path="attendance" element={<AttendanceSurveillancePage />} />
+              <Route path="calendar" element={<AcademicCalendarPage />} />
+              <Route path="analytics" element={<AcademicPerformancePage />} />
+              <Route path="reports" element={<ReportsAnalyticsPage />} />
+              <Route path="audit" element={<AuditExportPage />} />
+            </Route>
+
+            {/* Integrated Faculty Portal Module Routes */}
+            <Route path="/faculty" element={<FacultyRoute />}>
+              <Route index element={<FacultyDashboard />} />
+              <Route path="chat" element={<FacultyChatPage />} />
+              <Route path="reminders" element={<FacultyRemindersPage />} />
+              <Route path="classes" element={<FacultyClassesPage />} />
+              <Route path="classes/:classId" element={<FacultyClassDetailsPage />} />
+              <Route path="classes/:classId/students" element={<FacultyClassStudentsPage />} />
+              <Route path="students/:studentId" element={<FacultyStudentDetailsPage />} />
+              <Route path="attendance" element={<FacultyAttendancePage />} />
+              <Route path="timetable" element={<FacultyTimetablePage />} />
+              <Route path="department" element={<FacultyDepartmentPage />} />
+              <Route path="subjects" element={<FacultySubjectsPage />} />
+              <Route path="content" element={<FacultyContentPage />} />
+              <Route path="analytics" element={<FacultyAnalyticsPage />} />
+              <Route path="assignments" element={<FacultyAssignmentsPage />} />
+              <Route path="academic" element={<FacultyAcademicYearsPage />} />
+              <Route path="semesters" element={<FacultySemestersPage />} />
+              <Route path="profile" element={<FacultyProfilePage />} />
+            </Route>
+
+            {/* Integrated Student Portal Module Routes */}
+            <Route path="/student" element={<StudentRoute />}>
+              <Route index element={<StudentDashboard />} />
+              <Route path="chat" element={<StudentChatPage />} />
+              <Route path="attendance" element={<StudentAttendancePage />} />
+              <Route path="timetable" element={<StudentTimetablePage />} />
+              <Route path="profile" element={<StudentProfilePage />} />
+              <Route path="class" element={<StudentClassPage />} />
+              <Route path="batch" element={<StudentBatchPage />} />
+              <Route path="program" element={<StudentProgramPage />} />
+              <Route path="department" element={<StudentDepartmentPage />} />
+              <Route path="subjects" element={<StudentSubjectsPage />} />
+              <Route path="content" element={<StudentContentPage />} />
+              <Route path="learning-content" element={<StudentContentPage />} />
+              <Route path="assignments" element={<StudentAssignmentsPage />} />
+              <Route path="class-incharge" element={<StudentClassInchargePage />} />
+              <Route path="academic-calendar" element={<StudentAcademicYearsPage />} />
+              <Route path="academic-years" element={<StudentAcademicYearsPage />} />
+              <Route path="semesters" element={<StudentSemestersPage />} />
+            </Route>
+          </Routes>
+        </Suspense>
+      </BrowserRouter>
+    </Provider>
+  );
+}
 
 export default App;

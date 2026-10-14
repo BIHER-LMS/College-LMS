@@ -209,7 +209,7 @@ export const defaultStubHandlers: {
     _context: FacultyContext,
   ): Promise<FacultyGetClassStudentsOutput> => {
     return {
-      classId: input.classId,
+      classId: input.classId || 'class-default',
       students: [
         {
           uid: 'std-cse-001',
@@ -333,7 +333,7 @@ export const defaultStubHandlers: {
     _context: FacultyContext,
   ): Promise<FacultyGetClassAttendanceStatsOutput> => {
     return {
-      classId: input.classId,
+      classId: input.classId || 'class-default',
       className: 'CSE-3A',
       totalStudents: 48,
       averageAttendancePercentage: 88.4,
@@ -350,11 +350,11 @@ export const defaultStubHandlers: {
     context: FacultyContext,
   ): Promise<FacultyGetClassAttendanceHistoryOutput> => {
     return {
-      classId: input.classId,
+      classId: input.classId || 'class-default',
       sessions: [
         {
           id: 'sess-001',
-          classId: input.classId,
+          classId: input.classId || 'class-default',
           date: '2026-10-09',
           period: 'Period 1',
           subjectName: 'Design and Analysis of Algorithms',
@@ -365,7 +365,7 @@ export const defaultStubHandlers: {
         },
         {
           id: 'sess-002',
-          classId: input.classId,
+          classId: input.classId || 'class-default',
           date: '2026-10-08',
           period: 'Period 2',
           subjectName: 'Database Management Systems',
@@ -386,11 +386,11 @@ export const defaultStubHandlers: {
     context: FacultyContext,
   ): Promise<FacultyGetClassTimetableOutput> => {
     return {
-      classId: input.classId,
+      classId: input.classId || 'class-default',
       timetable: [
         {
           id: 'slot-cls-1',
-          classId: input.classId,
+          classId: input.classId || 'class-default',
           dayOfWeek: 1,
           period: 1,
           startTime: '09:00',
@@ -402,7 +402,7 @@ export const defaultStubHandlers: {
         },
         {
           id: 'slot-cls-2',
-          classId: input.classId,
+          classId: input.classId || 'class-default',
           dayOfWeek: 1,
           period: 2,
           startTime: '10:00',

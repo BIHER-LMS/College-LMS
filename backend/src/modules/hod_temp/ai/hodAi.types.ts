@@ -168,6 +168,7 @@ export interface HodClassAttendanceOutput {
   presentTodayCount: number | null;
   atRiskStudentsCount: number;
   atRiskStudents: AtRiskStudentItem[];
+  students?: AtRiskStudentItem[];
   _isStub?: boolean;
 }
 
@@ -188,6 +189,7 @@ export interface ClassAttendanceSummaryItem {
   averagePercentage: number;
   studentCount: number;
   atRiskCount: number;
+  students?: AtRiskStudentItem[];
 }
 
 export interface HodDepartmentAttendanceOutput {

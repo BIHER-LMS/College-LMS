@@ -101,11 +101,11 @@ export const fetchClasses = createAsyncThunk(
 export const assignClassIncharge = createAsyncThunk(
   'hod/assignClassIncharge',
   async (
-    { classId, facultyUid }: { classId: string; facultyUid: string },
+    { classId, facultyUid }: { classId: string; facultyUid: string | null },
     { rejectWithValue }
   ) => {
     try {
-      return await hodApi.assignClassIncharge(classId, facultyUid);
+      return await hodApi.assignClassIncharge(classId, facultyUid || null);
     } catch (err: any) {
       return rejectWithValue(err.message || 'Failed to assign class incharge');
     }
@@ -341,7 +341,7 @@ const hodSlice = createSlice({
 
         // Synchronize faculty items: clear previous assignment if needed, and assign new class
         state.faculty = state.faculty.map((f) => {
-          if (f.uid === updatedClass.facultyUid) {
+          if (updatedClass.facultyUid && f.uid === updatedClass.facultyUid) {
             return {
               ...f,
               isClassIncharge: true,

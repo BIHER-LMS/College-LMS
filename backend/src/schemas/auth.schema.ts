@@ -29,3 +29,12 @@ export const logoutSchema = z.object({
 });
 
 export type LogoutInput = z.infer<typeof logoutSchema>;
+
+export const registerSchema = z.object({
+  email: z.string().email('Invalid email address').max(255),
+  password: z.string().min(8, 'Password must be at least 8 characters').max(128),
+  phone: z.string().min(10, 'Phone number must be at least 10 digits').max(20).optional().nullable(),
+  displayName: z.string().max(128).optional().nullable(),
+});
+
+export type RegisterInput = z.infer<typeof registerSchema>;

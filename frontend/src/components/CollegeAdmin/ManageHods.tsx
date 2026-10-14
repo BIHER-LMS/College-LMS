@@ -1,10 +1,13 @@
 import { useState, useEffect } from 'react';
-import { fetchUsers, fetchPendingUsers, updateUserProfile, fetchDepartments, updateDepartment } from '../../services/collegeService';
+import { Loader2 } from 'lucide-react';
+import { fetchUsers, fetchPendingUsers, updateUserProfile, fetchDepartments, reviewUserApproval } from '../../services/collegeService';
 
 export function ManageHods({ collegeId }: { collegeId: string }) {
   const [hods, setHods] = useState<any[]>([]);
   const [pendingHods, setPendingHods] = useState<any[]>([]);
   const [departments, setDepartments] = useState<any[]>([]);
+  const [updatingUid, setUpdatingUid] = useState<string | null>(null);
+  const [actionLoading, setActionLoading] = useState<{ uid: string; type: 'approve' | 'reject' } | null>(null);
 
   useEffect(() => {
     if (collegeId) {
@@ -19,40 +22,45 @@ export function ManageHods({ collegeId }: { collegeId: string }) {
   };
 
   const assignDepartment = async (uid: string, deptId: string) => {
+    setUpdatingUid(uid);
     try {
-      const userToUpdate = hods.find(h => h.uid === uid);
-      const previousDeptId = userToUpdate?.department_id;
-
-      // 1. Clear hod_uid from the previous department if it exists
-      if (previousDeptId) {
-        await updateDepartment(previousDeptId, { hod_uid: null });
-      }
-
-      // 2. Set hod_uid on the new department if a department is selected
-      if (deptId) {
-        await updateDepartment(deptId, { hod_uid: uid });
-      }
-
-      // 3. Update the user profile
       await updateUserProfile(uid, { department_id: deptId || null });
-      
-      loadHods();
-    } catch (e) {
+      await loadHods();
+    } catch (e: any) {
       console.error('Error assigning department:', e);
-      alert('Failed to assign department.');
+      alert(e?.message || 'Failed to assign department.');
+      await loadHods();
+    } finally {
+      setUpdatingUid(null);
     }
   };
 
   const approveHod = async (uid: string) => {
-    // Approve user by changing role to 'HOD' and approval_status to 'APPROVED'
-    await updateUserProfile(uid, { role: 'HOD', approval_status: 'APPROVED' });
-    loadHods();
+    setActionLoading({ uid, type: 'approve' });
+    try {
+      await reviewUserApproval(uid, 'APPROVED');
+      await loadHods();
+    } catch (e: any) {
+      console.error('Error approving HOD:', e);
+      alert(e?.message || 'Failed to approve HOD.');
+      await loadHods();
+    } finally {
+      setActionLoading(null);
+    }
   };
 
   const rejectHod = async (uid: string) => {
-    // Reject user
-    await updateUserProfile(uid, { approval_status: 'REJECTED' });
-    loadHods();
+    setActionLoading({ uid, type: 'reject' });
+    try {
+      await reviewUserApproval(uid, 'REJECTED');
+      await loadHods();
+    } catch (e: any) {
+      console.error('Error rejecting HOD:', e);
+      alert(e?.message || 'Failed to reject HOD.');
+      await loadHods();
+    } finally {
+      setActionLoading(null);
+    }
   };
 
   return (
@@ -81,6 +89,10 @@ export function ManageHods({ collegeId }: { collegeId: string }) {
             <tbody className="divide-y">
               {pendingHods.map(h => {
                 const deptName = departments.find(d => d.id === h.department_id)?.name || 'Unknown';
+                const isApproving = actionLoading?.uid === h.uid && actionLoading?.type === 'approve';
+                const isRejecting = actionLoading?.uid === h.uid && actionLoading?.type === 'reject';
+                const isActionDisabled = actionLoading?.uid === h.uid;
+
                 return (
                   <tr key={h.uid}>
                     <td className="px-6 py-4 font-medium">{h.display_name || 'No Name'}</td>
@@ -90,15 +102,19 @@ export function ManageHods({ collegeId }: { collegeId: string }) {
                       <div className="flex justify-end gap-2">
                         <button
                           onClick={() => approveHod(h.uid)}
-                          className="px-3 py-1 bg-green-600 text-white rounded text-xs font-medium hover:bg-green-700 transition"
+                          disabled={isActionDisabled}
+                          className="inline-flex items-center gap-1.5 px-3 py-1 bg-green-600 text-white rounded text-xs font-medium hover:bg-green-700 transition disabled:opacity-50 disabled:cursor-not-allowed shadow-sm"
                         >
-                          Approve
+                          {isApproving && <Loader2 className="w-3.5 h-3.5 animate-spin" />}
+                          <span>{isApproving ? 'Approving...' : 'Approve'}</span>
                         </button>
                         <button
                           onClick={() => rejectHod(h.uid)}
-                          className="px-3 py-1 bg-red-600 text-white rounded text-xs font-medium hover:bg-red-700 transition"
+                          disabled={isActionDisabled}
+                          className="inline-flex items-center gap-1.5 px-3 py-1 bg-red-600 text-white rounded text-xs font-medium hover:bg-red-700 transition disabled:opacity-50 disabled:cursor-not-allowed shadow-sm"
                         >
-                          Reject
+                          {isRejecting && <Loader2 className="w-3.5 h-3.5 animate-spin" />}
+                          <span>{isRejecting ? 'Rejecting...' : 'Reject'}</span>
                         </button>
                       </div>
                     </td>
@@ -130,8 +146,9 @@ export function ManageHods({ collegeId }: { collegeId: string }) {
                 <td className="px-6 py-4">
                   <select 
                     value={h.department_id || ''} 
+                    disabled={updatingUid === h.uid}
                     onChange={e => assignDepartment(h.uid, e.target.value)}
-                    className="h-8 px-2 border rounded text-xs"
+                    className="h-8 px-2 border rounded text-xs disabled:opacity-50"
                   >
                     <option value="">Unassigned</option>
                     {departments.map(d => <option key={d.id} value={d.id}>{d.name}</option>)}

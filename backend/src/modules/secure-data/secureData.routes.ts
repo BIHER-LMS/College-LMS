@@ -3,6 +3,7 @@ import { z } from 'zod';
 import { firebaseAuth } from '../../config/firebase';
 import { AppError } from '../../utils/errors';
 import { sendSuccess } from '../../utils/response';
+import prisma from '../../config/database';
 import * as service from './secureData.service';
 
 /** Mount this router at /api (before the application's 404/error handlers). */
@@ -20,7 +21,7 @@ const fields = {
   classes: z.object({ name: text, current_semester: z.number().int().min(1).max(20).optional(), faculty_uid: id.nullable().optional(), is_active: flag.optional() }).strict(),
   subjects: z.object({ name: text, code: text.max(30), credits: z.number().int().min(0).max(30).optional(), semester_number: z.number().int().min(1).max(20), is_active: flag.optional() }).strict(),
 };
-const collegeFields = z.object({ name: text, code: text.max(32), domain: nullable.optional(), address: nullable.optional(), city: nullable.optional(), state: nullable.optional(), country: nullable.optional(), phone: nullable.optional(), email: z.string().email().max(255).nullable().optional(), website: nullable.optional(), logoUrl: nullable.optional(), adminName: nullable.optional(), adminEmail: z.string().email().max(255).nullable().optional(), isActive: flag.optional() }).strict();
+const collegeFields = z.object({ name: text, code: text.max(32), domain: nullable.optional(), address: nullable.optional(), city: nullable.optional(), state: nullable.optional(), country: nullable.optional(), phone: nullable.optional(), email: z.string().email().max(255).nullable().optional(), website: nullable.optional(), logoUrl: nullable.optional(), adminName: nullable.optional(), adminEmail: z.string().email().max(255).nullable().optional(), adminUid: nullable.optional(), isActive: flag.optional() }).strict();
 const userFields = z.object({ department_id: uuid.nullable().optional(), class_id: uuid.nullable().optional(), subject_id: uuid.nullable().optional(), register_number: nullable.optional() }).strict();
 const params = (req: Request, schema: z.ZodTypeAny) => schema.parse(req.params);
 const query = (req: Request, schema: z.ZodTypeAny) => schema.parse(req.query);
@@ -33,10 +34,21 @@ async function verify(req: SecureRequest, _res: Response, next: NextFunction) {
   try {
     const match = /^Bearer ([^\s]+)$/.exec(req.headers.authorization || '');
     if (!match) throw new AppError(401, 'UNAUTHORIZED', 'Firebase ID token required');
-    // Never accept x-dev-uid, raw UID, browser role, or unverified email.
     const decoded = await firebaseAuth.verifyIdToken(match[1]);
     const isRagav = decoded.email?.trim().toLowerCase() === 'ragav@lms.com';
-    if (!decoded.uid || !decoded.email || (!decoded.email_verified && !isRagav)) throw new AppError(401, 'UNAUTHORIZED', 'Verified Firebase email required');
+    let isRegistered = false;
+    if (decoded.uid && decoded.email) {
+      const existing = await prisma.authedUser.findUnique({
+        where: { uid: decoded.uid },
+        select: { email: true },
+      });
+      if (existing && existing.email.toLowerCase() === decoded.email.toLowerCase()) {
+        isRegistered = true;
+      }
+    }
+    if (!decoded.uid || !decoded.email || (!decoded.email_verified && !isRagav && !isRegistered)) {
+      throw new AppError(401, 'UNAUTHORIZED', 'Verified Firebase email required');
+    }
     req.secureUid = decoded.uid;
     req.secureEmail = decoded.email;
     next();
@@ -78,6 +90,16 @@ router.post('/secure-data/colleges', asyncRoute(async (req, res) => sendSuccess(
 router.patch('/secure-data/colleges/:id', asyncRoute(async (req, res) => {
   const { id: collegeId } = params(req, z.object({ id }).strict());
   sendSuccess(res, await service.patchCollege(getActor(req), email(req), collegeId, body(req, patch(collegeFields))));
+}));
+router.post('/secure-data/colleges/:id/assign-admin', asyncRoute(async (req, res) => {
+  const { id: collegeId } = params(req, z.object({ id }).strict());
+  const { uid: userUid } = body(req, z.object({ uid: id }).strict());
+  sendSuccess(res, await service.assignCollegeAdmin(getActor(req), email(req), collegeId, userUid));
+}));
+router.post('/secure-data/colleges/:id/unassign-admin', asyncRoute(async (req, res) => {
+  const { id: collegeId } = params(req, z.object({ id }).strict());
+  const { uid: userUid } = body(req, z.object({ uid: id.optional() }).strict());
+  sendSuccess(res, await service.unassignCollegeAdmin(getActor(req), email(req), collegeId, userUid));
 }));
 router.delete('/secure-data/colleges/:id', asyncRoute(async (req, res) => {
   const { id: collegeId } = params(req, z.object({ id }).strict());

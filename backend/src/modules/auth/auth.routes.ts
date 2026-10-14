@@ -1,7 +1,7 @@
-import { Router, Response, NextFunction } from 'express';
+import { Router, Request, Response, NextFunction } from 'express';
 import { authenticateFirebaseUser, requireUser, AuthenticatedRequest } from '../../middleware/auth.middleware';
 import { validate } from '../../middleware/validation.middleware';
-import { onboardingSchema } from '../../schemas/auth.schema';
+import { onboardingSchema, registerSchema } from '../../schemas/auth.schema';
 import { onboardUser, getCurrentUser } from '../../services/auth.service';
 import { createSession, revokeSession, recordPasswordChange } from '../../services/session.service';
 import { createAuditLog } from '../../services/audit.service';
@@ -12,6 +12,235 @@ import prisma from '../../config/database';
 import { firebaseAuth } from '../../config/firebase';
 
 const router = Router();
+
+const FIREBASE_WEB_API_KEY =
+  process.env.VITE_FIREBASE_API_KEY ||
+  process.env.FIREBASE_API_KEY ||
+  'AIzaSyAeZBGoTLHUwJqJjEUM01KB1SZIdP9mkG8';
+
+/**
+ * POST /api/auth/register
+ *
+ * Creates a new account in Firebase Auth with email, password, and phone number,
+ * and provisions the initial shadow record in PostgreSQL.
+ */
+router.post(
+  '/register',
+  validate(registerSchema),
+  async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      const { email, password, phone, displayName } = req.body;
+      const cleanEmail = email.trim().toLowerCase();
+
+      // 1. Check if user already exists in PostgreSQL authed_users
+      const existingAuthed = await prisma.authedUser.findFirst({
+        where: { email: { equals: cleanEmail, mode: 'insensitive' } },
+      });
+
+      // 2. Check if already exists in Firebase Auth (safe check)
+      let existingFirebaseUser: any = null;
+      try {
+        existingFirebaseUser = await firebaseAuth.getUserByEmail(cleanEmail);
+      } catch {
+        // Continue (e.g. if service account key is revoked or user not found)
+      }
+
+      if (
+        existingFirebaseUser ||
+        (existingAuthed &&
+          !existingAuthed.uid.startsWith('std_') &&
+          !existingAuthed.uid.startsWith('fac_'))
+      ) {
+        throw new AppError(
+          409,
+          ErrorCodes.CONFLICT,
+          'An account with this email already exists. Please sign in instead.',
+        );
+      }
+
+      // 3. Format E.164 phone if provided
+      let formattedPhone: string | undefined = undefined;
+      if (phone && typeof phone === 'string') {
+        const cleaned = phone.replace(/[^0-9+]/g, '');
+        if (cleaned.startsWith('+')) {
+          formattedPhone = cleaned;
+        } else if (cleaned.length === 10) {
+          formattedPhone = `+91${cleaned}`;
+        } else if (cleaned.length > 10) {
+          formattedPhone = `+${cleaned}`;
+        }
+      }
+
+      // 4. Create user in Firebase Auth (using Admin SDK or Identity Toolkit fallback)
+      let createdUser: { uid: string; email: string } | undefined = undefined;
+      try {
+        const adminUser = await firebaseAuth.createUser({
+          email: cleanEmail,
+          password: password,
+          displayName: displayName || null,
+          ...(formattedPhone ? { phoneNumber: formattedPhone } : {}),
+          emailVerified: true,
+        });
+        createdUser = { uid: adminUser.uid, email: adminUser.email || cleanEmail };
+      } catch (fbErr: any) {
+        if (fbErr.code === 'auth/email-already-exists') {
+          throw new AppError(
+            409,
+            ErrorCodes.CONFLICT,
+            'An account with this email already exists. Please sign in instead.',
+          );
+        }
+        if (fbErr.code === 'auth/phone-number-already-exists') {
+          throw new AppError(
+            409,
+            ErrorCodes.CONFLICT,
+            'This phone number is already registered to another account.',
+          );
+        }
+
+        const isCredentialOrFormatError =
+          fbErr.code === 'auth/invalid-phone-number' ||
+          fbErr.message?.includes('invalid_grant') ||
+          fbErr.message?.includes('credential') ||
+          fbErr.message?.includes('access token') ||
+          fbErr.code === 'app/invalid-credential';
+
+        if (!isCredentialOrFormatError) {
+          throw new AppError(
+            400,
+            ErrorCodes.VALIDATION_ERROR,
+            fbErr.message || 'Failed to create user in Firebase',
+          );
+        }
+
+        if (fbErr.code === 'auth/invalid-phone-number') {
+          try {
+            const adminUserWithoutPhone = await firebaseAuth.createUser({
+              email: cleanEmail,
+              password: password,
+              displayName: displayName || null,
+              emailVerified: true,
+            });
+            createdUser = { uid: adminUserWithoutPhone.uid, email: adminUserWithoutPhone.email || cleanEmail };
+          } catch (retryErr: any) {
+            if (
+              retryErr.message?.includes('invalid_grant') ||
+              retryErr.message?.includes('credential') ||
+              retryErr.message?.includes('access token')
+            ) {
+              // fallback below
+            } else if (retryErr.code === 'auth/email-already-exists') {
+              throw new AppError(409, ErrorCodes.CONFLICT, 'An account with this email already exists.');
+            } else {
+              throw new AppError(400, ErrorCodes.VALIDATION_ERROR, retryErr.message || 'Failed to create user in Firebase');
+            }
+          }
+        }
+
+        if (!createdUser) {
+          const fbRes = await fetch(
+            `https://identitytoolkit.googleapis.com/v1/accounts:signUp?key=${FIREBASE_WEB_API_KEY}`,
+            {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                email: cleanEmail,
+                password: password,
+                returnSecureToken: true,
+              }),
+            },
+          );
+          const fbData: any = await fbRes.json();
+          if (!fbRes.ok || fbData.error) {
+            const errMsg = fbData.error?.message || 'Failed to create user in Firebase';
+            if (errMsg === 'EMAIL_EXISTS') {
+              throw new AppError(409, ErrorCodes.CONFLICT, 'An account with this email already exists. Please sign in instead.');
+            }
+            throw new AppError(400, ErrorCodes.VALIDATION_ERROR, errMsg);
+          }
+
+          if (displayName && fbData.idToken) {
+            await fetch(
+              `https://identitytoolkit.googleapis.com/v1/accounts:update?key=${FIREBASE_WEB_API_KEY}`,
+              {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                  idToken: fbData.idToken,
+                  displayName: displayName,
+                  returnSecureToken: false,
+                }),
+              },
+            ).catch(() => {});
+          }
+
+          createdUser = { uid: fbData.localId, email: fbData.email || cleanEmail };
+        }
+      }
+
+      if (!createdUser) {
+        throw new AppError(500, ErrorCodes.INTERNAL_ERROR, 'Unable to create user in Firebase');
+      }
+
+      // 5. Store / update record in PostgreSQL authed_users
+      const userPhone = phone || formattedPhone || null;
+      const currentTimestamp = new Date();
+
+      if (
+        existingAuthed &&
+        (existingAuthed.uid.startsWith('std_') || existingAuthed.uid.startsWith('fac_'))
+      ) {
+        await prisma.$executeRawUnsafe(
+          `UPDATE authed_users 
+           SET uid = $1, display_name = COALESCE($2, display_name), phone = COALESCE($3, phone),
+               provider = 'password', last_login = NOW()
+           WHERE uid = $4;`,
+          createdUser.uid,
+          displayName || null,
+          userPhone,
+          existingAuthed.uid,
+        );
+      } else {
+        await prisma.authedUser.upsert({
+          where: { uid: createdUser.uid },
+          create: {
+            uid: createdUser.uid,
+            email: cleanEmail,
+            display_name: displayName || null,
+            phone: userPhone,
+            provider: 'password',
+            role: 'USER',
+            approval_status: 'PENDING',
+            last_login: currentTimestamp,
+          },
+          update: {
+            email: cleanEmail,
+            display_name: displayName || null,
+            phone: userPhone,
+            provider: 'password',
+            last_login: currentTimestamp,
+          },
+        });
+      }
+
+
+
+      sendSuccess(
+        res,
+        {
+          uid: createdUser.uid,
+          email: cleanEmail,
+          displayName: displayName || null,
+          phone: userPhone,
+          message: 'Account created successfully in Firebase',
+        },
+        201,
+      );
+    } catch (error) {
+      next(error);
+    }
+  },
+);
 
 /**
  * POST /api/auth/onboarding
@@ -219,8 +448,20 @@ router.post(
       }
       const cleanEmail = email.trim().toLowerCase();
       const isRagav = cleanEmail === 'ragav@lms.com';
-      if (decodedToken.uid !== req.firebaseUid || (!decodedToken.email_verified && !isRagav) ||
-          typeof decodedToken.email !== 'string' || decodedToken.email.trim().toLowerCase() !== cleanEmail) {
+      const existingUser = await prisma.authedUser.findFirst({
+        where: {
+          uid: req.firebaseUid,
+          email: { equals: cleanEmail, mode: 'insensitive' },
+        },
+        select: { uid: true },
+      });
+      const isAllowedUnverified = isRagav || !!existingUser;
+      if (
+        decodedToken.uid !== req.firebaseUid ||
+        (!decodedToken.email_verified && !isAllowedUnverified) ||
+        typeof decodedToken.email !== 'string' ||
+        decodedToken.email.trim().toLowerCase() !== cleanEmail
+      ) {
         throw new AppError(403, ErrorCodes.FORBIDDEN, 'Verified Firebase email does not match');
       }
       if (req.user && req.user.email.trim().toLowerCase() !== cleanEmail) {

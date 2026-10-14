@@ -16,7 +16,7 @@ vi.mock('../src/modules/hod_temp/config/db', () => ({
     user: { findUnique: vi.fn() },
     department: { findMany: vi.fn(), findUnique: vi.fn() },
     batch: { findMany: vi.fn(), findUnique: vi.fn() },
-    class: { findMany: vi.fn(), findUnique: vi.fn() },
+    class: { findMany: vi.fn(), findUnique: vi.fn(), findFirst: vi.fn() },
     subject: { findMany: vi.fn(), findUnique: vi.fn(), findFirst: vi.fn() },
     $queryRawUnsafe: vi.fn(),
   },

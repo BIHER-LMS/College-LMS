@@ -11,7 +11,7 @@ const missing = () => new AppError(404, 'NOT_FOUND', 'Resource not found');
 const conflict = (message = 'Resource has dependent records') => new AppError(409, 'CONFLICT', message);
 
 export const collegeSelect = { id: true, name: true, code: true, domain: true, address: true, city: true, state: true, country: true, phone: true, email: true, website: true, logoUrl: true, adminName: true, adminEmail: true, adminUid: true, isActive: true, createdAt: true } as const;
-export const userSelect = { uid: true, email: true, display_name: true, role: true, requested_role: true, approval_status: true, college_id: true, department_id: true, class_id: true, subject_id: true, register_number: true, created_at: true } as const;
+export const userSelect = { uid: true, email: true, display_name: true, role: true, requested_role: true, approval_status: true, college_id: true, department_id: true, class_id: true, subject_id: true, register_number: true, provider: true, last_login: true, photo_url: true, phone: true, created_at: true } as const;
 const structureSelect = {
   departments: { id: true, college_id: true, name: true, code: true, hod_uid: true, is_active: true, created_at: true },
   programs: { id: true, department_id: true, name: true, type: true, duration_years: true, is_active: true, created_at: true },
@@ -66,7 +66,7 @@ async function mutate<T>(a: Actor, email: string, fn: (tx: Prisma.TransactionCli
     if (fresh.role !== a.role || fresh.collegeId !== a.collegeId || fresh.departmentId !== a.departmentId) throw deny();
     if (a.collegeId) await tx.$queryRaw`SELECT id FROM colleges WHERE id = ${a.collegeId} FOR UPDATE`;
     return fn(tx);
-  }, { isolationLevel: Prisma.TransactionIsolationLevel.Serializable });
+  }, { maxWait: 10000, timeout: 30000 });
 }
 export function ownIdentity(uid: string, email: string) { return identity(uid, email); }
 export async function submitOnboardingRequest(
@@ -111,9 +111,158 @@ export async function createCollege(a: Actor, email: string, data: Prisma.Colleg
 export async function patchCollege(a: Actor, email: string, id: string, data: Prisma.CollegeUpdateInput) {
   requireRole(a, 'SUPER_ADMIN');
   return mutate(a, email, async tx => {
-    if (!await tx.college.findUnique({ where: { id }, select: { id: true } })) throw missing();
+    const existing = await tx.college.findUnique({ where: { id }, select: { id: true, adminUid: true, adminEmail: true } });
+    if (!existing) throw missing();
     if (data.isActive === false && await tx.authedUser.count({ where: { college_id: id, approval_status: 'APPROVED' } })) throw conflict('Deactivate member accounts first');
+
+    if (data.adminEmail === null || data.adminUid === null) {
+      const uidsToDemote: string[] = [];
+      if (existing.adminUid) uidsToDemote.push(existing.adminUid);
+      if (existing.adminEmail) {
+        const byEmail = await tx.authedUser.findMany({ where: { email: existing.adminEmail, college_id: id }, select: { uid: true } });
+        for (const item of byEmail) {
+          if (!uidsToDemote.includes(item.uid)) uidsToDemote.push(item.uid);
+        }
+      }
+      for (const uid of uidsToDemote) {
+        await tx.authedUser.updateMany({
+          where: { uid, college_id: id },
+          data: { role: 'USER', college_id: null, approval_status: 'PENDING' },
+        });
+        const legacy = await tx.user.findUnique({ where: { firebaseUid: uid } });
+        if (legacy) {
+          await tx.user.update({ where: { id: legacy.id }, data: { collegeId: null } });
+          await tx.userRole.deleteMany({ where: { userId: legacy.id } });
+        }
+      }
+    }
+
     return tx.college.update({ where: { id }, data, select: collegeSelect });
+  });
+}
+
+export async function assignCollegeAdmin(a: Actor, email: string, collegeId: string, userUid: string) {
+  requireRole(a, 'SUPER_ADMIN');
+  return mutate(a, email, async tx => {
+    const col = await tx.college.findUnique({ where: { id: collegeId } });
+    if (!col) throw missing();
+    const user = await tx.authedUser.findUnique({ where: { uid: userUid } });
+    if (!user) throw missing();
+
+    // 1. Demote any prior college admin assigned to this college
+    const priorAdmins = await tx.authedUser.findMany({
+      where: {
+        OR: [
+          { college_id: collegeId, role: 'COLLEGE_ADMIN' },
+          ...(col.adminUid ? [{ uid: col.adminUid }] : []),
+          ...(col.adminEmail ? [{ email: col.adminEmail, role: 'COLLEGE_ADMIN' }] : []),
+        ],
+        uid: { not: userUid },
+      },
+      select: { uid: true },
+    });
+    for (const prior of priorAdmins) {
+      await tx.authedUser.update({
+        where: { uid: prior.uid },
+        data: { role: 'USER', college_id: null, approval_status: 'PENDING' },
+      });
+      const legacyPrior = await tx.user.findUnique({ where: { firebaseUid: prior.uid } });
+      if (legacyPrior) {
+        await tx.user.update({ where: { id: legacyPrior.id }, data: { collegeId: null } });
+        await tx.userRole.deleteMany({ where: { userId: legacyPrior.id } });
+      }
+    }
+
+    // 2. Promote target user to COLLEGE_ADMIN
+    const updatedUser = await tx.authedUser.update({
+      where: { uid: userUid },
+      data: {
+        role: 'COLLEGE_ADMIN',
+        college_id: collegeId,
+        approval_status: 'APPROVED',
+        department_id: null,
+        class_id: null,
+        subject_id: null,
+      },
+      select: userSelect,
+    });
+
+    // 3. Keep legacy user table in sync
+    const legacyTarget = await tx.user.findUnique({ where: { firebaseUid: userUid } });
+    const legacy = legacyTarget ?? await tx.user.create({
+      data: {
+        firebaseUid: userUid,
+        email: user.email,
+        phone: user.phone,
+        collegeId,
+        status: 'ACTIVE',
+      },
+    });
+    if (legacyTarget) {
+      await tx.user.update({ where: { id: legacy.id }, data: { collegeId, status: 'ACTIVE' } });
+    }
+    const adminRole = await tx.role.findFirst({ where: { name: 'COLLEGE_ADMIN' } });
+    if (adminRole) {
+      await tx.userRole.deleteMany({ where: { userId: legacy.id } });
+      await tx.userRole.create({ data: { userId: legacy.id, roleId: adminRole.id } });
+    }
+
+    // 4. Update the college record
+    const updatedCol = await tx.college.update({
+      where: { id: collegeId },
+      data: {
+        adminUid: user.uid,
+        adminEmail: user.email,
+        adminName: user.display_name || user.email.split('@')[0],
+      },
+      select: collegeSelect,
+    });
+
+    return { college: updatedCol, user: updatedUser };
+  });
+}
+
+export async function unassignCollegeAdmin(a: Actor, email: string, collegeId: string, userUid?: string) {
+  requireRole(a, 'SUPER_ADMIN');
+  return mutate(a, email, async tx => {
+    const col = await tx.college.findUnique({ where: { id: collegeId } });
+    if (!col) throw missing();
+
+    const targets = await tx.authedUser.findMany({
+      where: {
+        OR: [
+          { college_id: collegeId, role: 'COLLEGE_ADMIN' },
+          ...(userUid ? [{ uid: userUid }] : []),
+          ...(col.adminUid ? [{ uid: col.adminUid }] : []),
+          ...(col.adminEmail ? [{ email: col.adminEmail, role: 'COLLEGE_ADMIN' }] : []),
+        ],
+      },
+      select: { uid: true },
+    });
+
+    for (const t of targets) {
+      await tx.authedUser.update({
+        where: { uid: t.uid },
+        data: { role: 'USER', college_id: null, approval_status: 'PENDING' },
+      });
+      const legacy = await tx.user.findUnique({ where: { firebaseUid: t.uid } });
+      if (legacy) {
+        await tx.user.update({ where: { id: legacy.id }, data: { collegeId: null } });
+        await tx.userRole.deleteMany({ where: { userId: legacy.id } });
+      }
+    }
+
+    const updatedCol = await tx.college.update({
+      where: { id: collegeId },
+      data: {
+        adminUid: null,
+        adminEmail: null,
+        adminName: null,
+      },
+      select: collegeSelect,
+    });
+
+    return { college: updatedCol };
   });
 }
 export async function deleteCollege(a: Actor, email: string, id: string) {
@@ -129,13 +278,22 @@ export async function deleteCollege(a: Actor, email: string, id: string) {
 export async function listUsers(a: Actor, role?: string, departmentId?: string, pending = false) {
   if (!['SUPER_ADMIN', 'COLLEGE_ADMIN', 'HOD'].includes(a.role)) throw deny();
   if (a.role === 'HOD' && role !== 'FACULTY') throw deny();
-  if (a.role === 'SUPER_ADMIN' && role !== 'COLLEGE_ADMIN') throw deny();
+  if (a.role === 'SUPER_ADMIN' && role && role !== 'COLLEGE_ADMIN') throw deny();
   if (a.role === 'COLLEGE_ADMIN' && (!role || !['HOD', 'FACULTY', 'STUDENT'].includes(role))) throw deny();
   const college_id = a.role === 'SUPER_ADMIN' ? undefined : tenant(a);
   if (departmentId && (!college_id || !await prisma.department.findFirst({ where: { id: departmentId, college_id }, select: { id: true } }))) throw missing();
-  return prisma.authedUser.findMany({ where: { college_id, department_id: a.role === 'HOD' ? a.departmentId! : departmentId,
-    role: pending ? 'USER' : role, requested_role: pending ? role : undefined, approval_status: pending ? 'PENDING' : 'APPROVED',
-    ...(a.role === 'HOD' ? { requested_role: 'FACULTY' } : {}) }, select: userSelect, take: 200, orderBy: { created_at: 'desc' } });
+  return prisma.authedUser.findMany({
+    where: {
+      college_id,
+      department_id: a.role === 'HOD' ? a.departmentId! : departmentId,
+      ...(role ? { role: pending ? 'USER' : role, requested_role: pending ? role : undefined } : {}),
+      ...(pending ? { approval_status: 'PENDING' } : {}),
+      ...(a.role === 'HOD' ? { requested_role: 'FACULTY' } : {}),
+    },
+    select: userSelect,
+    take: 200,
+    orderBy: { created_at: 'desc' },
+  });
 }
 async function checkDepartment(tx: Prisma.TransactionClient, id: string, collegeId: string) {
   if (!await tx.department.findFirst({ where: { id, college_id: collegeId, is_active: true }, select: { id: true } })) throw missing();
@@ -144,7 +302,7 @@ async function checkFaculty(tx: Prisma.TransactionClient, uid: string, collegeId
   if (!await tx.authedUser.findFirst({ where: { uid, role: 'FACULTY', approval_status: 'APPROVED', college_id: collegeId, department_id: deptId }, select: { uid: true } })) throw deny('Faculty is not approved in this department');
 }
 async function checkHod(tx: Prisma.TransactionClient, uid: string, collegeId: string, deptId?: string) {
-  if (!await tx.authedUser.findFirst({ where: { uid, role: 'HOD', approval_status: 'APPROVED', college_id: collegeId, ...(deptId ? { OR: [{ department_id: deptId }, { department_id: null }] } : { department_id: null }) }, select: { uid: true } })) throw deny('HOD is not eligible');
+  if (!await tx.authedUser.findFirst({ where: { uid, role: 'HOD', approval_status: 'APPROVED', college_id: collegeId }, select: { uid: true } })) throw deny('HOD is not eligible');
   if (await tx.department.count({ where: { hod_uid: uid, ...(deptId ? { id: { not: deptId } } : {}) } })) throw conflict('HOD already heads a department');
 }
 async function scope(tx: DB, type: Structure, a: Actor, id: string) {
@@ -210,7 +368,10 @@ export async function patchStructure(a: Actor, email: string, type: Structure, i
     const old = await scope(tx, type, a, id);
     if (!old) throw missing();
     if (type === 'departments' && data.hod_uid !== undefined) {
-      if (data.hod_uid) await checkHod(tx, data.hod_uid, tenant(a), id);
+      if (data.hod_uid) {
+        await tx.department.updateMany({ where: { hod_uid: data.hod_uid, college_id: tenant(a), id: { not: id } }, data: { hod_uid: null } });
+        await checkHod(tx, data.hod_uid, tenant(a), id);
+      }
       const existing = await tx.department.findUnique({ where: { id }, select: { hod_uid: true } });
       if (existing?.hod_uid && existing.hod_uid !== data.hod_uid) await tx.authedUser.updateMany({ where: { uid: existing.hod_uid, department_id: id }, data: { department_id: null } });
       if (data.hod_uid) await tx.authedUser.update({ where: { uid: data.hod_uid }, data: { department_id: id } });
@@ -262,7 +423,19 @@ export async function assignUser(a: Actor, email: string, uid: string, data: { d
     if (!old || uid === a.uid) throw missing();
     const dep = data.department_id === undefined ? old.department_id : data.department_id;
     if (dep) await checkDepartment(tx, dep, tenant(a));
-    if (old.role === 'HOD' && data.department_id !== undefined) throw deny('Assign HOD via department endpoint');
+    if (old.role === 'HOD' && data.department_id !== undefined) {
+      if (!dep) {
+        await tx.department.updateMany({ where: { hod_uid: uid, college_id: tenant(a) }, data: { hod_uid: null } });
+      } else {
+        await tx.department.updateMany({ where: { hod_uid: uid, college_id: tenant(a), id: { not: dep } }, data: { hod_uid: null } });
+        await checkHod(tx, uid, tenant(a), dep);
+        const existing = await tx.department.findUnique({ where: { id: dep }, select: { hod_uid: true } });
+        if (existing?.hod_uid && existing.hod_uid !== uid) {
+          await tx.authedUser.updateMany({ where: { uid: existing.hod_uid, department_id: dep }, data: { department_id: null } });
+        }
+        await tx.department.update({ where: { id: dep }, data: { hod_uid: uid } });
+      }
+    }
     if (old.role === 'FACULTY' && !dep) throw deny('Faculty requires department');
     if (old.role === 'STUDENT' && !dep) throw deny('Student requires department');
     if (data.class_id !== undefined && data.class_id && (!dep || !await tx.class.findFirst({ where: { id: data.class_id, batch: { program: { department_id: dep, department: { college_id: tenant(a) } } } }, select: { id: true } }))) throw missing();

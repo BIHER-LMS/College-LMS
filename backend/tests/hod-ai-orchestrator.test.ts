@@ -482,6 +482,23 @@ describe('HOD AI Orchestrator & Canonical Tool Contract Suite', () => {
       expect(res.body.data.metadata.departmentId).toBe(validDepartmentId);
     });
 
+    it('processes "list the student and the particluar class labled" and executes hod.getClassAttendance with enrolled students roster', async () => {
+      const res = await request(app)
+        .post('/api/hod/ai/chat')
+        .set('Authorization', 'Bearer valid-token')
+        .send({
+          message: 'list the student and the particluar class labled',
+          history: [],
+        });
+
+      expect(res.status).toBe(200);
+      expect(res.body.success).toBe(true);
+      expect(res.body.data.toolsExecuted).toHaveLength(1);
+      expect(res.body.data.toolsExecuted[0].toolName).toBe('hod.getClassAttendance');
+      expect(res.body.data.message).toContain('Class:');
+      expect(res.body.data.message).toContain('Enrolled Students & Status');
+    });
+
     it('processes GET /api/hod/ai/tools and returns canonical tool catalog', async () => {
       const res = await request(app)
         .get('/api/hod/ai/tools')

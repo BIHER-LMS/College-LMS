@@ -641,7 +641,7 @@ export class FacultyBackendToolService {
       startTime: s.start_time || '09:00 AM',
       endTime: s.end_time || '09:50 AM',
       subjectName: s.subject_name || 'Subject',
-      subjectCode: s.subject_code || '',
+      subjectCode: (s as any).subject_code || (s as any).subject_id || '',
       className: s.class_name || 'Class',
       classId: s.class_id || '',
       roomNumber: s.room ?? null,
@@ -858,17 +858,21 @@ export class FacultyBackendToolService {
 
     for (const sp of subjectPerformances) {
       for (const cp of sp.classes || []) {
+        const sId = (sp as any).subjectId || (sp as any).subject?.id || '';
+        const sName = (sp as any).subjectName || (sp as any).subject?.name || '';
+        const sCode = (sp as any).subjectCode || (sp as any).subject?.code || '';
+        const tStudents = cp.enrolledStudents || (cp as any).studentCount || 0;
         flatItems.push({
-          subjectId: sp.subject.id,
-          subjectName: sp.subject.name,
-          subjectCode: sp.subject.code,
+          subjectId: sId,
+          subjectName: sName,
+          subjectCode: sCode,
           classId: cp.classId,
           className: cp.className,
           averageScore: cp.averageAttendance !== null ? cp.averageAttendance : 0,
           passPercentage: cp.averageAttendance !== null ? (cp.averageAttendance >= 75 ? 100 : 0) : 0,
-          totalStudents: cp.studentCount || 0,
-          highestScore: cp.averageAttendance !== null ? cp.averageAttendance : null,
-          lowestScore: cp.averageAttendance !== null ? cp.averageAttendance : null,
+          totalStudents: tStudents,
+          highestScore: cp.averageAttendance !== null ? cp.averageAttendance : 0,
+          lowestScore: cp.averageAttendance !== null ? cp.averageAttendance : 0,
         });
       }
     }

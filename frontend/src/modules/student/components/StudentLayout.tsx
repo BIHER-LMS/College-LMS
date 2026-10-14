@@ -34,6 +34,7 @@ export const StudentLayout: React.FC = () => {
     { to: '/student/attendance', label: 'My Attendance', icon: 'fact_check' },
     { to: '/student/timetable', label: 'Time Table', icon: 'calendar_month' },
     { to: '/student/subjects', label: 'My Subjects', icon: 'auto_stories' },
+    { to: '/student/content', label: 'Learning Content', icon: 'menu_book' },
     { to: '/student/assignments', label: 'Assignments', icon: 'assignment' },
     { to: '/student/class-incharge', label: 'Class Incharge', icon: 'supervisor_account' },
     { to: '/student/academic-calendar', label: 'Academic Calendar', icon: 'calendar_today' },

@@ -286,8 +286,8 @@ function WaitingApproval() {
                 }}
                 className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-brand-500"
               >
-                <option value="HOD">Head of Department (HOD)</option>
                 <option value="FACULTY">Faculty</option>
+                <option value="HOD">Head of Department (HOD)</option>
               </select>
             </div>
 

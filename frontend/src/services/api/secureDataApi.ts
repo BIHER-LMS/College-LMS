@@ -166,9 +166,10 @@ export const secureDataApi = {
       email: string | null;
       website: string | null;
       logoUrl: string | null;
-      adminName: string | null;
-      adminEmail: string | null;
-      isActive: boolean;
+      adminName?: string | null;
+      adminEmail?: string | null;
+      adminUid?: string | null;
+      isActive?: boolean;
     }>
   ) =>
     request<{
@@ -198,6 +199,24 @@ export const secureDataApi = {
     request<{ deleted: boolean }>(`/secure-data/colleges/${encodeURIComponent(collegeId)}`, {
       method: 'DELETE',
     }),
+
+  assignCollegeAdmin: (collegeId: string, uid: string) =>
+    request<{ college: any; user: any }>(
+      `/secure-data/colleges/${encodeURIComponent(collegeId)}/assign-admin`,
+      {
+        method: 'POST',
+        body: JSON.stringify({ uid }),
+      }
+    ),
+
+  unassignCollegeAdmin: (collegeId: string, uid?: string) =>
+    request<{ college: any }>(
+      `/secure-data/colleges/${encodeURIComponent(collegeId)}/unassign-admin`,
+      {
+        method: 'POST',
+        body: JSON.stringify({ uid }),
+      }
+    ),
 
   // COLLEGE_ADMIN / HOD / SUPER_ADMIN (scoped by role)
   listUsers: (params?: {

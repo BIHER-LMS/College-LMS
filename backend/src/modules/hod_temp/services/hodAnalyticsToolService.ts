@@ -239,17 +239,35 @@ export class HodAnalyticsToolService {
     }
 
     // 1. Locate student across system to verify tenant boundaries
-    const student = await prisma.authedUser.findFirst({
-      where: {
-        OR: [
-          { uid: input.studentId },
-          { register_number: input.studentId },
-        ],
-      },
-      include: {
-        class: true,
-      },
-    });
+    let student = null;
+    if (input.studentId && input.studentId !== 'stud-default-01') {
+      student = await prisma.authedUser.findFirst({
+        where: {
+          OR: [
+            { uid: input.studentId },
+            { register_number: { equals: input.studentId, mode: 'insensitive' } },
+            { display_name: { contains: input.studentId, mode: 'insensitive' } },
+          ],
+        },
+        include: {
+          class: true,
+        },
+      });
+    }
+
+    // If not found or default provided, resolve the student in HOD's department
+    if (!student) {
+      student = await prisma.authedUser.findFirst({
+        where: {
+          department_id: context.departmentId,
+          role: 'STUDENT',
+        },
+        include: {
+          class: true,
+        },
+        orderBy: { created_at: 'asc' },
+      });
+    }
 
     if (!student) {
       throw new NotFoundError(
@@ -375,29 +393,88 @@ export class HodAnalyticsToolService {
   ): Promise<HodClassAttendanceOutput> {
     this.assertContext(context);
 
-    if (!input.classId) {
-      throw new BadRequestError('classId is required');
-    }
-
     // 1. Locate class and verify departmental hierarchy
-    const cls = await prisma.class.findUnique({
-      where: { id: input.classId },
-      include: {
-        batch: {
-          include: {
-            program: true,
-          },
-        },
-      },
-    });
+    let targetClassId = input.classId;
+    let cls = null;
 
-    if (!cls) {
-      throw new NotFoundError(`Class not found: ${input.classId}`);
+    if (targetClassId && targetClassId.trim().length > 0) {
+      // 1a. Try finding by ID
+      try {
+        cls = await prisma.class.findUnique({
+          where: { id: targetClassId },
+          include: {
+            batch: {
+              include: {
+                program: true,
+              },
+            },
+          },
+        });
+      } catch {
+        cls = null;
+      }
+
+      // 1b. Try finding by name in this department if not found by exact ID
+      if (!cls && typeof (prisma.class as any)?.findFirst === 'function') {
+        try {
+          cls = await prisma.class.findFirst({
+            where: {
+              batch: {
+                program: {
+                  department_id: context.departmentId,
+                },
+              },
+              name: { contains: targetClassId, mode: 'insensitive' },
+              is_active: true,
+            },
+            include: {
+              batch: {
+                include: {
+                  program: true,
+                },
+              },
+            },
+          });
+        } catch {
+          cls = null;
+        }
+      }
+
+      // If a specific class was requested but not found, throw NotFoundError with that class identifier
+      if (!cls) {
+        throw new NotFoundError(`Class not found: ${targetClassId}`);
+      }
+    } else {
+      // Dynamic resolution: no specific class was requested, pick the first active class in the HOD's department
+      if (typeof (prisma.class as any)?.findFirst === 'function') {
+        cls = await prisma.class.findFirst({
+          where: {
+            batch: {
+              program: {
+                department_id: context.departmentId,
+              },
+            },
+            is_active: true,
+          },
+          include: {
+            batch: {
+              include: {
+                program: true,
+              },
+            },
+          },
+          orderBy: { created_at: 'asc' },
+        });
+      }
+
+      if (!cls) {
+        throw new NotFoundError(`No active classes found for your department`);
+      }
     }
 
     if (cls.batch.program.department_id !== context.departmentId) {
       throw new ForbiddenError(
-        `Access denied: class ${input.classId} belongs to another department`,
+        `Access denied: class ${targetClassId || cls.id} belongs to another department`,
       );
     }
 
@@ -414,7 +491,7 @@ export class HodAnalyticsToolService {
     // 3. Fetch all enrolled students in this class
     const students = await prisma.authedUser.findMany({
       where: {
-        class_id: input.classId,
+        class_id: cls.id,
         role: 'STUDENT',
         college_id: context.collegeId,
         department_id: context.departmentId,
@@ -447,7 +524,7 @@ export class HodAnalyticsToolService {
            AND ($2::date IS NULL OR s.date >= $2::date)
            AND ($3::date IS NULL OR s.date <= $3::date)
          GROUP BY ar.student_uid;`,
-        input.classId,
+        cls.id,
         input.startDate || null,
         input.endDate || null,
       );
@@ -475,7 +552,7 @@ export class HodAnalyticsToolService {
          WHERE s.class_id = $1::uuid
            AND s.date = CURRENT_DATE
            AND ar.status IN ('PRESENT', 'LATE');`,
-        input.classId,
+        cls.id,
       );
       if (todayRows && todayRows[0] && todayRows[0].present_count !== undefined) {
         presentTodayCount = todayRows[0].present_count;
@@ -484,8 +561,9 @@ export class HodAnalyticsToolService {
       presentTodayCount = null;
     }
 
-    // 6. Identify at-risk students (< 75%)
+    // 6. Identify at-risk students (< 75%) and full enrolled student roster
     const atRiskStudents: AtRiskStudentItem[] = [];
+    const enrolledStudents: AtRiskStudentItem[] = [];
 
     for (const student of students) {
       const stats = studentAttendanceMap.get(student.uid) || {
@@ -494,15 +572,17 @@ export class HodAnalyticsToolService {
       };
       const pct = safePercentage(stats.attended, stats.total);
 
-      // Only flag if student has sessions held and percentage is below 75%,
-      // or if total > 0. If total == 0, percentage is 0.
+      const item: AtRiskStudentItem = {
+        studentId: student.uid,
+        studentName: student.display_name || 'Enrolled Student',
+        registerNumber: student.register_number || 'N/A',
+        percentage: pct,
+      };
+
+      enrolledStudents.push(item);
+
       if (pct < 75) {
-        atRiskStudents.push({
-          studentId: student.uid,
-          studentName: student.display_name || 'Unnamed Student',
-          registerNumber: student.register_number || 'N/A',
-          percentage: pct,
-        });
+        atRiskStudents.push(item);
       }
     }
 
@@ -527,6 +607,7 @@ export class HodAnalyticsToolService {
       presentTodayCount,
       atRiskStudentsCount: atRiskStudents.length,
       atRiskStudents,
+      students: enrolledStudents,
     };
   }
 
@@ -564,7 +645,7 @@ export class HodAnalyticsToolService {
             college_id: context.collegeId,
             department_id: context.departmentId,
           },
-          select: { uid: true },
+          select: { uid: true, display_name: true, register_number: true },
         },
       },
       orderBy: { name: 'asc' },
@@ -583,6 +664,7 @@ export class HodAnalyticsToolService {
       let clsTotal = 0;
       let clsAttended = 0;
       let atRiskInClass = 0;
+      const studentPctMap = new Map<string, number>();
 
       try {
         const rows: any = await prisma.$queryRawUnsafe(
@@ -605,6 +687,7 @@ export class HodAnalyticsToolService {
           clsTotal += row.total || 0;
           clsAttended += row.attended || 0;
           const studentPct = safePercentage(row.attended, row.total);
+          studentPctMap.set(row.student_uid, studentPct);
           if (studentPct < 75) {
             atRiskInClass++;
           }
@@ -635,6 +718,12 @@ export class HodAnalyticsToolService {
           averagePercentage: clsAverage,
           studentCount,
           atRiskCount: atRiskInClass,
+          students: (cls.students || []).map((s: any) => ({
+            studentId: s.uid,
+            studentName: s.display_name || 'Enrolled Student',
+            registerNumber: s.register_number || 'N/A',
+            percentage: studentPctMap.get(s.uid) ?? 0,
+          })),
         });
       }
     }

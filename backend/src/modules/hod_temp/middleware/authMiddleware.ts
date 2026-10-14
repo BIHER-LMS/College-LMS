@@ -15,6 +15,7 @@ export interface AuthenticatedUser {
 
 export interface HODContext extends AuthenticatedUser {
   departmentId: string;
+  departmentName?: string;
 }
 
 export interface AuthenticatedRequest extends Request {
@@ -120,6 +121,7 @@ export async function requireHOD(
     req.hod = {
       ...req.user,
       departmentId: department.id,
+      departmentName: department.name,
     };
 
     next();

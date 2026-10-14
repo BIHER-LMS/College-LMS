@@ -119,50 +119,80 @@ export const StudentAssignmentsPage: React.FC = () => {
                 )}
               </div>
 
-              <div className="pt-4 border-t border-slate-100">
+              <div className="pt-4 border-t border-slate-100 space-y-3">
                 {assignment.isSubmitted && assignment.submission ? (
-                  <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 bg-slate-50 p-3.5 rounded-xl border border-slate-200">
-                    <div className="flex items-center gap-3">
-                      {assignment.submission.file_url && (assignment.submission.file_url.includes('cloudinary.com') || assignment.submission.file_url.match(/\.(jpeg|jpg|png|webp|gif)/i)) ? (
-                        <a href={assignment.submission.file_url} target="_blank" rel="noopener noreferrer">
-                          <img
-                            src={assignment.submission.file_url}
-                            alt="Submission"
-                            className="w-12 h-12 object-cover rounded-lg border border-slate-300 shadow-2xs hover:opacity-90 transition"
-                          />
-                        </a>
-                      ) : (
-                        <div className="w-12 h-12 rounded-lg bg-indigo-100 text-indigo-700 flex items-center justify-center">
-                          <FileImage className="w-6 h-6" />
-                        </div>
-                      )}
-                      <div>
-                        <div className="text-sm font-semibold text-slate-800 flex items-center gap-1.5">
-                          <span>Submission Uploaded</span>
-                          <span className="text-[10px] bg-emerald-100 text-emerald-800 font-bold px-1.5 py-0.5 rounded">Cloud Verified</span>
-                        </div>
-                        <div className="text-xs text-slate-500 mt-0.5">
-                          Submitted on {new Date(assignment.submission.submitted_at || Date.now()).toLocaleDateString()}
+                  <div className="space-y-3">
+                    <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 bg-slate-50 p-3.5 rounded-xl border border-slate-200">
+                      <div className="flex items-center gap-3">
+                        {assignment.submission.file_url && (assignment.submission.file_url.includes('cloudinary.com') || assignment.submission.file_url.match(/\.(jpeg|jpg|png|webp|gif)/i)) ? (
+                          <a href={assignment.submission.file_url} target="_blank" rel="noopener noreferrer">
+                            <img
+                              src={assignment.submission.file_url}
+                              alt="Submission"
+                              className="w-12 h-12 object-cover rounded-lg border border-slate-300 shadow-2xs hover:opacity-90 transition"
+                            />
+                          </a>
+                        ) : (
+                          <div className="w-12 h-12 rounded-lg bg-indigo-100 text-indigo-700 flex items-center justify-center">
+                            <FileImage className="w-6 h-6" />
+                          </div>
+                        )}
+                        <div>
+                          <div className="text-sm font-semibold text-slate-800 flex items-center gap-1.5">
+                            <span>Submission Uploaded</span>
+                            <span className="text-[10px] bg-emerald-100 text-emerald-800 font-bold px-1.5 py-0.5 rounded">Cloud Verified</span>
+                            {assignment.submission.grade && (
+                              <span className="text-[10px] bg-indigo-100 text-indigo-800 font-bold px-1.5 py-0.5 rounded">
+                                Grade: {assignment.submission.grade}
+                              </span>
+                            )}
+                          </div>
+                          <div className="text-xs text-slate-500 mt-0.5">
+                            Submitted on {new Date(assignment.submission.submitted_at || Date.now()).toLocaleDateString()}
+                          </div>
                         </div>
                       </div>
+                      <div className="flex items-center gap-2 self-end sm:self-auto">
+                        <a
+                          href={assignment.submission.file_url}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="inline-flex items-center gap-1 px-3 py-1.5 text-xs font-semibold text-indigo-600 hover:text-indigo-800 bg-white border border-slate-200 rounded-lg shadow-2xs hover:bg-slate-50 transition"
+                        >
+                          <ExternalLink className="w-3.5 h-3.5" />
+                          <span>View Submission</span>
+                        </a>
+
+                        <input
+                          type="file"
+                          accept="image/*,application/pdf,.doc,.docx"
+                          id={`resubmit-${assignment.id}`}
+                          className="hidden"
+                          onChange={(e) => handleFileUpload(e, assignment.id)}
+                          disabled={uploadingId === assignment.id}
+                        />
+                        <label
+                          htmlFor={`resubmit-${assignment.id}`}
+                          className="inline-flex items-center gap-1 px-3 py-1.5 text-xs font-semibold text-slate-700 hover:text-slate-900 bg-white border border-slate-200 rounded-lg shadow-2xs hover:bg-slate-100 transition cursor-pointer"
+                        >
+                          <Upload className="w-3.5 h-3.5" />
+                          <span>Resubmit (New Version)</span>
+                        </label>
+                      </div>
                     </div>
-                    <div className="flex items-center gap-2 self-end sm:self-auto">
-                      <a
-                        href={assignment.submission.file_url}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="inline-flex items-center gap-1 px-3 py-1.5 text-xs font-semibold text-indigo-600 hover:text-indigo-800 bg-white border border-slate-200 rounded-lg shadow-2xs hover:bg-slate-50 transition"
-                      >
-                        <ExternalLink className="w-3.5 h-3.5" />
-                        <span>View Submission</span>
-                      </a>
-                    </div>
+
+                    {assignment.submission.feedback && (
+                      <div className="p-3 bg-indigo-50/60 rounded-xl border border-indigo-100 text-xs">
+                        <span className="font-bold text-indigo-900 block mb-0.5">Faculty Feedback:</span>
+                        <p className="text-indigo-800">{assignment.submission.feedback}</p>
+                      </div>
+                    )}
                   </div>
                 ) : (
                   <div>
                     <input
                       type="file"
-                      accept="image/*,application/pdf"
+                      accept="image/*,application/pdf,.doc,.docx"
                       id={`upload-${assignment.id}`}
                       className="hidden"
                       onChange={(e) => handleFileUpload(e, assignment.id)}
@@ -185,7 +215,7 @@ export const StudentAssignmentsPage: React.FC = () => {
                       ) : (
                         <>
                           <Upload className="w-4 h-4 text-indigo-600" />
-                          <span>Upload Assignment Image / Document (Cloudinary Storage)</span>
+                          <span>Upload Assignment (PDF, Word, or Image via Cloudinary)</span>
                         </>
                       )}
                     </label>

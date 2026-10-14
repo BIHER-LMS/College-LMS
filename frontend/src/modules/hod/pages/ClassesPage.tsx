@@ -47,7 +47,7 @@ export const ClassesPage: React.FC = () => {
   };
 
   const handleAssign = async (classId: string, facultyUid: string) => {
-    await dispatch(assignClassIncharge({ classId, facultyUid })).unwrap();
+    await dispatch(assignClassIncharge({ classId, facultyUid: facultyUid || null })).unwrap();
     // Refresh both classes and faculty
     await dispatch(fetchClasses());
     await dispatch(fetchFaculty());

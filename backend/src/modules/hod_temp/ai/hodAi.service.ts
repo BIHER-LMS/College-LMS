@@ -9,6 +9,8 @@ import {
 } from './hodAi.types';
 import { hodToolRegistry } from './toolRegistry';
 
+import { prisma } from '../config/db';
+
 /**
  * Common prompt injection and boundary-escape patterns.
  */
@@ -59,36 +61,58 @@ export class HodAiOrchestratorService {
   } {
     const lower = message.toLowerCase();
 
-    // 1. Student Attendance Intent
-    if (
-      lower.includes('student') &&
-      (lower.includes('attendance') || lower.includes('percentage') || lower.includes('record'))
-    ) {
-      // Look for possible student ID pattern like stud-123 or REG-123
-      const idMatch = message.match(/(?:student(?:Id)?|id|reg(?:ister)?(?:\s+no)?)\s*[:=]?\s*([a-zA-Z0-9_-]+)/i);
-      const studentId = idMatch ? idMatch[1] : 'stud-default-01';
+    // 1. Specific Student Lookup by Name, Register Number, or Student Keyword with ID
+    // e.g. "attendance for Amirtha Varsshan", "show student 8967BSCAIML", "studentId: stu-123"
+    const explicitIdMatch = message.match(/(?:student(?:Id)?|id|reg(?:ister)?(?:\s+no)?)\s*[:=]?\s*([a-zA-Z0-9_-]+)/i);
+    const isSingleStudentQuery =
+      (lower.includes('student') || lower.includes('attendance for')) &&
+      !lower.includes('class') &&
+      !lower.includes('all') &&
+      !lower.includes('roster') &&
+      !lower.includes('list');
+
+    if (isSingleStudentQuery || (explicitIdMatch && !lower.includes('class') && !lower.includes('particluar') && !lower.includes('particular'))) {
+      const studentId = explicitIdMatch
+        ? explicitIdMatch[1]
+        : message.replace(/^(show|view|get|check|find|lookup)?\s*(attendance\s*(?:of|for)?)?\s*(student)?\s*/i, '').trim();
 
       return {
         toolName: 'hod.getStudentAttendance',
-        args: { studentId },
+        args: { studentId: studentId || 'stud-default-01' },
       };
     }
 
-    // 2. Class Attendance Intent
-    if (
-      lower.includes('class') &&
-      (lower.includes('attendance') || lower.includes('at risk') || lower.includes('absent'))
-    ) {
-      const classMatch = message.match(/(?:class(?:Id)?)\s*[:=]?\s*([a-zA-Z0-9_-]+)/i);
-      const classId = classMatch ? classMatch[1] : 'class-cse-3a';
+    // 2. Class & Students Listing / Roster Intent
+    // e.g. "list the student and the particluar class labled", "show students in class", "class roster", "list classes and students", "students enrolled"
+    const hasStudentWord = lower.includes('student') || lower.includes('roster') || lower.includes('enrolled');
+    const hasClassWord = lower.includes('class') || lower.includes('particluar') || lower.includes('particular') || lower.includes('labled') || lower.includes('labeled') || lower.includes('section');
 
+    if (hasStudentWord && hasClassWord) {
+      if (lower.includes('all classes') || lower.includes('across department') || lower.includes('every class')) {
+        return {
+          toolName: 'hod.getDepartmentAttendance',
+          args: { filterBy: 'all' },
+        };
+      }
+
+      const classMatch = message.match(/(?:class(?:Id)?)\s*[:=]?\s*([a-zA-Z0-9_-]+)/i);
       return {
         toolName: 'hod.getClassAttendance',
-        args: { classId },
+        args: { classId: classMatch ? classMatch[1] : '' },
       };
     }
 
-    // 3. Analytics / Trends Intent
+    // 3. Class Attendance & Details Intent
+    // e.g. "class attendance", "show class CSE-3A", "class details"
+    if (lower.includes('class') && !lower.includes('department attendance') && !lower.includes('all classes')) {
+      const classMatch = message.match(/(?:class(?:Id)?)\s*[:=]?\s*([a-zA-Z0-9_-]+)/i);
+      return {
+        toolName: 'hod.getClassAttendance',
+        args: { classId: classMatch ? classMatch[1] : '' },
+      };
+    }
+
+    // 4. Analytics / Trends Intent
     if (
       lower.includes('trend') ||
       lower.includes('analytics') ||
@@ -109,11 +133,15 @@ export class HodAiOrchestratorService {
       };
     }
 
-    // 4. Department-Wide Attendance Intent
+    // 5. Department-Wide Attendance / All Classes Intent
     if (
       lower.includes('department attendance') ||
       lower.includes('all classes') ||
-      lower.includes('across department')
+      lower.includes('across department') ||
+      lower.includes('list classes') ||
+      lower.includes('show classes') ||
+      lower.includes('department classes') ||
+      lower.includes('compare classes')
     ) {
       return {
         toolName: 'hod.getDepartmentAttendance',
@@ -123,7 +151,7 @@ export class HodAiOrchestratorService {
       };
     }
 
-    // 5. Knowledge / Document Context Intent
+    // 6. Knowledge / Document Context Intent
     if (
       lower.includes('document') ||
       lower.includes('section') ||
@@ -138,7 +166,7 @@ export class HodAiOrchestratorService {
       };
     }
 
-    // 6. Policy / Regulations / Search Intent (RAG Knowledge)
+    // 7. Policy / Regulations / Search Intent (RAG Knowledge)
     if (
       lower.includes('policy') ||
       lower.includes('regulation') ||
@@ -148,7 +176,12 @@ export class HodAiOrchestratorService {
       lower.includes('handbook') ||
       lower.includes('search') ||
       lower.includes('syllabus') ||
-      lower.includes('curriculum')
+      lower.includes('curriculum') ||
+      lower.includes('bylaw') ||
+      lower.includes('40-mark') ||
+      lower.includes('cia') ||
+      lower.includes('cbcs') ||
+      lower.includes('credit')
     ) {
       return {
         toolName: 'hod.searchKnowledge',
@@ -159,12 +192,13 @@ export class HodAiOrchestratorService {
       };
     }
 
-    // 7. Attendance Summary Intent (general/cohorts live transactional database)
+    // 8. Attendance Summary Intent (general/cohorts live transactional database)
     if (
       lower.includes('attendance') ||
       lower.includes('summary') ||
       lower.includes('cohort') ||
-      lower.includes('average')
+      lower.includes('average') ||
+      lower.includes('student')
     ) {
       return {
         toolName: 'hod.getAttendanceSummary',
@@ -193,10 +227,14 @@ export class HodAiOrchestratorService {
     }
 
     if (toolsExecuted.length === 0) {
+      const deptDisplay = (context as any).departmentName || `Department ${context.departmentId}`;
       return (
-        `Hello ${context.displayName || 'HOD'}. I am your departmental AI Assistant for Department ${context.departmentId}. ` +
-        `I can help you review attendance summaries, analyze at-risk cohorts, monitor individual student attendance, ` +
-        `and query institutional regulations and academic policies. How can I assist you today?`
+        `Hello ${context.displayName || 'HOD'}. I am your departmental AI Assistant for ${deptDisplay}.\n\n` +
+        `I provide real-time intelligence directly from your PostgreSQL database and RAG regulations:\n` +
+        `• **Students & Classes:** "list the student and the particular class", "show class details"\n` +
+        `• **Attendance Surveillance:** "department attendance summary", "defaulters list"\n` +
+        `• **Institutional Regulations:** "attendance condonation policy", "CIA 40 marks rule"\n\n` +
+        `How can I assist you with your department today?`
       );
     }
 
@@ -246,36 +284,49 @@ export class HodAiOrchestratorService {
 
       case 'hod.getClassAttendance': {
         const data = executed.result;
+        const studentList = data.students && data.students.length > 0
+          ? `\n\n**Enrolled Students & Status:**\n` +
+            data.students
+              .map(
+                (s: any) =>
+                  `• **${s.studentName}** (Reg: \`${s.registerNumber}\`) — Attendance: **${s.percentage}%** ${s.percentage < 75 ? '⚠️ [At Risk (<75%)]' : '✅ [Normal]'}`,
+              )
+              .join('\n')
+          : '';
+
         return (
-          `### Class Attendance: ${data.className} (Section ${data.section})\n\n` +
+          `### 🏫 Class: ${data.className} (Section ${data.section})\n\n` +
           `- **Batch:** ${data.batch}\n` +
           `- **Class In-charge:** ${data.classInchargeName || 'Not assigned'}\n` +
-          `- **Class Average:** ${data.averagePercentage}%\n` +
-          `- **Total Students:** ${data.totalStudents} (${data.presentTodayCount ?? 'N/A'} present today)\n` +
+          `- **Class Average Attendance:** **${data.averagePercentage}%**\n` +
+          `- **Total Enrolled Students:** ${data.totalStudents} (${data.presentTodayCount ?? 'N/A'} present today)\n` +
           `- **At-Risk Students (<75%):** ${data.atRiskStudentsCount}\n\n` +
-          (data.atRiskStudents.length > 0
-            ? `**At-Risk Student List:**\n` +
+          (data.atRiskStudents && data.atRiskStudents.length > 0
+            ? `**At-Risk Students (<75%):**\n` +
               data.atRiskStudents
-                .map((s: any) => `• ${s.studentName} (${s.registerNumber}): ${s.percentage}%`)
+                .map((s: any) => `• **${s.studentName}** (${s.registerNumber}): **${s.percentage}%** ⚠️`)
                 .join('\n')
-            : `All students meet the attendance threshold.`)
+            : `All enrolled students meet the attendance threshold.`) +
+          studentList
         );
       }
 
       case 'hod.getDepartmentAttendance': {
         const data = executed.result;
         return (
-          `### Department-Wide Attendance: ${data.departmentName}\n\n` +
-          `- **Overall Department Average:** ${data.overallPercentage}%\n` +
+          `### 🏢 Department-Wide Attendance: ${data.departmentName}\n\n` +
+          `- **Overall Department Average:** **${data.overallPercentage}%**\n` +
           `- **Total Classes:** ${data.totalClasses} | **Total Students:** ${data.totalStudents}\n` +
-          `- **Total Students at Risk:** ${data.atRiskCount}\n\n` +
-          `**Class Summary:**\n` +
+          `- **Total Students at Risk (<75%):** ${data.atRiskCount}\n\n` +
+          `**Class Summary & Enrolled Rosters:**\n` +
           data.classes
-            .map(
-              (cls: any) =>
-                `• **${cls.className}**: ${cls.averagePercentage}% (${cls.studentCount} students, ${cls.atRiskCount} at-risk)`,
-            )
-            .join('\n')
+            .map((cls: any) => {
+              const studentsText = cls.students && cls.students.length > 0
+                ? `\n  *Enrolled Students:* ` + cls.students.map((s: any) => `**${s.studentName}** (\`${s.registerNumber}\`)`).join(', ')
+                : '';
+              return `• **${cls.className}**: **${cls.averagePercentage}%** average (${cls.studentCount} students, ${cls.atRiskCount} at-risk)${studentsText}`;
+            })
+            .join('\n\n')
         );
       }
 
@@ -339,6 +390,21 @@ export class HodAiOrchestratorService {
     const { sanitized, isSuspicious } = this.sanitizeAndValidateInput(
       request.message,
     );
+
+    // Resolve human-readable department name if missing
+    if (!(context as any).departmentName && context.departmentId) {
+      try {
+        const dept = await prisma.department.findUnique({
+          where: { id: context.departmentId },
+          select: { name: true, code: true },
+        });
+        if (dept) {
+          (context as any).departmentName = `${dept.name}${dept.code ? ` (${dept.code})` : ''}`;
+        }
+      } catch {
+        // Continue with default
+      }
+    }
 
     const toolsExecuted: ToolExecutionResult[] = [];
 

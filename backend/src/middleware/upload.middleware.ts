@@ -43,3 +43,38 @@ export const uploadImageOnly = multer({
     }
   },
 });
+
+export const uploadContentMemory = multer({
+  storage,
+  limits: {
+    fileSize: 100 * 1024 * 1024, // 100MB max file size for learning materials & videos
+  },
+  fileFilter: (_req, file, cb) => {
+    const allowedMimeTypes = [
+      'image/jpeg',
+      'image/png',
+      'image/webp',
+      'image/gif',
+      'image/svg+xml',
+      'application/pdf',
+      'application/msword',
+      'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+      'application/vnd.ms-powerpoint',
+      'application/vnd.openxmlformats-officedocument.presentationml.presentation',
+      'text/plain',
+      'text/markdown',
+      'text/x-markdown',
+      'video/mp4',
+      'video/webm',
+      'video/ogg',
+      'video/quicktime',
+    ];
+
+    const isAllowedExt = /\.(pdf|ppt|pptx|doc|docx|md|markdown|txt|mp4|webm|mov|ogg|jpg|jpeg|png)$/i.test(file.originalname);
+    if (allowedMimeTypes.includes(file.mimetype) || file.mimetype.startsWith('video/') || file.mimetype.startsWith('image/') || isAllowedExt) {
+      cb(null, true);
+    } else {
+      cb(new Error(`Unsupported file type: ${file.mimetype}. Allowed types: PDF, PPT/PPTX, DOC/DOCX, Markdown, Video, Image.`));
+    }
+  },
+});

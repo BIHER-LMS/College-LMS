@@ -16,6 +16,8 @@ import {
   ShieldCheck,
   Edit3,
   Sparkles,
+  BarChart3,
+  Layers,
 } from 'lucide-react';
 import { useFaculty } from '../modules/faculty/hooks/useFaculty';
 import { FacultySearchBar } from '../modules/faculty/components/FacultySearchBar';
@@ -48,6 +50,8 @@ export const FacultyLayout: React.FC = () => {
     ...(isClassIncharge ? [{ label: 'My Class', path: '/faculty/classes', icon: GraduationCap }] : []),
     // "My Subjects" is shown to all faculty (and as sole subject view for subject teachers)
     { label: 'My Subjects', path: '/faculty/subjects', icon: BookOpen },
+    { label: 'Learning Content', path: '/faculty/content', icon: Layers },
+    { label: 'Learning Analytics', path: '/faculty/analytics', icon: BarChart3 },
     { label: 'Assignments', path: '/faculty/assignments', icon: Edit3 },
     { label: 'Attendance', path: '/faculty/attendance', icon: ClipboardCheck },
     ...(isClassIncharge ? [{ label: 'Time Table', path: '/faculty/timetable', icon: Calendar }] : []),

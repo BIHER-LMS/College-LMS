@@ -471,22 +471,29 @@ model ClassSubject {
   faculty     AuthedUser? @relation("FacultySubjects", fields: [faculty_uid], references: [uid])
 
   assignments Assignment[]
+  topics      Topic[]
+  contents    LearningContent[]
+  features    StudentSubjectFeature[]
 
   @@unique([class_id, subject_id])
   @@map("class_subjects")
 }
 
 model Assignment {
-  id               String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  class_subject_id String   @db.Uuid
-  title            String
-  description      String?
-  attachment_url   String?
-  due_date         DateTime? @db.Timestamptz(6)
-  created_at       DateTime? @default(now()) @db.Timestamptz(6)
+  id                 String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  class_subject_id   String   @db.Uuid
+  topic_id           String?  @db.Uuid
+  title              String
+  description        String?
+  attachment_url     String?
+  due_date           DateTime? @db.Timestamptz(6)
+  max_points         Float?    @default(100)
+  allow_resubmission Boolean?  @default(true)
+  created_at         DateTime? @default(now()) @db.Timestamptz(6)
 
-  classSubject     ClassSubject @relation(fields: [class_subject_id], references: [id], onDelete: Cascade)
-  submissions      StudentSubmission[]
+  classSubject       ClassSubject @relation(fields: [class_subject_id], references: [id], onDelete: Cascade)
+  topic              Topic?       @relation(fields: [topic_id], references: [id], onDelete: SetNull)
+  submissions        StudentSubmission[]
 
   @@map("assignments")
 }
@@ -499,10 +506,206 @@ model StudentSubmission {
   submitted_at  DateTime? @default(now()) @db.Timestamptz(6)
   grade         String?
   feedback      String?
+  status        String?   @default("SUBMITTED")
+  is_late       Boolean?  @default(false)
+  graded_at     DateTime? @db.Timestamptz(6)
+  graded_by_uid String?
 
   assignment    Assignment @relation(fields: [assignment_id], references: [id], onDelete: Cascade)
   student       AuthedUser @relation("StudentSubmissions", fields: [student_uid], references: [uid], onDelete: Cascade)
+  versions      SubmissionVersion[]
 
   @@unique([assignment_id, student_uid])
   @@map("student_submissions")
+}
+
+enum LearningContentType {
+  PDF
+  PPT
+  DOC
+  MARKDOWN
+  VIDEO
+  YOUTUBE
+}
+
+enum LearningEventType {
+  VIEW
+  PLAY
+  PAUSE
+  SEEK
+  REWIND
+  TIME_UPDATE
+  PROGRESS
+  COMPLETE
+  DOWNLOAD
+  RESUME
+}
+
+model Topic {
+  id               String            @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  class_subject_id String            @db.Uuid
+  title            String
+  description      String?
+  order_index      Int               @default(0)
+  is_published     Boolean           @default(true)
+  created_at       DateTime          @default(now()) @db.Timestamptz(6)
+  updated_at       DateTime          @default(now()) @updatedAt @db.Timestamptz(6)
+
+  classSubject     ClassSubject      @relation(fields: [class_subject_id], references: [id], onDelete: Cascade)
+  contents         LearningContent[]
+  assignments      Assignment[]
+
+  @@index([class_subject_id, order_index])
+  @@map("topics")
+}
+
+model LearningContent {
+  id                     String                    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  topic_id               String                    @db.Uuid
+  class_subject_id       String                    @db.Uuid
+  title                  String
+  description            String?
+  content_type           LearningContentType
+  file_url               String?
+  youtube_url            String?
+  youtube_video_id       String?
+  markdown_content       String?
+  file_name              String?
+  file_size_bytes        BigInt?
+  duration_seconds       Int?                      @default(0)
+  order_index            Int                       @default(0)
+  is_downloadable        Boolean                   @default(true)
+  is_published           Boolean                   @default(true)
+  created_by_faculty_uid String
+  created_at             DateTime                  @default(now()) @db.Timestamptz(6)
+  updated_at             DateTime                  @default(now()) @updatedAt @db.Timestamptz(6)
+
+  topic                  Topic                     @relation(fields: [topic_id], references: [id], onDelete: Cascade)
+  classSubject           ClassSubject              @relation(fields: [class_subject_id], references: [id], onDelete: Cascade)
+  progressRecords        StudentContentProgress[]
+  events                 LearningEvent[]
+
+  @@index([topic_id, order_index])
+  @@index([class_subject_id, is_published])
+  @@map("learning_contents")
+}
+
+model LearningEvent {
+  id               String            @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  student_uid      String
+  content_id       String            @db.Uuid
+  class_subject_id String            @db.Uuid
+  event_type       LearningEventType
+  position_seconds Float?            @default(0)
+  duration_seconds Float?            @default(0)
+  playback_rate    Float?            @default(1.0)
+  seek_from        Float?
+  seek_to          Float?
+  metadata         Json?
+  created_at       DateTime          @default(now()) @db.Timestamptz(6)
+
+  content          LearningContent   @relation(fields: [content_id], references: [id], onDelete: Cascade)
+
+  @@index([student_uid, content_id])
+  @@index([class_subject_id, created_at])
+  @@index([event_type, created_at])
+  @@map("learning_events")
+}
+
+model StudentContentProgress {
+  id                    String          @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  student_uid           String
+  content_id            String          @db.Uuid
+  class_subject_id      String          @db.Uuid
+  watch_time_seconds    Float           @default(0)
+  max_position_seconds  Float           @default(0)
+  last_position_seconds Float           @default(0)
+  completion_percentage Float           @default(0)
+  rewind_count          Int             @default(0)
+  seek_count            Int             @default(0)
+  download_count        Int             @default(0)
+  is_completed          Boolean         @default(false)
+  completed_at          DateTime?       @db.Timestamptz(6)
+  first_accessed_at     DateTime        @default(now()) @db.Timestamptz(6)
+  last_accessed_at      DateTime        @default(now()) @db.Timestamptz(6)
+  updated_at            DateTime        @default(now()) @updatedAt @db.Timestamptz(6)
+
+  content               LearningContent @relation(fields: [content_id], references: [id], onDelete: Cascade)
+
+  @@unique([student_uid, content_id])
+  @@index([student_uid, class_subject_id])
+  @@index([content_id, is_completed])
+  @@map("student_content_progress")
+}
+
+model StudentSubjectFeature {
+  id                         String       @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  student_uid                String
+  class_subject_id           String       @db.Uuid
+  class_id                   String       @db.Uuid
+  total_watch_seconds        Float        @default(0)
+  total_active_seconds       Float        @default(0)
+  completed_contents_count   Int          @default(0)
+  total_contents_count       Int          @default(0)
+  overall_completion_rate    Float        @default(0)
+  rewind_frequency           Float        @default(0)
+  avg_video_completion_rate  Float        @default(0)
+  assignment_submission_rate Float        @default(0)
+  avg_assignment_grade       Float        @default(0)
+  on_time_submission_rate    Float        @default(0)
+  engagement_score           Float        @default(0)
+  risk_level                 String       @default("LOW")
+  last_activity_at           DateTime?    @db.Timestamptz(6)
+  updated_at                 DateTime     @default(now()) @updatedAt @db.Timestamptz(6)
+
+  classSubject               ClassSubject @relation(fields: [class_subject_id], references: [id], onDelete: Cascade)
+
+  @@unique([student_uid, class_subject_id])
+  @@index([class_id, risk_level])
+  @@map("student_subject_features")
+}
+
+model SubmissionVersion {
+  id              String            @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  submission_id   String            @db.Uuid
+  version_number  Int
+  file_url        String
+  file_name       String?
+  file_size_bytes Int?
+  submitted_at    DateTime          @default(now()) @db.Timestamptz(6)
+  is_late         Boolean           @default(false)
+  grade           String?
+  grade_points    Float?
+  max_points      Float?            @default(100)
+  feedback        String?
+  graded_by_uid   String?
+  graded_at       DateTime?         @db.Timestamptz(6)
+  student_notes   String?
+
+  submission      StudentSubmission @relation(fields: [submission_id], references: [id], onDelete: Cascade)
+
+  @@unique([submission_id, version_number])
+  @@index([submission_id])
+  @@map("submission_versions")
+}
+
+model Announcement {
+  id              String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  college_id      String
+  title           String
+  description     String
+  image_url       String?
+  target_audience String[]  @default([])
+  category        String    @default("GENERAL")
+  priority        String    @default("NORMAL")
+  is_pinned       Boolean   @default(false)
+  is_active       Boolean   @default(true)
+  expires_at      DateTime? @db.Timestamptz(6)
+  created_by_uid  String?
+  created_by_name String?
+  created_at      DateTime  @default(now()) @db.Timestamptz(6)
+  updated_at      DateTime  @default(now()) @updatedAt @db.Timestamptz(6)
+
+  @@index([college_id, is_active])
+  @@map("announcements")
 }

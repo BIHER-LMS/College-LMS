@@ -25,6 +25,8 @@ export const FacultyPage: React.FC = () => {
   const [isAssigning, setIsAssigning] = useState(false);
   const [isUnassigning, setIsUnassigning] = useState<string | null>(null);
   const [assignInchargeClassId, setAssignInchargeClassId] = useState('');
+  const [isAssigningIncharge, setIsAssigningIncharge] = useState(false);
+  const [isUnassigningIncharge, setIsUnassigningIncharge] = useState<string | null>(null);
 
   useEffect(() => {
     dispatch(fetchClasses());
@@ -122,14 +124,44 @@ export const FacultyPage: React.FC = () => {
   const handleAssignIncharge = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!selectedFaculty || !assignInchargeClassId) return;
+
+    if (assignInchargeClassId === 'UNASSIGN') {
+      const classId = selectedFaculty.assignedClasses?.[0]?.id;
+      if (!classId) return;
+      await handleUnassignIncharge(classId);
+      setAssignInchargeClassId('');
+      return;
+    }
+
     try {
+      setIsAssigningIncharge(true);
       await hodApi.assignClassIncharge(assignInchargeClassId, selectedFaculty.uid);
       const data = await hodApi.getFacultyById(selectedFaculty.uid);
       setSelectedFaculty(data);
       setAssignInchargeClassId('');
       dispatch(fetchFaculty());
+      dispatch(fetchClasses());
     } catch(err: any) {
       alert(err.message || 'Failed to assign class incharge');
+    } finally {
+      setIsAssigningIncharge(false);
+    }
+  };
+
+  const handleUnassignIncharge = async (classId: string) => {
+    if (!selectedFaculty) return;
+    if (!confirm('Are you sure you want to unassign this faculty member from being Class Incharge?')) return;
+    try {
+      setIsUnassigningIncharge(classId);
+      await hodApi.assignClassIncharge(classId, null);
+      const data = await hodApi.getFacultyById(selectedFaculty.uid);
+      setSelectedFaculty(data);
+      dispatch(fetchFaculty());
+      dispatch(fetchClasses());
+    } catch (err: any) {
+      alert(err.message || 'Failed to unassign class incharge');
+    } finally {
+      setIsUnassigningIncharge(null);
     }
   };
 
@@ -470,32 +502,80 @@ export const FacultyPage: React.FC = () => {
                   </div>
                 </div>
 
-                <div className="border border-[#c5c6cd]/30 p-3 space-y-1 bg-white">
-                  <span className="text-[10px] text-gray-500 uppercase block font-semibold">Class Incharge Assignment</span>
+                <div className="border border-[#c5c6cd]/30 p-3.5 space-y-2.5 bg-white">
+                  <div className="flex items-center justify-between">
+                    <span className="text-[10px] text-gray-500 uppercase block font-semibold tracking-wide">
+                      Class Incharge Assignment
+                    </span>
+                    {selectedFaculty.assignedClasses && selectedFaculty.assignedClasses.length > 0 && (
+                      <span className="text-[10px] bg-indigo-50 border border-indigo-200/70 text-indigo-700 font-bold px-1.5 py-0.5 rounded">
+                        Active Incharge
+                      </span>
+                    )}
+                  </div>
+
                   {selectedFaculty.assignedClasses && selectedFaculty.assignedClasses.length > 0 ? (
-                    <div className="space-y-1 mb-2">
+                    <div className="space-y-1.5 mb-2">
                       {selectedFaculty.assignedClasses.map((c: any) => (
-                        <div key={c.id} className="text-xs font-bold text-indigo-700">
-                          ★ {c.name} ({c.programName})
+                        <div
+                          key={c.id}
+                          className="flex items-center justify-between p-2 rounded bg-indigo-50/70 border border-indigo-100 text-xs font-bold text-indigo-700"
+                        >
+                          <div className="flex items-center gap-1.5 min-w-0 truncate">
+                            <span className="text-amber-500 text-sm">★</span>
+                            <span className="truncate">{c.name}{c.programName ? ` (${c.programName})` : ''}</span>
+                          </div>
+                          <button
+                            type="button"
+                            onClick={() => handleUnassignIncharge(c.id)}
+                            disabled={isUnassigningIncharge === c.id}
+                            className="ml-2 inline-flex items-center gap-1 px-2.5 py-1 text-[11px] font-semibold text-rose-600 hover:text-white hover:bg-rose-600 rounded border border-rose-200 transition-colors disabled:opacity-50 shrink-0 shadow-sm"
+                            title="Unassign this faculty member from this class section"
+                          >
+                            {isUnassigningIncharge === c.id ? (
+                              <span className="h-3 w-3 animate-spin border-2 border-current border-t-transparent rounded-full" />
+                            ) : (
+                              <span className="material-symbols-outlined text-[14px]">person_remove</span>
+                            )}
+                            <span>Unassign</span>
+                          </button>
                         </div>
                       ))}
                     </div>
                   ) : (
-                    <p className="text-gray-400 italic mb-2">Currently not assigned as Incharge of any class section.</p>
+                    <p className="text-gray-400 italic mb-2 py-1">Currently not assigned as Incharge of any class section.</p>
                   )}
+
                   <form onSubmit={handleAssignIncharge} className="mt-3 pt-3 border-t border-[#c5c6cd]/30 flex gap-2">
                     <select
                       value={assignInchargeClassId}
                       onChange={(e) => setAssignInchargeClassId(e.target.value)}
-                      className="flex-1 border border-[#c5c6cd]/40 bg-[#f8f9ff] py-1.5 px-2 text-xs text-[#0b1c30] rounded"
+                      disabled={isAssigningIncharge || !!isUnassigningIncharge}
+                      className="flex-1 border border-[#c5c6cd]/40 bg-[#f8f9ff] py-1.5 px-2 text-xs text-[#0b1c30] rounded focus:outline-none focus:border-indigo-500"
                     >
                       <option value="">-- Assign new class incharge --</option>
+                      {selectedFaculty.assignedClasses && selectedFaculty.assignedClasses.length > 0 && (
+                        <option value="UNASSIGN" className="text-rose-600 font-bold">
+                          ❌ Unassign Current Class Incharge
+                        </option>
+                      )}
                       {classes.map(c => (
                         <option key={c.id} value={c.id}>{c.name}</option>
                       ))}
                     </select>
-                    <button type="submit" disabled={!assignInchargeClassId} className="bg-indigo-600 text-white px-3 py-1.5 rounded text-xs font-bold disabled:opacity-50">
-                      Assign
+                    <button
+                      type="submit"
+                      disabled={!assignInchargeClassId || isAssigningIncharge || !!isUnassigningIncharge}
+                      className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded text-xs font-bold disabled:opacity-50 transition-colors shrink-0 shadow-sm ${
+                        assignInchargeClassId === 'UNASSIGN'
+                          ? 'bg-rose-600 hover:bg-rose-700 text-white'
+                          : 'bg-indigo-600 hover:bg-indigo-700 text-white'
+                      }`}
+                    >
+                      {isAssigningIncharge && (
+                        <span className="h-3 w-3 animate-spin border-2 border-white border-t-transparent rounded-full" />
+                      )}
+                      <span>{assignInchargeClassId === 'UNASSIGN' ? 'Unassign' : 'Assign'}</span>
                     </button>
                   </form>
                 </div>

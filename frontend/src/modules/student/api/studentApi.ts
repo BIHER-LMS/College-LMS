@@ -147,7 +147,28 @@ export const studentApi = {
     });
   },
 
-  // 15. Student AI Assistant Endpoints
+  // 15. Learning Content Management & Telemetry APIs
+  getLearningContents: () => request<any[]>('/student/content'),
+  getContentDetails: (id: string) => request<any>(`/student/content/${id}`),
+  recordLearningEvent: (id: string, payload: any) =>
+    request<any>(`/student/content/${id}/events`, {
+      method: 'POST',
+      body: JSON.stringify(payload),
+    }),
+  getAuthorizedDownload: (id: string) =>
+    request<{ fileUrl: string; fileName: string; contentType: string }>(`/student/content/${id}/download`),
+
+  submitAssignmentVersion: (assignmentId: string, file: File, studentNotes?: string) => {
+    const formData = new FormData();
+    formData.append('file', file);
+    if (studentNotes) formData.append('studentNotes', studentNotes);
+    return request<any>(`/student/assignments/${assignmentId}/submit-version`, {
+      method: 'POST',
+      body: formData,
+    });
+  },
+
+  // 16. Student AI Assistant Endpoints
   sendChatMessage: (data: StudentChatRequest) =>
     request<StudentChatResponseData>('/student/ai/chat', {
       method: 'POST',

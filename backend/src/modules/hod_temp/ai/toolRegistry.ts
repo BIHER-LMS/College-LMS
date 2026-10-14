@@ -160,6 +160,26 @@ export const defaultStubHandlers: {
           percentage: 73.0,
         },
       ],
+      students: [
+        {
+          studentId: 'stud-101',
+          studentName: 'Alice Johnson',
+          registerNumber: 'REG-101',
+          percentage: 68.0,
+        },
+        {
+          studentId: 'stud-102',
+          studentName: 'Bob Smith',
+          registerNumber: 'REG-102',
+          percentage: 71.5,
+        },
+        {
+          studentId: 'stud-103',
+          studentName: 'Charlie Brown',
+          registerNumber: 'REG-103',
+          percentage: 73.0,
+        },
+      ],
       _isStub: true,
     };
   },

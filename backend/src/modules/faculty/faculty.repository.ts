@@ -1941,15 +1941,20 @@ export class FacultyRepository {
         await prisma.$queryRawUnsafe(
           `UPDATE authed_users
            SET class_id = $1::uuid,
-               display_name = $2,
-               register_number = $3,
-               dob = CASE WHEN $4::text IS NOT NULL AND $4::text != '' THEN $4::date ELSE dob END,
-               phone = $5,
-               parent_phone = $6,
+               department_id = $2::uuid,
+               college_id = $3,
+               display_name = $4,
+               register_number = $5,
+               dob = CASE WHEN $6::text IS NOT NULL AND $6::text != '' THEN $6::date ELSE dob END,
+               phone = $7,
+               parent_phone = $8,
                role = 'STUDENT',
-               approval_status = 'ACTIVE'
-           WHERE uid = $7;`,
+               requested_role = 'STUDENT',
+               approval_status = 'APPROVED'
+           WHERE uid = $9;`,
           classId,
+          departmentId,
+          collegeId,
           cleanName,
           cleanRoll,
           cleanDob,
@@ -1957,6 +1962,16 @@ export class FacultyRepository {
           cleanParentPhone,
           existingUid
         );
+        // Sync legacy user role if existing
+        const legacy = await prisma.user.findFirst({ where: { firebaseUid: existingUid } }).catch(() => null);
+        if (legacy) {
+          await prisma.user.update({ where: { id: legacy.id }, data: { collegeId, status: 'ACTIVE' } }).catch(() => null);
+          const studentRole = await prisma.role.findFirst({ where: { name: 'STUDENT' } }).catch(() => null);
+          if (studentRole) {
+            await prisma.userRole.deleteMany({ where: { userId: legacy.id } }).catch(() => null);
+            await prisma.userRole.create({ data: { userId: legacy.id, roleId: studentRole.id } }).catch(() => null);
+          }
+        }
         processedStudents.push({
           uid: existingUid,
           name: cleanName,
@@ -1970,8 +1985,8 @@ export class FacultyRepository {
       } else {
         const generatedUid = `std_${cleanRoll.toLowerCase().replace(/[^a-z0-9]/g, '')}_${Math.random().toString(36).slice(2, 7)}`;
         await prisma.$queryRawUnsafe(
-          `INSERT INTO authed_users (uid, email, display_name, role, class_id, department_id, college_id, register_number, dob, phone, parent_phone, approval_status)
-           VALUES ($1, $2, $3, 'STUDENT', $4::uuid, $5::uuid, $6, $7, CASE WHEN $8::text IS NOT NULL AND $8::text != '' THEN $8::date ELSE NULL END, $9, $10, 'ACTIVE');`,
+          `INSERT INTO authed_users (uid, email, display_name, role, requested_role, class_id, department_id, college_id, register_number, dob, phone, parent_phone, approval_status)
+           VALUES ($1, $2, $3, 'STUDENT', 'STUDENT', $4::uuid, $5::uuid, $6, $7, CASE WHEN $8::text IS NOT NULL AND $8::text != '' THEN $8::date ELSE NULL END, $9, $10, 'APPROVED');`,
           generatedUid,
           cleanEmail,
           cleanName,
@@ -2352,8 +2367,20 @@ export class FacultyRepository {
   // ASSIGNMENTS & SUBMISSIONS
   // ==========================================
   async getMySubjects(facultyUid: string): Promise<any[]> {
-    const data = await prisma.classSubject.findMany({
-      where: { faculty_uid: facultyUid },
+    const authedUser = await prisma.authedUser.findUnique({
+      where: { uid: facultyUid },
+      select: { college_id: true, department_id: true, subject_id: true, role: true }
+    });
+
+    // 1. Direct assignments or Class Incharge or matching primary subject
+    let data = await prisma.classSubject.findMany({
+      where: {
+        OR: [
+          { faculty_uid: facultyUid },
+          { class: { faculty_uid: facultyUid } },
+          ...(authedUser?.subject_id ? [{ subject_id: authedUser.subject_id }] : [])
+        ]
+      },
       include: {
         class: {
           select: { id: true, name: true, current_semester: true, batch: { select: { start_year: true, end_year: true } } }
@@ -2363,6 +2390,29 @@ export class FacultyRepository {
         }
       }
     });
+
+    // 2. Fallback to department class subjects if no specific subject is assigned
+    if (data.length === 0 && authedUser?.department_id) {
+      data = await prisma.classSubject.findMany({
+        where: {
+          class: {
+            batch: {
+              program: {
+                department_id: authedUser.department_id
+              }
+            }
+          }
+        },
+        include: {
+          class: {
+            select: { id: true, name: true, current_semester: true, batch: { select: { start_year: true, end_year: true } } }
+          },
+          subject: {
+            select: { id: true, name: true, code: true }
+          }
+        }
+      });
+    }
 
     return data.map(cs => ({
       classSubjectId: cs.id,
@@ -2382,10 +2432,35 @@ export class FacultyRepository {
 
     // Verify faculty has access to this class subject
     const cs = await prisma.classSubject.findUnique({
-      where: { id: classSubjectId }
+      where: { id: classSubjectId },
+      include: {
+        class: {
+          include: {
+            batch: {
+              include: {
+                program: true
+              }
+            }
+          }
+        }
+      }
     });
 
-    if (!cs || cs.faculty_uid !== facultyUid) {
+    if (!cs) {
+      throw new Error('Unauthorized or invalid class subject');
+    }
+
+    const authedUser = await prisma.authedUser.findUnique({
+      where: { uid: facultyUid },
+      select: { department_id: true, subject_id: true }
+    });
+
+    const isAssignedFaculty = cs.faculty_uid === facultyUid;
+    const isClassIncharge = cs.class?.faculty_uid === facultyUid;
+    const isSubjectMatch = Boolean(authedUser?.subject_id && cs.subject_id === authedUser.subject_id);
+    const isDepartmentMatch = Boolean(authedUser?.department_id && cs.class?.batch?.program?.department_id === authedUser.department_id);
+
+    if (!isAssignedFaculty && !isClassIncharge && !isSubjectMatch && !isDepartmentMatch) {
       throw new Error('Unauthorized or invalid class subject');
     }
 
@@ -2401,9 +2476,19 @@ export class FacultyRepository {
   }
 
   async getAssignments(facultyUid: string, classSubjectId?: string): Promise<any[]> {
+    const authedUser = await prisma.authedUser.findUnique({
+      where: { uid: facultyUid },
+      select: { department_id: true, subject_id: true }
+    });
+
     const whereClause: any = {
       classSubject: {
-        faculty_uid: facultyUid
+        OR: [
+          { faculty_uid: facultyUid },
+          { class: { faculty_uid: facultyUid } },
+          ...(authedUser?.subject_id ? [{ subject_id: authedUser.subject_id }] : []),
+          ...(authedUser?.department_id ? [{ class: { batch: { program: { department_id: authedUser.department_id } } } }] : [])
+        ]
       }
     };
 
@@ -2438,10 +2523,39 @@ export class FacultyRepository {
   async getAssignmentSubmissions(facultyUid: string, assignmentId: string): Promise<any[]> {
     const assignment = await prisma.assignment.findUnique({
       where: { id: assignmentId },
-      include: { classSubject: true }
+      include: {
+        classSubject: {
+          include: {
+            class: {
+              include: {
+                batch: {
+                  include: {
+                    program: true
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
     });
 
-    if (!assignment || assignment.classSubject.faculty_uid !== facultyUid) {
+    if (!assignment) {
+      throw new Error('Unauthorized or invalid assignment');
+    }
+
+    const authedUser = await prisma.authedUser.findUnique({
+      where: { uid: facultyUid },
+      select: { department_id: true, subject_id: true }
+    });
+
+    const cs = assignment.classSubject;
+    const isAssignedFaculty = cs.faculty_uid === facultyUid;
+    const isClassIncharge = cs.class?.faculty_uid === facultyUid;
+    const isSubjectMatch = Boolean(authedUser?.subject_id && cs.subject_id === authedUser.subject_id);
+    const isDepartmentMatch = Boolean(authedUser?.department_id && cs.class?.batch?.program?.department_id === authedUser.department_id);
+
+    if (!isAssignedFaculty && !isClassIncharge && !isSubjectMatch && !isDepartmentMatch) {
       throw new Error('Unauthorized or invalid assignment');
     }
 

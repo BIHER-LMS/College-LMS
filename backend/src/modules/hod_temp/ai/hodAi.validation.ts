@@ -129,7 +129,7 @@ export const hodStudentAttendanceOutputSchema = z.object({
  * ============================================================================
  */
 export const hodClassAttendanceInputSchema = z.object({
-  classId: z.string().trim().min(1, 'classId is required'),
+  classId: z.string().trim().optional().default(''),
   startDate: z
     .string()
     .regex(dateIsoRegex, 'startDate must be in YYYY-MM-DD format')
@@ -158,6 +158,7 @@ export const hodClassAttendanceOutputSchema = z.object({
   presentTodayCount: z.number().nullable(),
   atRiskStudentsCount: z.number().nonnegative(),
   atRiskStudents: z.array(atRiskStudentItemSchema),
+  students: z.array(atRiskStudentItemSchema).optional(),
   _isStub: z.boolean().optional(),
 });
 
@@ -184,6 +185,7 @@ export const classAttendanceSummaryItemSchema = z.object({
   averagePercentage: z.number().min(0).max(100),
   studentCount: z.number().nonnegative(),
   atRiskCount: z.number().nonnegative(),
+  students: z.array(atRiskStudentItemSchema).optional(),
 });
 
 export const hodDepartmentAttendanceOutputSchema = z.object({

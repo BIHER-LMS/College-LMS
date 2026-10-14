@@ -68,7 +68,7 @@ export async function authenticateFirebaseUser(
     req.verifiedEmail = decodedToken.email?.trim().toLowerCase();
 
     // Find LMS user
-    const user = await prisma.user.findUnique({
+    let user = await prisma.user.findUnique({
       where: { firebaseUid },
       include: {
         userRoles: {
@@ -86,22 +86,93 @@ export async function authenticateFirebaseUser(
     });
 
     if (!user) {
+      // Auto-provision if user exists in authed_users with an assigned role
+      const authed = await prisma.authedUser.findUnique({
+        where: { uid: firebaseUid },
+      });
+      if (authed && authed.role && authed.role !== 'USER') {
+        const matchingRole = await prisma.role.findFirst({
+          where: { name: authed.role as any },
+          include: { permissions: { include: { permission: true } } },
+        });
+
+        const legacyUser = await prisma.user.upsert({
+          where: { firebaseUid },
+          create: {
+            firebaseUid,
+            email: authed.email,
+            phone: authed.phone,
+            collegeId: authed.college_id,
+            status: authed.approval_status === 'APPROVED' ? 'ACTIVE' : 'PENDING',
+          },
+          update: {
+            email: authed.email,
+            phone: authed.phone,
+            collegeId: authed.college_id,
+            status: authed.approval_status === 'APPROVED' ? 'ACTIVE' : 'PENDING',
+          },
+        });
+
+        if (matchingRole) {
+          await prisma.userRole.upsert({
+            where: {
+              userId_roleId: {
+                userId: legacyUser.id,
+                roleId: matchingRole.id,
+              },
+            },
+            create: {
+              userId: legacyUser.id,
+              roleId: matchingRole.id,
+            },
+            update: {},
+          });
+        }
+
+        user = await prisma.user.findUnique({
+          where: { firebaseUid },
+          include: {
+            userRoles: {
+              include: {
+                role: {
+                  include: {
+                    permissions: {
+                      include: { permission: true },
+                    },
+                  },
+                },
+              },
+            },
+          },
+        });
+      }
+    }
+
+    if (!user) {
       // User has a Firebase account but hasn't onboarded yet
       // This is OK for the onboarding endpoint, so we just
       // set firebaseUid and move on.
       return next();
     }
 
-    // Check account status
-    switch (user.status) {
-      case 'PENDING':
-        throw new AppError(403, ErrorCodes.ACCOUNT_PENDING, 'Account is pending approval');
-      case 'REJECTED':
-        throw new AppError(403, ErrorCodes.ACCOUNT_REJECTED, 'Account has been rejected');
-      case 'SUSPENDED':
-        throw new AppError(403, ErrorCodes.ACCOUNT_SUSPENDED, 'Account is suspended');
-      case 'DISABLED':
-        throw new AppError(403, ErrorCodes.ACCOUNT_DISABLED, 'Account is disabled');
+    // Check account status (allow pending users on auth endpoints like sync/onboarding/me)
+    const isAuthRoute =
+      req.baseUrl?.includes('/auth') ||
+      req.path === '/sync' ||
+      req.path === '/onboarding' ||
+      req.path === '/me';
+
+    if (!isAuthRoute) {
+      switch (user.status) {
+        case 'PENDING':
+          throw new AppError(403, ErrorCodes.ACCOUNT_PENDING, 'Account is pending approval');
+        case 'REJECTED':
+          throw new AppError(403, ErrorCodes.ACCOUNT_REJECTED, 'Account has been rejected');
+        case 'SUSPENDED':
+          throw new AppError(403, ErrorCodes.ACCOUNT_SUSPENDED, 'Account is suspended');
+        case 'DISABLED':
+          throw new AppError(403, ErrorCodes.ACCOUNT_DISABLED, 'Account is disabled');
+      }
     }
 
     // Build roles array with permissions
