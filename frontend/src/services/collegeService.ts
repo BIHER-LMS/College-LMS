@@ -574,7 +574,16 @@ export const fetchSubjects = async (departmentId: string): Promise<SubjectRecord
 
 export const fetchAllCollegeSubjects = async (collegeId: string): Promise<SubjectRecord[]> => {
   try {
-    // Get all departments for this college, then fetch subjects in parallel
+    const data = await secureDataApi.getAllCollegeSubjects(collegeId);
+    if (Array.isArray(data)) {
+      return (data as SubjectRecord[]).sort((a, b) => a.name.localeCompare(b.name));
+    }
+  } catch (directErr) {
+    console.warn('Direct college subjects fetch failed, falling back to hierarchy:', directErr);
+  }
+
+  try {
+    // Fallback: Get all departments for this college, then fetch subjects in parallel
     const departments = await fetchDepartments(collegeId);
     if (!departments.length) return [];
 
@@ -589,7 +598,16 @@ export const fetchAllCollegeSubjects = async (collegeId: string): Promise<Subjec
 
 export const fetchAllCollegeClasses = async (collegeId: string): Promise<ClassRecord[]> => {
   try {
-    // Parallelize tree traversal: departments -> programs -> batches -> classes
+    const data = await secureDataApi.getAllCollegeClasses(collegeId);
+    if (Array.isArray(data)) {
+      return (data as ClassRecord[]).sort((a, b) => a.name.localeCompare(b.name));
+    }
+  } catch (directErr) {
+    console.warn('Direct college classes fetch failed, falling back to hierarchy:', directErr);
+  }
+
+  try {
+    // Fallback: Parallelize tree traversal: departments -> programs -> batches -> classes
     const departments = await fetchDepartments(collegeId);
     if (!departments.length) return [];
 

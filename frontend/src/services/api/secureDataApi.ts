@@ -42,6 +42,42 @@ async function request<T>(endpoint: string, options: RequestInit = {}): Promise<
   return body.data;
 }
 
+// In-flight promise cache to coalesce simultaneous identical requests
+const inFlightRequests = new Map<string, Promise<any>>();
+
+// Client-side short-lived memory cache with timestamp
+interface CacheEntry<T> {
+  data: T;
+  expiresAt: number;
+}
+const clientCache = new Map<string, CacheEntry<any>>();
+
+function getCached<T>(key: string): T | null {
+  const entry = clientCache.get(key);
+  if (!entry) return null;
+  if (Date.now() > entry.expiresAt) {
+    clientCache.delete(key);
+    return null;
+  }
+  return entry.data;
+}
+
+function setCached<T>(key: string, data: T, ttlMs = 30000): void {
+  clientCache.set(key, { data, expiresAt: Date.now() + ttlMs });
+}
+
+export function clearClientCache(pattern?: RegExp): void {
+  if (!pattern) {
+    clientCache.clear();
+    return;
+  }
+  for (const key of clientCache.keys()) {
+    if (pattern.test(key)) {
+      clientCache.delete(key);
+    }
+  }
+}
+
 export const secureDataApi = {
   // Public discovery (no auth)
   getPublicColleges: () =>
@@ -304,12 +340,89 @@ export const secureDataApi = {
     }>('/secure-data/stats'),
 
   // Academic structure - COLLEGE_ADMIN (and HOD for own dept)
+  getAllCollegeClasses: (collegeId: string) => {
+    const cacheKey = `college-classes:${collegeId}`;
+    const cached = getCached<any[]>(cacheKey);
+    if (cached) return Promise.resolve(cached);
+
+    if (inFlightRequests.has(cacheKey)) {
+      return inFlightRequests.get(cacheKey)!;
+    }
+
+    const promise = request<
+      Array<{
+        id: string;
+        name: string;
+        current_semester?: number;
+        faculty_uid?: string | null;
+        is_active?: boolean;
+        batch_id?: string;
+        created_at?: string;
+      }>
+    >(`/secure-data/colleges/${encodeURIComponent(collegeId)}/classes`)
+      .then((data) => {
+        setCached(cacheKey, data, 30000);
+        inFlightRequests.delete(cacheKey);
+        return data;
+      })
+      .catch((err) => {
+        inFlightRequests.delete(cacheKey);
+        throw err;
+      });
+
+    inFlightRequests.set(cacheKey, promise);
+    return promise;
+  },
+
+  getAllCollegeSubjects: (collegeId: string) => {
+    const cacheKey = `college-subjects:${collegeId}`;
+    const cached = getCached<any[]>(cacheKey);
+    if (cached) return Promise.resolve(cached);
+
+    if (inFlightRequests.has(cacheKey)) {
+      return inFlightRequests.get(cacheKey)!;
+    }
+
+    const promise = request<
+      Array<{
+        id: string;
+        name: string;
+        code?: string;
+        credits?: number;
+        semester_number?: number;
+        is_active?: boolean;
+        department_id?: string;
+        created_at?: string;
+      }>
+    >(`/secure-data/colleges/${encodeURIComponent(collegeId)}/subjects`)
+      .then((data) => {
+        setCached(cacheKey, data, 30000);
+        inFlightRequests.delete(cacheKey);
+        return data;
+      })
+      .catch((err) => {
+        inFlightRequests.delete(cacheKey);
+        throw err;
+      });
+
+    inFlightRequests.set(cacheKey, promise);
+    return promise;
+  },
+
   listStructure: (
     type: 'departments' | 'programs' | 'batches' | 'classes' | 'subjects',
     parentId: string
   ) => {
+    const cacheKey = `struct:${type}:${parentId}`;
+    const cached = getCached<any[]>(cacheKey);
+    if (cached) return Promise.resolve(cached);
+
+    if (inFlightRequests.has(cacheKey)) {
+      return inFlightRequests.get(cacheKey)!;
+    }
+
     const search = new URLSearchParams({ parentId });
-    return request<
+    const promise = request<
       Array<{
         id: string;
         college_id?: string;
@@ -330,36 +443,57 @@ export const secureDataApi = {
         semester_number?: number;
         created_at?: string;
       }>
-    >(`/secure-data/structure/${type}?${search.toString()}`);
+    >(`/secure-data/structure/${type}?${search.toString()}`)
+      .then((data) => {
+        setCached(cacheKey, data, 30000);
+        inFlightRequests.delete(cacheKey);
+        return data;
+      })
+      .catch((err) => {
+        inFlightRequests.delete(cacheKey);
+        throw err;
+      });
+
+    inFlightRequests.set(cacheKey, promise);
+    return promise;
   },
 
   createStructure: (
     type: 'departments' | 'programs' | 'batches' | 'classes' | 'subjects',
     parentId: string,
     data: Record<string, unknown>
-  ) =>
-    request<any>(`/secure-data/structure/${type}?parentId=${encodeURIComponent(parentId)}`, {
+  ) => {
+    clearClientCache(/^struct:/);
+    clearClientCache(/^college-/);
+    return request<any>(`/secure-data/structure/${type}?parentId=${encodeURIComponent(parentId)}`, {
       method: 'POST',
       body: JSON.stringify(data),
-    }),
+    });
+  },
 
   updateStructure: (
     type: 'departments' | 'programs' | 'batches' | 'classes' | 'subjects',
     id: string,
     data: Record<string, unknown>
-  ) =>
-    request<any>(`/secure-data/structure/${type}/${encodeURIComponent(id)}`, {
+  ) => {
+    clearClientCache(/^struct:/);
+    clearClientCache(/^college-/);
+    return request<any>(`/secure-data/structure/${type}/${encodeURIComponent(id)}`, {
       method: 'PATCH',
       body: JSON.stringify(data),
-    }),
+    });
+  },
 
   deleteStructure: (
     type: 'departments' | 'programs' | 'batches' | 'classes' | 'subjects',
     id: string
-  ) =>
-    request<{ deleted: boolean }>(`/secure-data/structure/${type}/${encodeURIComponent(id)}`, {
+  ) => {
+    clearClientCache(/^struct:/);
+    clearClientCache(/^college-/);
+    return request<{ deleted: boolean }>(`/secure-data/structure/${type}/${encodeURIComponent(id)}`, {
       method: 'DELETE',
-    }),
+    });
+  },
 };
 
 export default secureDataApi;

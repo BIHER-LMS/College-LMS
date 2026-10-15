@@ -1,6 +1,7 @@
 import { Prisma, PrismaClient } from '@prisma/client';
 import prisma from '../../config/database';
 import { AppError } from '../../utils/errors';
+import { memoryCache } from '../../lib/cache';
 
 // This module intentionally does not use the older permissive auth middleware: it can
 // succeed without an authed_users record. All privileges here come from the DB.
@@ -33,6 +34,13 @@ export async function identity(uid: string, email: string | undefined, db: DB = 
   return record;
 }
 export async function activeActor(uid: string, email: string | undefined, db: DB = prisma): Promise<Actor> {
+  const isCacheable = db === prisma && process.env.NODE_ENV !== 'test';
+  const cacheKey = `actor:${uid}:${email?.toLowerCase()}`;
+  if (isCacheable) {
+    const cached = memoryCache.get<Actor>(cacheKey);
+    if (cached) return cached;
+  }
+
   const a = await identity(uid, email, db);
   if (a.approval_status !== 'APPROVED' || !a.role || !['SUPER_ADMIN', 'COLLEGE_ADMIN', 'HOD', 'FACULTY', 'STUDENT'].includes(a.role)) throw deny('Active approved role required');
   // The legacy identity is optional during migration. If it exists it MUST agree:
@@ -53,7 +61,12 @@ export async function activeActor(uid: string, email: string | undefined, db: DB
   if (a.class_id && !await db.class.findFirst({ where: { id: a.class_id, batch: { program: { department_id: a.department_id!, department: { college_id: a.college_id! } } } }, select: { id: true } })) throw deny('Conflicting enrollment');
   if (a.subject_id && !await db.subject.findFirst({ where: { id: a.subject_id, department_id: a.department_id!, department: { college_id: a.college_id! } }, select: { id: true } })) throw deny('Conflicting subject assignment');
   if (a.role === 'FACULTY' && await db.class.count({ where: { faculty_uid: uid, batch: { program: { department_id: { not: a.department_id! } } } } })) throw deny('Conflicting faculty class assignment');
-  return { uid, role: a.role, collegeId: a.college_id, departmentId: a.department_id, classId: a.class_id };
+  
+  const actor: Actor = { uid, role: a.role, collegeId: a.college_id, departmentId: a.department_id, classId: a.class_id };
+  if (isCacheable) {
+    memoryCache.set(cacheKey, actor, 30);
+  }
+  return actor;
 }
 export function requireRole(a: Actor, role: string) { if (a.role !== role) throw deny(); }
 const tenant = (a: Actor) => { if (!a.collegeId) throw deny(); return a.collegeId; };
@@ -61,12 +74,16 @@ const tenant = (a: Actor) => { if (!a.collegeId) throw deny(); return a.collegeI
 // Re-check authority inside mutations; serializable transactions prevent competing
 // assignments/deletions from passing stale ownership/dependency checks.
 async function mutate<T>(a: Actor, email: string, fn: (tx: Prisma.TransactionClient) => Promise<T>): Promise<T> {
-  return prisma.$transaction(async tx => {
+  const result = await prisma.$transaction(async tx => {
     const fresh = await activeActor(a.uid, email, tx);
     if (fresh.role !== a.role || fresh.collegeId !== a.collegeId || fresh.departmentId !== a.departmentId) throw deny();
     if (a.collegeId) await tx.$queryRaw`SELECT id FROM colleges WHERE id = ${a.collegeId} FOR UPDATE`;
     return fn(tx);
   }, { maxWait: 10000, timeout: 30000 });
+
+  memoryCache.delPattern(/^struct:/);
+  memoryCache.delPattern(/^actor:/);
+  return result;
 }
 export function ownIdentity(uid: string, email: string) { return identity(uid, email); }
 export async function submitOnboardingRequest(
@@ -330,17 +347,105 @@ async function parent(tx: DB, type: Structure, a: Actor, id: string) {
 const parentField: Record<Structure, string> = { departments: 'college_id', programs: 'department_id', batches: 'program_id', classes: 'batch_id', subjects: 'department_id' };
 export async function listStructure(a: Actor, type: Structure, parentId: string) {
   if (a.role === 'SUPER_ADMIN' || !a.collegeId) throw deny();
+  const isCacheable = process.env.NODE_ENV !== 'test';
+  const cacheKey = `struct:${a.collegeId}:${type}:${parentId}:${a.role === 'STUDENT' ? a.classId : a.role === 'FACULTY' ? a.uid : 'all'}`;
+  if (isCacheable) {
+    const cached = memoryCache.get<any[]>(cacheKey);
+    if (cached) return cached;
+  }
+
   const p = await parent(prisma, type, a, parentId);
   if (['HOD', 'FACULTY', 'STUDENT'].includes(a.role) &&
     (type === 'departments' ? parentId !== a.collegeId : p.departmentId !== a.departmentId)) throw missing();
   // Students see only their own class, faculty only classes explicitly assigned to them.
+  let res: any[];
   switch (type) {
-    case 'departments': return prisma.department.findMany({ where: { college_id: parentId, ...(a.departmentId ? { id: a.departmentId } : {}) }, select: structureSelect.departments, take: 200 });
-    case 'programs': return prisma.program.findMany({ where: { department_id: parentId }, select: structureSelect.programs, take: 200 });
-    case 'batches': return prisma.batch.findMany({ where: { program_id: parentId }, select: structureSelect.batches, take: 200 });
-    case 'subjects': return prisma.subject.findMany({ where: { department_id: parentId }, select: structureSelect.subjects, take: 200 });
-    case 'classes': return prisma.class.findMany({ where: { batch_id: parentId, ...(a.role === 'STUDENT' ? { id: a.classId! } : a.role === 'FACULTY' ? { faculty_uid: a.uid } : {}) }, select: structureSelect.classes, take: 200 });
+    case 'departments': res = await prisma.department.findMany({ where: { college_id: parentId, ...(a.departmentId ? { id: a.departmentId } : {}) }, select: structureSelect.departments, take: 200 }); break;
+    case 'programs': res = await prisma.program.findMany({ where: { department_id: parentId }, select: structureSelect.programs, take: 200 }); break;
+    case 'batches': res = await prisma.batch.findMany({ where: { program_id: parentId }, select: structureSelect.batches, take: 200 }); break;
+    case 'subjects': res = await prisma.subject.findMany({ where: { department_id: parentId }, select: structureSelect.subjects, take: 200 }); break;
+    case 'classes': res = await prisma.class.findMany({ where: { batch_id: parentId, ...(a.role === 'STUDENT' ? { id: a.classId! } : a.role === 'FACULTY' ? { faculty_uid: a.uid } : {}) }, select: structureSelect.classes, take: 200 }); break;
   }
+  if (isCacheable) {
+    memoryCache.set(cacheKey, res, 60);
+  }
+  return res;
+}
+
+export async function listAllCollegeClasses(a: Actor, collegeId: string) {
+  if (a.role !== 'SUPER_ADMIN' && a.collegeId !== collegeId) throw deny();
+  const isCacheable = process.env.NODE_ENV !== 'test';
+  const cacheKey = `struct:${collegeId}:all-classes:${a.role === 'FACULTY' ? a.uid : 'all'}`;
+  if (isCacheable) {
+    const cached = memoryCache.get<any[]>(cacheKey);
+    if (cached) return cached;
+  }
+
+  const rows = await prisma.class.findMany({
+    where: {
+      batch: {
+        program: {
+          department: {
+            college_id: collegeId,
+          },
+        },
+      },
+      is_active: true,
+      ...(a.role === 'FACULTY' ? { faculty_uid: a.uid } : {}),
+    },
+    select: {
+      id: true,
+      name: true,
+      current_semester: true,
+      faculty_uid: true,
+      is_active: true,
+      batch_id: true,
+      created_at: true,
+    },
+    orderBy: { name: 'asc' },
+    take: 500,
+  });
+
+  if (isCacheable) {
+    memoryCache.set(cacheKey, rows, 60);
+  }
+  return rows;
+}
+
+export async function listAllCollegeSubjects(a: Actor, collegeId: string) {
+  if (a.role !== 'SUPER_ADMIN' && a.collegeId !== collegeId) throw deny();
+  const isCacheable = process.env.NODE_ENV !== 'test';
+  const cacheKey = `struct:${collegeId}:all-subjects`;
+  if (isCacheable) {
+    const cached = memoryCache.get<any[]>(cacheKey);
+    if (cached) return cached;
+  }
+
+  const rows = await prisma.subject.findMany({
+    where: {
+      department: {
+        college_id: collegeId,
+      },
+      is_active: true,
+    },
+    select: {
+      id: true,
+      name: true,
+      code: true,
+      credits: true,
+      semester_number: true,
+      is_active: true,
+      department_id: true,
+      created_at: true,
+    },
+    orderBy: { name: 'asc' },
+    take: 500,
+  });
+
+  if (isCacheable) {
+    memoryCache.set(cacheKey, rows, 60);
+  }
+  return rows;
 }
 export async function createStructure(a: Actor, email: string, type: Structure, parentId: string, data: any) {
   requireRole(a, 'COLLEGE_ADMIN');

@@ -39,36 +39,42 @@ export function CollegeLogsModal({ college, onClose, notify }: CollegeLogsModalP
       const collegeLogins = userData.filter((u: any) => u.college_id === college.id);
       setLogins(collegeLogins.slice(0, 20));
       
-      // Fetch Class Creations - use structure API
-      const deptData = await secureDataApi.listStructure('departments', college.id);
-      const deptIds = deptData.map((d: any) => d.id);
-      
+      // Fetch Class Creations - use direct college classes API
       let classData: any[] = [];
-      if (deptIds.length > 0) {
-        // Get classes from all departments
-        for (const deptId of deptIds) {
-          try {
-            const programs = await secureDataApi.listStructure('programs', deptId);
-            for (const prog of programs) {
-              const batches = await secureDataApi.listStructure('batches', prog.id);
-              for (const batch of batches) {
-                const classes = await secureDataApi.listStructure('classes', batch.id);
-                if (classes) {
-                  for (const c of classes) {
-                    classData.push({
-                      ...c,
-                      department_name: deptData.find((d: any) => d.id === deptId)?.name || 'Unknown Dept'
-                    });
+      try {
+        const directClasses = await secureDataApi.getAllCollegeClasses(college.id);
+        classData = (directClasses || []).map((c: any) => ({
+          ...c,
+          department_name: 'College Class',
+        }));
+      } catch {
+        const deptData = await secureDataApi.listStructure('departments', college.id);
+        const deptIds = deptData.map((d: any) => d.id);
+        if (deptIds.length > 0) {
+          for (const deptId of deptIds) {
+            try {
+              const programs = await secureDataApi.listStructure('programs', deptId);
+              for (const prog of programs) {
+                const batches = await secureDataApi.listStructure('batches', prog.id);
+                for (const batch of batches) {
+                  const classes = await secureDataApi.listStructure('classes', batch.id);
+                  if (classes) {
+                    for (const c of classes) {
+                      classData.push({
+                        ...c,
+                        department_name: deptData.find((d: any) => d.id === deptId)?.name || 'Unknown Dept'
+                      });
+                    }
                   }
                 }
               }
+            } catch (err) {
+              console.warn('Error fetching classes for dept', deptId, err);
             }
-          } catch (err) {
-            console.warn('Error fetching classes for dept', deptId, err);
           }
         }
-        classData.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
       }
+      classData.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
       setClasses(classData.slice(0, 20));
 
       // Fetch Recent Department Creations

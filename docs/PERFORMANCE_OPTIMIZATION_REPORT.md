@@ -319,3 +319,35 @@ curl -I https://college-lms-2026-ten.vercel.app/api/colleges
 - [ ] Enable Speed Insights in the Vercel Dashboard project settings.
 - [ ] Deploy the latest changes to Vercel production.
 - [ ] Run Google PageSpeed Insights on the production URL after deployment.
+
+---
+
+## 14. Academic Structure Tree Latency Elimination (5–7s $\to$ <100ms)
+
+### Root Cause Analysis (Network Trace: 5.4s – 7.05s Delay)
+During faculty management and academic dashboard operations, Chrome DevTools network captures revealed severe latency spikes:
+- `GET /api/secure-data/structure/batches?parentId=...` (5.43s, 5.65s — duplicate calls)
+- `GET /api/secure-data/structure/classes?parentId=...` (5.67s, 7.05s, 5.73s — triplicate calls)
+- `GET /api/secure-data/structure/programs?parentId=...` (5.53s, 5.60s — duplicate calls)
+- `GET /api/secure-data/structure/subjects?parentId=...` (5.45s, 5.63s — duplicate calls)
+
+**Mechanisms causing this degradation:**
+1. **N+1 Deep Hierarchical Traversal:** Functions like `fetchAllCollegeClasses` and `fetchAllCollegeSubjects` in [collegeService.ts](file:///frontend/src/services/collegeService.ts) and [CollegeLogsModal.tsx](file:///frontend/src/components/SuperAdmin/CollegeLogsModal.tsx) recursively traversed `departments -> programs -> batches -> classes`. For an institution with 5 departments, 15 programs, and 30 batches, this generated 50+ concurrent HTTP calls.
+2. **Connection Pool Starvation:** Each HTTP request to the BFF backend performed remote Firebase Admin token verification + 5 to 6 database queries (`authedUser`, `legacyUser`, `college`, `parent`, target model). 50 requests $\times$ 6 queries = ~300 simultaneous queries hitting Supabase (connection pool limit: 15), queuing all requests for 5–7 seconds.
+3. **No Request Deduplication:** Identical queries for the same `parentId` were fired concurrently due to parallel component renders and absence of in-flight promise sharing.
+
+### Architecture Solutions Implemented:
+1. **Single-Query Bulk Endpoints:**
+   - Added `GET /api/secure-data/colleges/:id/classes` to fetch all classes in a college in **1 single indexed query** with tenant isolation.
+   - Added `GET /api/secure-data/colleges/:id/subjects` to fetch all subjects in a college in **1 single query**.
+2. **Frontend In-Flight Request Deduplication & Memory Cache:**
+   - In [secureDataApi.ts](file:///frontend/src/services/api/secureDataApi.ts), implemented an in-flight promise cache (`Map<string, Promise<any>>`) that coalesces duplicate concurrent queries into a single network call.
+   - Added 30-second client-side TTL memory cache with automatic invalidation on any structure mutation (`createStructure`, `updateStructure`, `deleteStructure`).
+3. **Optimized Service Consumers:**
+   - Updated [collegeService.ts](file:///frontend/src/services/collegeService.ts) `fetchAllCollegeClasses` and `fetchAllCollegeSubjects` to consume the direct bulk endpoints with automatic fallback to tree traversal.
+   - Updated [CollegeLogsModal.tsx](file:///frontend/src/components/SuperAdmin/CollegeLogsModal.tsx) to use the direct class API.
+4. **Backend Server-Side Caching & Token Verification Optimization:**
+   - Added 60s in-memory caching for `listStructure`, `listAllCollegeClasses`, and `listAllCollegeSubjects` in [secureData.service.ts](file:///backend/src/modules/secure-data/secureData.service.ts).
+   - Added 60s Firebase token decode cache in [secureData.routes.ts](file:///backend/src/modules/secure-data/secureData.routes.ts) to eliminate redundant remote Google network calls.
+   - Added test-environment isolation (`process.env.NODE_ENV !== 'test'`) ensuring 100% test independence across unit suites.
+

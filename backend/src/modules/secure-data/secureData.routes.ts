@@ -4,6 +4,7 @@ import { firebaseAuth } from '../../config/firebase';
 import { AppError } from '../../utils/errors';
 import { sendSuccess } from '../../utils/response';
 import prisma from '../../config/database';
+import { memoryCache } from '../../lib/cache';
 import * as service from './secureData.service';
 
 /** Mount this router at /api (before the application's 404/error handlers). */
@@ -34,7 +35,16 @@ async function verify(req: SecureRequest, _res: Response, next: NextFunction) {
   try {
     const match = /^Bearer ([^\s]+)$/.exec(req.headers.authorization || '');
     if (!match) throw new AppError(401, 'UNAUTHORIZED', 'Firebase ID token required');
-    const decoded = await firebaseAuth.verifyIdToken(match[1]);
+    const tokenStr = match[1];
+    const isCacheable = process.env.NODE_ENV !== 'test';
+    const cacheKey = `tok:${tokenStr.slice(-32)}`;
+    let decoded = isCacheable ? memoryCache.get<any>(cacheKey) : null;
+    if (!decoded) {
+      decoded = await firebaseAuth.verifyIdToken(tokenStr);
+      if (isCacheable) {
+        memoryCache.set(cacheKey, decoded, 60);
+      }
+    }
     const isRagav = decoded.email?.trim().toLowerCase() === 'ragav@lms.com';
     let isRegistered = false;
     if (decoded.uid && decoded.email) {
@@ -104,6 +114,14 @@ router.post('/secure-data/colleges/:id/unassign-admin', asyncRoute(async (req, r
 router.delete('/secure-data/colleges/:id', asyncRoute(async (req, res) => {
   const { id: collegeId } = params(req, z.object({ id }).strict());
   sendSuccess(res, await service.deleteCollege(getActor(req), email(req), collegeId));
+}));
+router.get('/secure-data/colleges/:id/classes', asyncRoute(async (req, res) => {
+  const { id: collegeId } = params(req, z.object({ id }).strict());
+  sendSuccess(res, await service.listAllCollegeClasses(getActor(req), collegeId));
+}));
+router.get('/secure-data/colleges/:id/subjects', asyncRoute(async (req, res) => {
+  const { id: collegeId } = params(req, z.object({ id }).strict());
+  sendSuccess(res, await service.listAllCollegeSubjects(getActor(req), collegeId));
 }));
 router.get('/secure-data/users', asyncRoute(async (req, res) => {
   const q = query(req, z.object({ role: z.enum(['COLLEGE_ADMIN', 'HOD', 'FACULTY', 'STUDENT']).optional(), department_id: uuid.optional(), pending: z.enum(['true', 'false']).optional() }).strict());
