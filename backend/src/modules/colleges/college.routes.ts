@@ -21,6 +21,7 @@ router.get(
       const page = parseInt(req.query.page as string) || 1;
       const limit = parseInt(req.query.limit as string) || 50;
       const result = await listColleges({ page, limit });
+      res.setHeader('Cache-Control', 'public, max-age=0, s-maxage=60, stale-while-revalidate=300');
       sendSuccess(res, result);
     } catch (error) {
       next(error);
@@ -38,6 +39,7 @@ router.get(
   async (req: Request, res: Response, next: NextFunction) => {
     try {
       const college = await getCollegeById(req.params.id);
+      res.setHeader('Cache-Control', 'public, max-age=0, s-maxage=60, stale-while-revalidate=300');
       sendSuccess(res, college);
     } catch (error) {
       next(error);

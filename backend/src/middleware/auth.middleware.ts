@@ -39,7 +39,7 @@ export interface AuthenticatedRequest extends Request {
  */
 export async function authenticateFirebaseUser(
   req: AuthenticatedRequest,
-  _res: Response,
+  res: Response,
   next: NextFunction,
 ): Promise<void> {
   try {
@@ -192,6 +192,7 @@ export async function authenticateFirebaseUser(
       roles,
     };
 
+    res.setHeader('Cache-Control', 'private, no-cache, no-store, must-revalidate');
     next();
   } catch (error) {
     next(error);

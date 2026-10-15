@@ -114,7 +114,13 @@ export class FacultyContentService {
       },
     });
 
-    return topics;
+    return topics.map((t) => ({
+      ...t,
+      contents: (t.contents || []).map((c) => ({
+        ...c,
+        file_size_bytes: c.file_size_bytes != null ? Number(c.file_size_bytes) : null,
+      })),
+    }));
   }
 
   async createTopic(input: CreateTopicInput, facultyUid: string) {
@@ -213,7 +219,10 @@ export class FacultyContentService {
       },
     });
 
-    return contents;
+    return contents.map((c) => ({
+      ...c,
+      file_size_bytes: c.file_size_bytes != null ? Number(c.file_size_bytes) : null,
+    }));
   }
 
   async getContentById(contentId: string, facultyUid: string) {
@@ -235,7 +244,10 @@ export class FacultyContentService {
     }
 
     await this.verifyFacultyAccess(facultyUid, content.class_subject_id);
-    return content;
+    return {
+      ...content,
+      file_size_bytes: content.file_size_bytes != null ? Number(content.file_size_bytes) : null,
+    };
   }
 
   /**

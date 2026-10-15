@@ -1,5 +1,13 @@
 import { Response } from 'express';
 
+// Ensure BigInt can be serialized to JSON in all API responses
+if (typeof (BigInt.prototype as any).toJSON !== 'function') {
+  (BigInt.prototype as any).toJSON = function () {
+    const intVal = Number(this);
+    return Number.isSafeInteger(intVal) ? intVal : this.toString();
+  };
+}
+
 /**
  * Standardized API response helpers.
  *

@@ -14,6 +14,8 @@ import {
   ExternalLink,
   Loader2,
   Lock,
+  Eye,
+  X,
 } from 'lucide-react';
 import { facultyContentApi } from '../api/facultyContentApi';
 import { facultyApi } from '../api/facultyApi';
@@ -51,6 +53,10 @@ export const FacultyContentPage: React.FC = () => {
     isPublished: true,
   });
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
+
+  // In-App LMS Preview State
+  const [previewContent, setPreviewContent] = useState<any>(null);
+  const [isPreviewModalOpen, setIsPreviewModalOpen] = useState<boolean>(false);
 
   // Load faculty's assigned subjects
   useEffect(() => {
@@ -512,6 +518,17 @@ export const FacultyContentPage: React.FC = () => {
 
                           {/* Actions */}
                           <div className="flex items-center gap-2 self-end sm:self-center">
+                            <button
+                              onClick={() => {
+                                setPreviewContent({ ...item, topicTitle: topic.title });
+                                setIsPreviewModalOpen(true);
+                              }}
+                              className="flex items-center gap-1.5 text-xs font-semibold text-indigo-600 bg-indigo-50 hover:bg-indigo-100 px-3 py-1.5 rounded-lg transition"
+                              title="Preview Inside LMS"
+                            >
+                              <Eye className="w-3.5 h-3.5" />
+                              <span>Preview in LMS</span>
+                            </button>
                             {item.file_url && (
                               <a
                                 href={item.file_url}
@@ -827,6 +844,115 @@ export const FacultyContentPage: React.FC = () => {
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+      {/* ========================================================= */}
+      {/* IN-APP LMS PREVIEW MODAL FOR FACULTY */}
+      {/* ========================================================= */}
+      {isPreviewModalOpen && previewContent && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/80 backdrop-blur-md p-2 sm:p-4">
+          <div className="bg-white rounded-2xl max-w-5xl w-full h-[90vh] flex flex-col shadow-2xl border border-slate-200 overflow-hidden">
+            {/* Modal Header */}
+            <div className="p-4 bg-slate-900 text-white flex items-center justify-between border-b border-slate-800">
+              <div className="flex items-center gap-3">
+                <div className="p-2 bg-white/10 rounded-lg">
+                  {getContentIcon(previewContent.content_type)}
+                </div>
+                <div>
+                  <h3 className="text-sm font-bold truncate max-w-md">
+                    {previewContent.title}
+                  </h3>
+                  <span className="text-xs text-slate-400">
+                    {previewContent.topicTitle} • {previewContent.content_type}
+                  </span>
+                </div>
+              </div>
+
+              <div className="flex items-center gap-3">
+                <span className="text-[11px] font-semibold bg-indigo-900/60 text-indigo-300 border border-indigo-700 px-2.5 py-1 rounded-md">
+                  Faculty LMS Preview
+                </span>
+                <button
+                  onClick={() => {
+                    setIsPreviewModalOpen(false);
+                    setPreviewContent(null);
+                  }}
+                  className="p-1.5 text-slate-400 hover:text-white rounded-lg hover:bg-white/10 transition"
+                >
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
+            </div>
+
+            {/* Modal Viewer Body */}
+            <div className="flex-1 bg-slate-950 overflow-auto flex items-center justify-center relative">
+              {/* VIDEO PLAYER (MP4/WebM) */}
+              {previewContent.content_type === 'VIDEO' && previewContent.file_url && (
+                <div className="w-full h-full flex flex-col justify-center items-center p-4">
+                  <video
+                    src={previewContent.file_url}
+                    controls
+                    className="max-h-[75vh] w-auto max-w-full rounded-xl shadow-2xl bg-black"
+                  />
+                </div>
+              )}
+
+              {/* YOUTUBE EMBED PLAYER */}
+              {previewContent.content_type === 'YOUTUBE' && (
+                <div className="w-full h-full p-4 flex flex-col items-center justify-center">
+                  <div className="w-full max-w-4xl aspect-video rounded-xl overflow-hidden shadow-2xl bg-black">
+                    <iframe
+                      src={`https://www.youtube.com/embed/${previewContent.youtube_video_id || (previewContent.youtube_url?.match(/(?:youtu\.be\/|youtube\.com\/(?:embed\/|v\/|watch\?v=|watch\?.+&v=))([\w-]{11})/)?.[1])}?autoplay=1`}
+                      title={previewContent.title}
+                      className="w-full h-full border-0"
+                      allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                      allowFullScreen
+                    />
+                  </div>
+                </div>
+              )}
+
+              {/* PDF PREVIEWER */}
+              {previewContent.content_type === 'PDF' && previewContent.file_url && (
+                <div className="w-full h-full bg-slate-900 flex items-center justify-center">
+                  <iframe
+                    src={`${previewContent.file_url}#toolbar=1`}
+                    title={previewContent.title}
+                    className="w-full h-full border-0 bg-white"
+                  />
+                </div>
+              )}
+
+              {/* OFFICE DOCUMENTS (PPT, PPTX, DOC, DOCX) */}
+              {(previewContent.content_type === 'PPT' || previewContent.content_type === 'DOC') && (
+                <div className="w-full h-full flex flex-col bg-slate-900">
+                  <div className="flex-1 w-full bg-slate-950 flex flex-col items-center justify-center relative">
+                    <iframe
+                      src={`https://docs.google.com/viewer?url=${encodeURIComponent(
+                        previewContent.file_url
+                      )}&embedded=true`}
+                      title={previewContent.title}
+                      className="w-full h-full border-0 bg-white"
+                    />
+                  </div>
+                </div>
+              )}
+
+              {/* MARKDOWN NOTES VIEWER */}
+              {previewContent.content_type === 'MARKDOWN' && (
+                <div className="w-full h-full bg-white text-slate-800 p-8 overflow-y-auto">
+                  <div className="max-w-3xl mx-auto">
+                    <h1 className="text-2xl font-bold text-slate-900 pb-3 border-b border-slate-200 mb-6">
+                      {previewContent.title}
+                    </h1>
+                    <div className="prose prose-slate max-w-none whitespace-pre-wrap font-sans text-sm leading-relaxed">
+                      {previewContent.markdown_content || 'No content provided.'}
+                    </div>
+                  </div>
+                </div>
+              )}
+            </div>
           </div>
         </div>
       )}

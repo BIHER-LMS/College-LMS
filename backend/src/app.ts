@@ -17,6 +17,11 @@ import roleRoutes from './modules/roles/role.routes';
 import auditRoutes from './modules/audit/audit.routes';
 import secureDataRoutes from './modules/secure-data/secureData.routes';
 import uploadRoutes from './modules/upload/upload.routes';
+// Global JSON serialization fix for Prisma BigInt fields (e.g. file_size_bytes)
+(BigInt.prototype as any).toJSON = function () {
+  const intVal = Number(this);
+  return Number.isSafeInteger(intVal) ? intVal : this.toString();
+};
 
 const app = express();
 

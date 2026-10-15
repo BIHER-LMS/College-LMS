@@ -21,23 +21,23 @@ const PageLoader = () => (
 
 // Faculty Module imports
 import { FacultyLayout } from './layouts/FacultyLayout';
-import { FacultyDashboard } from './modules/faculty/pages/FacultyDashboard';
-import { FacultyRemindersPage } from './modules/faculty/pages/FacultyRemindersPage';
-import { FacultyClassesPage } from './modules/faculty/pages/FacultyClassesPage';
-import { FacultyClassDetailsPage } from './modules/faculty/pages/FacultyClassDetailsPage';
-import { FacultyClassStudentsPage } from './modules/faculty/pages/FacultyClassStudentsPage';
-import { FacultyStudentDetailsPage } from './modules/faculty/pages/FacultyStudentDetailsPage';
-import { FacultyAttendancePage } from './modules/faculty/pages/FacultyAttendancePage';
-import { FacultyTimetablePage } from './modules/faculty/pages/FacultyTimetablePage';
-import { FacultyDepartmentPage } from './modules/faculty/pages/FacultyDepartmentPage';
-import { FacultySubjectsPage } from './modules/faculty/pages/FacultySubjectsPage';
-import { FacultyAssignmentsPage } from './modules/faculty/pages/FacultyAssignmentsPage';
-import { FacultyAcademicYearsPage } from './modules/faculty/pages/FacultyAcademicYearsPage';
-import { FacultySemestersPage } from './modules/faculty/pages/FacultySemestersPage';
-import { FacultyProfilePage } from './modules/faculty/pages/FacultyProfilePage';
-import { FacultyChatPage } from './modules/faculty/pages/FacultyChatPage';
-import { FacultyContentPage } from './modules/faculty/pages/FacultyContentPage';
-import { FacultyAnalyticsPage } from './modules/faculty/pages/FacultyAnalyticsPage';
+const FacultyDashboard = lazy(() => import('./modules/faculty/pages/FacultyDashboard').then((m: any) => ({ default: m.FacultyDashboard || m.default })));
+const FacultyRemindersPage = lazy(() => import('./modules/faculty/pages/FacultyRemindersPage').then((m: any) => ({ default: m.FacultyRemindersPage || m.default })));
+const FacultyClassesPage = lazy(() => import('./modules/faculty/pages/FacultyClassesPage').then((m: any) => ({ default: m.FacultyClassesPage || m.default })));
+const FacultyClassDetailsPage = lazy(() => import('./modules/faculty/pages/FacultyClassDetailsPage').then((m: any) => ({ default: m.FacultyClassDetailsPage || m.default })));
+const FacultyClassStudentsPage = lazy(() => import('./modules/faculty/pages/FacultyClassStudentsPage').then((m: any) => ({ default: m.FacultyClassStudentsPage || m.default })));
+const FacultyStudentDetailsPage = lazy(() => import('./modules/faculty/pages/FacultyStudentDetailsPage').then((m: any) => ({ default: m.FacultyStudentDetailsPage || m.default })));
+const FacultyAttendancePage = lazy(() => import('./modules/faculty/pages/FacultyAttendancePage').then((m: any) => ({ default: m.FacultyAttendancePage || m.default })));
+const FacultyTimetablePage = lazy(() => import('./modules/faculty/pages/FacultyTimetablePage').then((m: any) => ({ default: m.FacultyTimetablePage || m.default })));
+const FacultyDepartmentPage = lazy(() => import('./modules/faculty/pages/FacultyDepartmentPage').then((m: any) => ({ default: m.FacultyDepartmentPage || m.default })));
+const FacultySubjectsPage = lazy(() => import('./modules/faculty/pages/FacultySubjectsPage').then((m: any) => ({ default: m.FacultySubjectsPage || m.default })));
+const FacultyAssignmentsPage = lazy(() => import('./modules/faculty/pages/FacultyAssignmentsPage').then((m: any) => ({ default: m.FacultyAssignmentsPage || m.default })));
+const FacultyAcademicYearsPage = lazy(() => import('./modules/faculty/pages/FacultyAcademicYearsPage').then((m: any) => ({ default: m.FacultyAcademicYearsPage || m.default })));
+const FacultySemestersPage = lazy(() => import('./modules/faculty/pages/FacultySemestersPage').then((m: any) => ({ default: m.FacultySemestersPage || m.default })));
+const FacultyProfilePage = lazy(() => import('./modules/faculty/pages/FacultyProfilePage').then((m: any) => ({ default: m.FacultyProfilePage || m.default })));
+const FacultyChatPage = lazy(() => import('./modules/faculty/pages/FacultyChatPage').then((m: any) => ({ default: m.FacultyChatPage || m.default })));
+const FacultyContentPage = lazy(() => import('./modules/faculty/pages/FacultyContentPage').then((m: any) => ({ default: m.FacultyContentPage || m.default })));
+const FacultyAnalyticsPage = lazy(() => import('./modules/faculty/pages/FacultyAnalyticsPage').then((m: any) => ({ default: m.FacultyAnalyticsPage || m.default })));
 
 // HOD Module imports
 import { HodLayout } from './layouts/HodLayout';
@@ -60,21 +60,21 @@ import { HodChatPage } from './modules/hod/pages/HodChatPage';
 
 // Student Module imports
 import { StudentLayout } from './modules/student/components/StudentLayout';
-import { StudentDashboard } from './modules/student/pages/StudentDashboard';
-import { StudentProfilePage } from './modules/student/pages/StudentProfilePage';
-import { StudentClassPage } from './modules/student/pages/StudentClassPage';
-import { StudentBatchPage } from './modules/student/pages/StudentBatchPage';
-import { StudentProgramPage } from './modules/student/pages/StudentProgramPage';
-import { StudentDepartmentPage } from './modules/student/pages/StudentDepartmentPage';
-import { StudentSubjectsPage } from './modules/student/pages/StudentSubjectsPage';
-import { StudentAssignmentsPage } from './modules/student/pages/StudentAssignmentsPage';
-import { StudentClassInchargePage } from './modules/student/pages/StudentClassInchargePage';
-import { StudentAcademicYearsPage } from './modules/student/pages/StudentAcademicYearsPage';
-import { StudentSemestersPage } from './modules/student/pages/StudentSemestersPage';
-import { StudentAttendancePage } from './modules/student/pages/StudentAttendancePage';
-import { StudentTimetablePage } from './modules/student/pages/StudentTimetablePage';
-import { StudentChatPage } from './modules/student/pages/StudentChatPage';
-import { StudentContentPage } from './modules/student/pages/StudentContentPage';
+const StudentDashboard = lazy(() => import('./modules/student/pages/StudentDashboard').then((m: any) => ({ default: m.StudentDashboard || m.default })));
+const StudentProfilePage = lazy(() => import('./modules/student/pages/StudentProfilePage').then((m: any) => ({ default: m.StudentProfilePage || m.default })));
+const StudentClassPage = lazy(() => import('./modules/student/pages/StudentClassPage').then((m: any) => ({ default: m.StudentClassPage || m.default })));
+const StudentBatchPage = lazy(() => import('./modules/student/pages/StudentBatchPage').then((m: any) => ({ default: m.StudentBatchPage || m.default })));
+const StudentProgramPage = lazy(() => import('./modules/student/pages/StudentProgramPage').then((m: any) => ({ default: m.StudentProgramPage || m.default })));
+const StudentDepartmentPage = lazy(() => import('./modules/student/pages/StudentDepartmentPage').then((m: any) => ({ default: m.StudentDepartmentPage || m.default })));
+const StudentSubjectsPage = lazy(() => import('./modules/student/pages/StudentSubjectsPage').then((m: any) => ({ default: m.StudentSubjectsPage || m.default })));
+const StudentAssignmentsPage = lazy(() => import('./modules/student/pages/StudentAssignmentsPage').then((m: any) => ({ default: m.StudentAssignmentsPage || m.default })));
+const StudentClassInchargePage = lazy(() => import('./modules/student/pages/StudentClassInchargePage').then((m: any) => ({ default: m.StudentClassInchargePage || m.default })));
+const StudentAcademicYearsPage = lazy(() => import('./modules/student/pages/StudentAcademicYearsPage').then((m: any) => ({ default: m.StudentAcademicYearsPage || m.default })));
+const StudentSemestersPage = lazy(() => import('./modules/student/pages/StudentSemestersPage').then((m: any) => ({ default: m.StudentSemestersPage || m.default })));
+const StudentAttendancePage = lazy(() => import('./modules/student/pages/StudentAttendancePage').then((m: any) => ({ default: m.StudentAttendancePage || m.default })));
+const StudentTimetablePage = lazy(() => import('./modules/student/pages/StudentTimetablePage').then((m: any) => ({ default: m.StudentTimetablePage || m.default })));
+const StudentChatPage = lazy(() => import('./modules/student/pages/StudentChatPage').then((m: any) => ({ default: m.StudentChatPage || m.default })));
+const StudentContentPage = lazy(() => import('./modules/student/pages/StudentContentPage').then((m: any) => ({ default: m.StudentContentPage || m.default })));
 
 const HodRoute = () => {
   const [user, setUser] = useState(JSON.parse(localStorage.getItem('lms_user') || '{}'));

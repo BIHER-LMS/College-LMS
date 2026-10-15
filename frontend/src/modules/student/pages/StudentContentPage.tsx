@@ -9,8 +9,17 @@ import {
   X,
   ExternalLink,
   Loader2,
+  Check,
+  Clock,
 } from 'lucide-react';
 import { studentApi } from '../api/studentApi';
+
+declare global {
+  interface Window {
+    YT: any;
+    onYouTubeIframeAPIReady: () => void;
+  }
+}
 
 const YoutubeIcon: React.FC<{ className?: string }> = ({ className = 'w-5 h-5' }) => (
   <svg className={className} viewBox="0 0 24 24" fill="currentColor">
@@ -28,12 +37,15 @@ export const StudentContentPage: React.FC = () => {
   const [activeContentLoading, setActiveContentLoading] = useState<boolean>(false);
   const [isPreviewModalOpen, setIsPreviewModalOpen] = useState<boolean>(false);
 
-  // Video Telemetry Tracking State
+  // Video / YouTube Telemetry Tracking State
   const videoRef = useRef<HTMLVideoElement | null>(null);
+  const ytPlayerRef = useRef<any>(null);
   const [lastTrackedTime, setLastTrackedTime] = useState<number>(0);
   const [playbackSpeed, setPlaybackSpeed] = useState<number>(1.0);
   const [currentProgress, setCurrentProgress] = useState<any>(null);
   const heartbeatTimerRef = useRef<any>(null);
+  const readingTimerRef = useRef<any>(null);
+  const [readingSessionSeconds, setReadingSessionSeconds] = useState<number>(0);
 
   useEffect(() => {
     loadLearningMaterials();
@@ -44,7 +56,7 @@ export const StudentContentPage: React.FC = () => {
       setLoading(true);
       const data = await studentApi.getLearningContents();
       setSubjects(data || []);
-      if (data && data.length > 0) {
+      if (data && data.length > 0 && !selectedSubjectId) {
         setSelectedSubjectId(data[0].classSubjectId);
       }
     } catch (err) {
@@ -54,26 +66,66 @@ export const StudentContentPage: React.FC = () => {
     }
   };
 
-  const handleOpenContent = async (contentId: string) => {
+  /**
+   * Fast In-App Content Opener:
+   * Instantly initializes the viewer from in-memory content data so the modal opens with zero delay,
+   * while asynchronously recording the VIEW event and syncing server progress in the background.
+   */
+  const handleOpenContent = async (item: any, topic?: any) => {
+    const selectedSub = subjects.find((s) => s.classSubjectId === selectedSubjectId);
+
+    const initialContent = {
+      ...item,
+      contentType: item.contentType || item.content_type,
+      topic: item.topic || topic || { title: topic?.title || 'Learning Topic' },
+      classSubject: item.classSubject || {
+        subjectName: selectedSub?.subject?.name || selectedSub?.subjectName || 'Course',
+        subjectCode: selectedSub?.subject?.code || selectedSub?.subjectCode || '',
+      },
+      progress: item.progress || null,
+    };
+
+    setActiveContent(initialContent);
+    setCurrentProgress(initialContent.progress);
+    setLastTrackedTime(initialContent.progress?.lastPositionSeconds || 0);
+    setReadingSessionSeconds(0);
+    setActiveContentLoading(false);
+    setIsPreviewModalOpen(true);
+
+    // Asynchronously log the initial VIEW event & fetch fresh progress without blocking the UI
     try {
-      setActiveContentLoading(true);
-      setIsPreviewModalOpen(true);
-      const content = await studentApi.getContentDetails(contentId);
-      setActiveContent(content);
-      setCurrentProgress(content.progress);
-      setLastTrackedTime(content.progress?.lastPositionSeconds || 0);
+      const freshContent = await studentApi.getContentDetails(item.id);
+      if (freshContent) {
+        setActiveContent((prev: any) => ({
+          ...prev,
+          ...freshContent,
+          topic: freshContent.topic || prev?.topic,
+          classSubject: freshContent.classSubject || prev?.classSubject,
+        }));
+        if (freshContent.progress) {
+          setCurrentProgress(freshContent.progress);
+          setLastTrackedTime(freshContent.progress.lastPositionSeconds || 0);
+        }
+      }
     } catch (err) {
-      console.error('Failed to load content details:', err);
-      alert('Failed to load learning material.');
-      setIsPreviewModalOpen(false);
-    } finally {
-      setActiveContentLoading(false);
+      console.warn('Background sync for content progress:', err);
     }
   };
 
   const handleCloseContent = () => {
     if (heartbeatTimerRef.current) {
       clearInterval(heartbeatTimerRef.current);
+      heartbeatTimerRef.current = null;
+    }
+    if (readingTimerRef.current) {
+      clearInterval(readingTimerRef.current);
+      readingTimerRef.current = null;
+    }
+    if (ytPlayerRef.current) {
+      try {
+        ytPlayerRef.current.destroy();
+      } catch (e) {}
+      ytPlayerRef.current = null;
     }
     setIsPreviewModalOpen(false);
     setActiveContent(null);
@@ -96,12 +148,190 @@ export const StudentContentPage: React.FC = () => {
         playbackRate: playbackSpeed,
         ...extra,
       });
-      if (res?.data) {
-        setCurrentProgress(res.data);
+      const updatedProgress = (res as any)?.data || res;
+      if (updatedProgress) {
+        setCurrentProgress((prev: any) => ({
+          ...(prev || {}),
+          ...updatedProgress,
+        }));
       }
     } catch (err) {
       console.warn('Telemetry event failed:', err);
     }
+  };
+
+  // -------------------------------------------------------------
+  // YOUTUBE IFRAME PLAYER API INTEGRATION (Full Telemetry Tracking)
+  // -------------------------------------------------------------
+  useEffect(() => {
+    if (!isPreviewModalOpen || activeContent?.contentType !== 'YOUTUBE' || !activeContent?.youtubeVideoId) {
+      return;
+    }
+
+    let isMounted = true;
+
+    const initYouTubePlayer = () => {
+      if (!isMounted) return;
+      if (ytPlayerRef.current) {
+        try {
+          ytPlayerRef.current.destroy();
+        } catch (e) {}
+        ytPlayerRef.current = null;
+      }
+
+      const container = document.getElementById('youtube-player-container');
+      if (!container || !window.YT || !window.YT.Player) return;
+
+      try {
+        ytPlayerRef.current = new window.YT.Player('youtube-player-container', {
+          videoId: activeContent.youtubeVideoId,
+          playerVars: {
+            autoplay: 1,
+            enablejsapi: 1,
+            origin: window.location.origin,
+            rel: 0,
+            modestbranding: 1,
+          },
+          events: {
+            onReady: (event: any) => {
+              if (!isMounted) return;
+              const resumePos = activeContent?.progress?.lastPositionSeconds || 0;
+              if (resumePos > 0) {
+                event.target.seekTo(resumePos, true);
+              }
+            },
+            onStateChange: (event: any) => {
+              if (!isMounted) return;
+              handleYouTubeStateChange(event.data);
+            },
+          },
+        });
+      } catch (err) {
+        console.error('Failed to instantiate YouTube player:', err);
+      }
+    };
+
+    const handleYouTubeStateChange = (state: number) => {
+      // 1 = PLAYING, 2 = PAUSED, 0 = ENDED
+      if (state === 1) {
+        const currTime = ytPlayerRef.current?.getCurrentTime?.() || 0;
+        const dur = ytPlayerRef.current?.getDuration?.() || activeContent.durationSeconds || 600;
+        logVideoEvent('PLAY', currTime, dur);
+
+        if (heartbeatTimerRef.current) clearInterval(heartbeatTimerRef.current);
+        heartbeatTimerRef.current = setInterval(() => {
+          if (ytPlayerRef.current && typeof ytPlayerRef.current.getCurrentTime === 'function') {
+            const t = ytPlayerRef.current.getCurrentTime();
+            const d = ytPlayerRef.current.getDuration() || dur;
+            logVideoEvent('TIME_UPDATE', t, d, { deltaWatchSeconds: 5 });
+          }
+        }, 5000);
+      } else if (state === 2) {
+        if (heartbeatTimerRef.current) {
+          clearInterval(heartbeatTimerRef.current);
+          heartbeatTimerRef.current = null;
+        }
+        const currTime = ytPlayerRef.current?.getCurrentTime?.() || 0;
+        const dur = ytPlayerRef.current?.getDuration?.() || 0;
+        logVideoEvent('PAUSE', currTime, dur);
+      } else if (state === 0) {
+        if (heartbeatTimerRef.current) {
+          clearInterval(heartbeatTimerRef.current);
+          heartbeatTimerRef.current = null;
+        }
+        const dur = ytPlayerRef.current?.getDuration?.() || activeContent.durationSeconds || 600;
+        logVideoEvent('COMPLETE', dur, dur);
+        setCurrentProgress((prev: any) => ({
+          ...(prev || {}),
+          completionPercentage: 100,
+          isCompleted: true,
+        }));
+      }
+    };
+
+    if (window.YT && window.YT.Player) {
+      initYouTubePlayer();
+    } else {
+      if (!document.getElementById('youtube-iframe-api-script')) {
+        const tag = document.createElement('script');
+        tag.id = 'youtube-iframe-api-script';
+        tag.src = 'https://www.youtube.com/iframe_api';
+        const firstScript = document.getElementsByTagName('script')[0];
+        firstScript?.parentNode?.insertBefore(tag, firstScript);
+      }
+
+      const prevCallback = window.onYouTubeIframeAPIReady;
+      window.onYouTubeIframeAPIReady = () => {
+        if (prevCallback) prevCallback();
+        initYouTubePlayer();
+      };
+
+      const pollYT = setInterval(() => {
+        if (window.YT && window.YT.Player) {
+          clearInterval(pollYT);
+          initYouTubePlayer();
+        }
+      }, 200);
+
+      return () => {
+        isMounted = false;
+        clearInterval(pollYT);
+      };
+    }
+
+    return () => {
+      isMounted = false;
+      if (heartbeatTimerRef.current) {
+        clearInterval(heartbeatTimerRef.current);
+        heartbeatTimerRef.current = null;
+      }
+      if (ytPlayerRef.current) {
+        try {
+          ytPlayerRef.current.destroy();
+        } catch (e) {}
+        ytPlayerRef.current = null;
+      }
+    };
+  }, [isPreviewModalOpen, activeContent?.id, activeContent?.youtubeVideoId]);
+
+  // -------------------------------------------------------------
+  // DOCUMENT (PDF / PPT / DOC / MARKDOWN) IN-APP READING TRACKING
+  // -------------------------------------------------------------
+  useEffect(() => {
+    if (!isPreviewModalOpen || !activeContent) return;
+    const isDoc = ['PDF', 'PPT', 'DOC', 'MARKDOWN'].includes(activeContent.contentType);
+    if (!isDoc) return;
+
+    if (readingTimerRef.current) clearInterval(readingTimerRef.current);
+
+    // Track in-app reading engagement every 15 seconds
+    readingTimerRef.current = setInterval(() => {
+      setReadingSessionSeconds((prev) => {
+        const next = prev + 15;
+        logVideoEvent('TIME_UPDATE', next, activeContent.durationSeconds || 300, {
+          deltaWatchSeconds: 15,
+          readingTimeSeconds: next,
+        });
+        return next;
+      });
+    }, 15000);
+
+    return () => {
+      if (readingTimerRef.current) {
+        clearInterval(readingTimerRef.current);
+        readingTimerRef.current = null;
+      }
+    };
+  }, [isPreviewModalOpen, activeContent?.id]);
+
+  const handleMarkAsCompleted = async () => {
+    if (!activeContent) return;
+    await logVideoEvent('COMPLETE', 100, 100);
+    setCurrentProgress((prev: any) => ({
+      ...(prev || {}),
+      completionPercentage: 100,
+      isCompleted: true,
+    }));
   };
 
   // HTML5 Video Playback Listeners
@@ -109,7 +339,6 @@ export const StudentContentPage: React.FC = () => {
     if (!videoRef.current) return;
     logVideoEvent('PLAY', videoRef.current.currentTime, videoRef.current.duration);
 
-    // Setup 5-second interval heartbeat
     if (heartbeatTimerRef.current) clearInterval(heartbeatTimerRef.current);
     heartbeatTimerRef.current = setInterval(() => {
       if (videoRef.current && !videoRef.current.paused) {
@@ -146,20 +375,29 @@ export const StudentContentPage: React.FC = () => {
     if (!videoRef.current) return;
     if (heartbeatTimerRef.current) clearInterval(heartbeatTimerRef.current);
     logVideoEvent('COMPLETE', videoRef.current.duration, videoRef.current.duration);
+    setCurrentProgress((prev: any) => ({
+      ...(prev || {}),
+      completionPercentage: 100,
+      isCompleted: true,
+    }));
   };
 
-  // Resume Video on Loaded
   const onVideoLoadedMetadata = () => {
     if (videoRef.current && activeContent?.progress?.lastPositionSeconds > 0) {
       videoRef.current.currentTime = activeContent.progress.lastPositionSeconds;
     }
   };
 
-  // Speed Change
+  // Speed Change for both HTML5 and YouTube
   const handleChangeSpeed = (speed: number) => {
     setPlaybackSpeed(speed);
     if (videoRef.current) {
       videoRef.current.playbackRate = speed;
+    }
+    if (ytPlayerRef.current && typeof ytPlayerRef.current.setPlaybackRate === 'function') {
+      try {
+        ytPlayerRef.current.setPlaybackRate(speed);
+      } catch (e) {}
     }
   };
 
@@ -242,61 +480,70 @@ export const StudentContentPage: React.FC = () => {
                     : 'bg-slate-50 text-slate-700 border-slate-200 hover:bg-slate-100'
                 }`}
               >
-                {s.subject.name} ({s.overallCompletionRate}%)
+                {s.subject?.name || s.subjectName || 'Course'} ({s.overallCompletionRate || 0}%)
               </button>
             ))}
           </div>
         )}
       </div>
 
-      {/* Selected Subject Progress Header */}
+      {/* Selected Subject Overview Banner */}
       {selectedSubject && (
-        <div className="bg-gradient-to-r from-indigo-900 to-slate-900 text-white p-6 rounded-2xl shadow-sm flex flex-col md:flex-row md:items-center justify-between gap-4">
+        <div className="bg-slate-900 text-white p-6 rounded-2xl border border-slate-800 shadow-lg flex flex-col sm:flex-row sm:items-center justify-between gap-4">
           <div>
-            <span className="text-xs font-semibold uppercase tracking-wider text-indigo-300">
-              {selectedSubject.subject.code} • {selectedSubject.subject.credits} Credits
-            </span>
-            <h2 className="text-xl font-bold mt-0.5">{selectedSubject.subject.name}</h2>
-            <p className="text-xs text-slate-300 mt-1">
-              Faculty: {selectedSubject.faculty?.display_name || 'Department Faculty'}
+            <div className="flex items-center gap-2 text-indigo-400 text-xs font-bold uppercase tracking-wider mb-1">
+              <span>{selectedSubject.subject?.code || 'COURSE'}</span>
+              <span>•</span>
+              <span>{selectedSubject.subject?.credits || 3} CREDITS</span>
+            </div>
+            <h2 className="text-xl font-bold text-white">
+              {selectedSubject.subject?.name || selectedSubject.subjectName}
+            </h2>
+            <p className="text-xs text-slate-400 mt-0.5">
+              Faculty: {selectedSubject.faculty?.displayName || 'Department Faculty'}
             </p>
           </div>
 
-          <div className="flex items-center gap-4 bg-white/10 p-3 rounded-xl backdrop-blur-sm">
+          <div className="flex items-center gap-4 bg-slate-800/80 px-4 py-3 rounded-xl border border-slate-700">
             <div>
-              <span className="text-[11px] text-slate-300 uppercase block">Course Completion</span>
-              <span className="text-xl font-extrabold">{selectedSubject.overallCompletionRate}%</span>
+              <span className="block text-[10px] uppercase font-bold text-slate-400">
+                Course Completion
+              </span>
+              <span className="text-lg font-black text-indigo-300">
+                {selectedSubject.overallCompletionRate || 0}%
+              </span>
             </div>
-            <div className="w-24 bg-white/20 rounded-full h-2.5">
+            <div className="w-24 h-2 bg-slate-700 rounded-full overflow-hidden">
               <div
-                className="bg-emerald-400 h-2.5 rounded-full transition-all"
-                style={{ width: `${selectedSubject.overallCompletionRate}%` }}
+                className="h-full bg-emerald-500 rounded-full transition-all duration-500"
+                style={{ width: `${selectedSubject.overallCompletionRate || 0}%` }}
               />
             </div>
           </div>
         </div>
       )}
 
-      {/* Topics & Content Grid */}
-      {selectedSubject?.topics?.length === 0 ? (
-        <div className="text-center py-16 bg-white rounded-2xl border border-slate-200 p-8">
-          <BookOpen className="w-12 h-12 text-slate-300 mx-auto mb-3" />
-          <h3 className="text-base font-semibold text-slate-700">No Learning Content Available</h3>
-          <p className="text-xs text-slate-400 mt-1">
-            Your professor has not published any lecture materials or topics for this course yet.
+      {/* Topics & Content Listing */}
+      {!selectedSubject || !selectedSubject.topics || selectedSubject.topics.length === 0 ? (
+        <div className="text-center py-16 bg-white rounded-2xl border border-dashed border-slate-300 p-8">
+          <BookOpen className="w-12 h-12 text-slate-400 mx-auto mb-3" />
+          <h3 className="text-base font-semibold text-slate-800">No Learning Topics Published Yet</h3>
+          <p className="text-sm text-slate-500 max-w-md mx-auto mt-1">
+            Your instructor has not published any lecture slides or video topics for this subject yet.
           </p>
         </div>
       ) : (
         <div className="space-y-6">
-          {selectedSubject?.topics?.map((topic: any, tIdx: number) => (
+          {selectedSubject.topics.map((topic: any, idx: number) => (
             <div
               key={topic.id}
-              className="bg-white rounded-2xl border border-slate-200/90 shadow-sm overflow-hidden"
+              className="bg-white rounded-2xl border border-slate-200/80 shadow-xs overflow-hidden"
             >
-              <div className="p-5 bg-slate-50/70 border-b border-slate-100 flex items-center justify-between">
+              {/* Topic Header */}
+              <div className="p-5 border-b border-slate-100 flex items-center justify-between bg-slate-50/50">
                 <div className="flex items-center gap-3">
-                  <span className="w-7 h-7 rounded-lg bg-indigo-100 text-indigo-700 font-bold text-xs flex items-center justify-center">
-                    {tIdx + 1}
+                  <span className="flex items-center justify-center w-7 h-7 rounded-lg bg-indigo-100 text-indigo-700 font-bold text-xs">
+                    {idx + 1}
                   </span>
                   <div>
                     <h3 className="text-base font-bold text-slate-900">{topic.title}</h3>
@@ -307,13 +554,13 @@ export const StudentContentPage: React.FC = () => {
                 </div>
 
                 <span className="text-xs font-semibold text-slate-500 bg-white border border-slate-200 px-3 py-1 rounded-full">
-                  {topic.contents.length} {topic.contents.length === 1 ? 'Resource' : 'Resources'}
+                  {topic.contents?.length || 0} {(topic.contents?.length || 0) === 1 ? 'Resource' : 'Resources'}
                 </span>
               </div>
 
               {/* Contents in topic */}
               <div className="p-4 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                {topic.contents.map((item: any) => {
+                {topic.contents?.map((item: any) => {
                   const isCompleted = item.progress?.isCompleted;
                   const progressPct = item.progress?.completionPercentage || 0;
 
@@ -321,12 +568,12 @@ export const StudentContentPage: React.FC = () => {
                     <div
                       key={item.id}
                       className="border border-slate-200/80 rounded-2xl p-4 flex flex-col justify-between hover:shadow-md hover:border-indigo-300 transition bg-white group cursor-pointer"
-                      onClick={() => handleOpenContent(item.id)}
+                      onClick={() => handleOpenContent(item, topic)}
                     >
                       <div>
                         <div className="flex items-center justify-between mb-3">
                           <div className="p-2.5 rounded-xl bg-slate-50 border border-slate-100 group-hover:bg-indigo-50 transition">
-                            {getContentIcon(item.content_type)}
+                            {getContentIcon(item.contentType || item.content_type)}
                           </div>
 
                           <div className="flex items-center gap-1.5">
@@ -357,11 +604,11 @@ export const StudentContentPage: React.FC = () => {
 
                       <div className="mt-4 pt-3 border-t border-slate-100 flex items-center justify-between text-xs text-slate-400">
                         <span className="uppercase font-semibold tracking-wider text-[10px] text-slate-500">
-                          {item.content_type}
+                          {item.contentType || item.content_type}
                         </span>
 
                         <div className="flex items-center gap-2">
-                          {item.isDownloadable && (
+                          {(item.isDownloadable || item.is_downloadable) && item.fileUrl && (
                             <button
                               onClick={(e) => {
                                 e.stopPropagation();
@@ -388,7 +635,7 @@ export const StudentContentPage: React.FC = () => {
       )}
 
       {/* ========================================================= */}
-      {/* IN-APP PREVIEW & VIDEO PLAYER MODAL */}
+      {/* IN-APP PREVIEW & VIDEO PLAYER MODAL (Fast & Telemetry Ready) */}
       {/* ========================================================= */}
       {isPreviewModalOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/80 backdrop-blur-md p-2 sm:p-4">
@@ -404,7 +651,7 @@ export const StudentContentPage: React.FC = () => {
                     {activeContent?.title || 'Loading content...'}
                   </h3>
                   <span className="text-xs text-slate-400">
-                    {activeContent?.topic?.title} • {activeContent?.classSubject?.subjectName}
+                    {activeContent?.topic?.title} • {activeContent?.classSubject?.subjectName || 'Course'}
                   </span>
                 </div>
               </div>
@@ -438,7 +685,7 @@ export const StudentContentPage: React.FC = () => {
                 </div>
               ) : activeContent ? (
                 <>
-                  {/* VIDEO PLAYER (Direct Upload MP4 / WebM) */}
+                  {/* VIDEO PLAYER (Direct Upload MP4 / WebM with Telemetry) */}
                   {activeContent.contentType === 'VIDEO' && activeContent.fileUrl && (
                     <div className="w-full h-full flex flex-col justify-center items-center p-4">
                       <video
@@ -475,10 +722,10 @@ export const StudentContentPage: React.FC = () => {
 
                         {currentProgress && (
                           <div className="flex items-center gap-2 text-slate-300">
-                            <span>Watch: {Math.round(currentProgress.watch_time_seconds / 60)}m</span>
+                            <span>Watch: {Math.round((currentProgress.watchTimeSeconds || currentProgress.watch_time_seconds || 0) / 60)}m</span>
                             <span>•</span>
                             <span className="text-emerald-400 font-bold">
-                              {currentProgress.completion_percentage}% Done
+                              {currentProgress.completionPercentage || currentProgress.completion_percentage || 0}% Done
                             </span>
                           </div>
                         )}
@@ -486,82 +733,191 @@ export const StudentContentPage: React.FC = () => {
                     </div>
                   )}
 
-                  {/* YOUTUBE EMBED PLAYER */}
-                  {activeContent.contentType === 'YOUTUBE' && activeContent.youtubeVideoId && (
+                  {/* YOUTUBE EMBED PLAYER (Full Telemetry Tracking via YouTube IFrame API) */}
+                  {activeContent.contentType === 'YOUTUBE' && (
                     <div className="w-full h-full p-4 flex flex-col items-center justify-center">
-                      <div className="w-full max-w-4xl aspect-video rounded-xl overflow-hidden shadow-2xl bg-black">
-                        <iframe
-                          src={`https://www.youtube.com/embed/${activeContent.youtubeVideoId}?autoplay=1&enablejsapi=1`}
-                          title={activeContent.title}
-                          className="w-full h-full border-0"
-                          allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-                          allowFullScreen
-                        />
+                      <div className="w-full max-w-4xl aspect-video rounded-xl overflow-hidden shadow-2xl bg-black relative">
+                        <div id="youtube-player-container" className="w-full h-full" />
                       </div>
-                      <div className="mt-3 text-xs text-slate-400 flex items-center gap-2">
-                        <span>Streaming via YouTube Embedded API</span>
+
+                      {/* Interactive YouTube Telemetry Controls & Progress Bar */}
+                      <div className="w-full max-w-4xl mt-3 bg-slate-900/90 text-white p-3 rounded-xl border border-slate-800 flex flex-wrap items-center justify-between gap-3 text-xs">
+                        <div className="flex items-center gap-2">
+                          <span className="text-slate-400 font-semibold">Speed:</span>
+                          {[0.75, 1.0, 1.25, 1.5, 2.0].map((s) => (
+                            <button
+                              key={s}
+                              onClick={() => handleChangeSpeed(s)}
+                              className={`px-2.5 py-1 rounded-lg font-bold transition ${
+                                playbackSpeed === s
+                                  ? 'bg-indigo-600 text-white'
+                                  : 'text-slate-400 hover:text-white bg-slate-800'
+                              }`}
+                            >
+                              {s}x
+                            </button>
+                          ))}
+                        </div>
+
+                        <div className="flex items-center gap-4 text-slate-300">
+                          <div className="flex items-center gap-1.5">
+                            <Clock className="w-3.5 h-3.5 text-indigo-400" />
+                            <span>
+                              Watch Time: {Math.round((currentProgress?.watchTimeSeconds || currentProgress?.watch_time_seconds || 0) / 60)} mins
+                            </span>
+                          </div>
+
+                          <div className="flex items-center gap-1.5 font-bold text-emerald-400 bg-emerald-950/60 border border-emerald-800 px-2.5 py-1 rounded-lg">
+                            <Check className="w-3.5 h-3.5" />
+                            <span>
+                              {currentProgress?.isCompleted || currentProgress?.is_completed
+                                ? 'Completed (100%)'
+                                : `${currentProgress?.completionPercentage || currentProgress?.completion_percentage || 0}% Progress`}
+                            </span>
+                          </div>
+
+                          {!(currentProgress?.isCompleted || currentProgress?.is_completed) && (
+                            <button
+                              onClick={handleMarkAsCompleted}
+                              className="bg-emerald-600 hover:bg-emerald-700 text-white px-3 py-1 rounded-lg font-semibold transition"
+                            >
+                              Mark Complete
+                            </button>
+                          )}
+                        </div>
                       </div>
                     </div>
                   )}
 
                   {/* PDF PREVIEWER */}
                   {activeContent.contentType === 'PDF' && activeContent.fileUrl && (
-                    <div className="w-full h-full bg-slate-800 flex items-center justify-center">
-                      <iframe
-                        src={`${activeContent.fileUrl}#toolbar=1`}
-                        title={activeContent.title}
-                        className="w-full h-full border-0"
-                      />
+                    <div className="w-full h-full flex flex-col bg-slate-900">
+                      <div className="flex-1 w-full bg-slate-900 flex items-center justify-center relative">
+                        <iframe
+                          src={`${activeContent.fileUrl}#toolbar=1`}
+                          title={activeContent.title}
+                          className="w-full h-full border-0 bg-white"
+                        />
+                      </div>
+
+                      {/* PDF Reading Controls Bar */}
+                      <div className="p-3 bg-slate-900 border-t border-slate-800 flex items-center justify-between text-xs text-white">
+                        <div className="flex items-center gap-2 text-slate-400">
+                          <Clock className="w-4 h-4 text-indigo-400" />
+                          <span>Reading Session: {Math.round(readingSessionSeconds / 60)} mins active</span>
+                        </div>
+                        <div className="flex items-center gap-3">
+                          <span className={`font-bold px-2 py-1 rounded ${
+                            currentProgress?.isCompleted || currentProgress?.is_completed
+                              ? 'text-emerald-400 bg-emerald-950/60'
+                              : 'text-indigo-400 bg-indigo-950/60'
+                          }`}>
+                            {currentProgress?.isCompleted || currentProgress?.is_completed ? 'Completed' : 'Reviewing Material'}
+                          </span>
+                          {!(currentProgress?.isCompleted || currentProgress?.is_completed) && (
+                            <button
+                              onClick={handleMarkAsCompleted}
+                              className="bg-emerald-600 hover:bg-emerald-700 text-white font-semibold px-3 py-1.5 rounded-lg transition"
+                            >
+                              Mark as Read & Completed
+                            </button>
+                          )}
+                        </div>
+                      </div>
                     </div>
                   )}
 
-                  {/* OFFICE DOCUMENTS (PPT, PPTX, DOC, DOCX) */}
+                  {/* OFFICE DOCUMENTS (PPT, PPTX, DOC, DOCX - In-App Embedded Viewer) */}
                   {(activeContent.contentType === 'PPT' || activeContent.contentType === 'DOC') && (
-                    <div className="w-full h-full bg-slate-900 flex flex-col items-center justify-center p-6 text-center text-white">
-                      <div className="p-4 bg-white/10 rounded-2xl mb-4">
-                        <FileText className="w-12 h-12 text-amber-400" />
-                      </div>
-                      <h3 className="text-lg font-bold mb-1">{activeContent.title}</h3>
-                      <p className="text-xs text-slate-400 max-w-md mb-6">
-                        Microsoft Office Document ({activeContent.contentType}). You can preview it using Google Viewer or download the original file.
-                      </p>
-
-                      <div className="flex items-center gap-3">
-                        <a
-                          href={`https://docs.google.com/viewer?url=${encodeURIComponent(
+                    <div className="w-full h-full flex flex-col bg-slate-900">
+                      <div className="flex-1 w-full bg-slate-950 flex flex-col items-center justify-center relative">
+                        <iframe
+                          src={`https://docs.google.com/viewer?url=${encodeURIComponent(
                             activeContent.fileUrl
                           )}&embedded=true`}
-                          target="_blank"
-                          rel="noreferrer"
-                          className="flex items-center gap-2 bg-indigo-600 hover:bg-indigo-700 text-white font-medium text-xs px-4 py-2.5 rounded-xl transition shadow"
-                        >
-                          <ExternalLink className="w-4 h-4" />
-                          <span>Open in Document Viewer</span>
-                        </a>
+                          title={activeContent.title}
+                          className="w-full h-full border-0 bg-white"
+                        />
+                      </div>
 
-                        {activeContent.isDownloadable && (
-                          <button
-                            onClick={() => handleDownload(activeContent.id)}
-                            className="flex items-center gap-2 bg-white/10 hover:bg-white/20 text-white font-medium text-xs px-4 py-2.5 rounded-xl transition"
+                      {/* Office Document Engagement & Action Bar */}
+                      <div className="p-3 bg-slate-900 border-t border-slate-800 flex items-center justify-between text-xs text-white">
+                        <div className="flex items-center gap-3">
+                          <span className="text-slate-400 flex items-center gap-1.5">
+                            <Clock className="w-4 h-4 text-amber-400" />
+                            Viewing In-App: {Math.round(readingSessionSeconds / 60)} mins
+                          </span>
+                          <a
+                            href={`https://docs.google.com/viewer?url=${encodeURIComponent(activeContent.fileUrl)}`}
+                            target="_blank"
+                            rel="noreferrer"
+                            className="text-slate-400 hover:text-indigo-400 flex items-center gap-1 transition"
                           >
-                            <Download className="w-4 h-4" />
-                            <span>Download File</span>
-                          </button>
-                        )}
+                            <ExternalLink className="w-3.5 h-3.5" />
+                            Open Externally
+                          </a>
+                        </div>
+
+                        <div className="flex items-center gap-3">
+                          {!(currentProgress?.isCompleted || currentProgress?.is_completed) ? (
+                            <button
+                              onClick={handleMarkAsCompleted}
+                              className="bg-emerald-600 hover:bg-emerald-700 text-white font-semibold px-3 py-1.5 rounded-lg transition"
+                            >
+                              Mark as Reviewed
+                            </button>
+                          ) : (
+                            <span className="text-emerald-400 font-bold bg-emerald-950/60 border border-emerald-800 px-2.5 py-1 rounded-lg">
+                              Completed (100%)
+                            </span>
+                          )}
+
+                          {activeContent.isDownloadable && (
+                            <button
+                              onClick={() => handleDownload(activeContent.id)}
+                              className="flex items-center gap-1.5 bg-slate-800 hover:bg-slate-700 text-white px-3 py-1.5 rounded-lg transition"
+                            >
+                              <Download className="w-3.5 h-3.5" />
+                              Download
+                            </button>
+                          )}
+                        </div>
                       </div>
                     </div>
                   )}
 
                   {/* MARKDOWN NOTES VIEWER */}
                   {activeContent.contentType === 'MARKDOWN' && (
-                    <div className="w-full h-full bg-white text-slate-800 p-8 overflow-y-auto">
-                      <div className="max-w-3xl mx-auto">
-                        <h1 className="text-2xl font-bold text-slate-900 pb-3 border-b border-slate-200 mb-6">
-                          {activeContent.title}
-                        </h1>
-                        <div className="prose prose-slate max-w-none whitespace-pre-wrap font-sans text-sm leading-relaxed">
-                          {activeContent.markdownContent || 'No content provided.'}
+                    <div className="w-full h-full flex flex-col bg-white">
+                      <div className="flex-1 text-slate-800 p-8 overflow-y-auto">
+                        <div className="max-w-3xl mx-auto">
+                          <h1 className="text-2xl font-bold text-slate-900 pb-3 border-b border-slate-200 mb-6">
+                            {activeContent.title}
+                          </h1>
+                          <div className="prose prose-slate max-w-none whitespace-pre-wrap font-sans text-sm leading-relaxed">
+                            {activeContent.markdownContent || 'No content provided.'}
+                          </div>
                         </div>
+                      </div>
+
+                      {/* Markdown Reading Session Bar */}
+                      <div className="p-3 bg-slate-100 border-t border-slate-200 flex items-center justify-between text-xs text-slate-700">
+                        <div className="flex items-center gap-2">
+                          <Clock className="w-4 h-4 text-indigo-600" />
+                          <span>Reading Session: {Math.round(readingSessionSeconds / 60)} mins</span>
+                        </div>
+                        {!(currentProgress?.isCompleted || currentProgress?.is_completed) ? (
+                          <button
+                            onClick={handleMarkAsCompleted}
+                            className="bg-emerald-600 hover:bg-emerald-700 text-white font-semibold px-3 py-1.5 rounded-lg transition"
+                          >
+                            Mark Notes Complete
+                          </button>
+                        ) : (
+                          <span className="text-emerald-700 font-bold bg-emerald-50 border border-emerald-200 px-2.5 py-1 rounded-lg">
+                            Completed
+                          </span>
+                        )}
                       </div>
                     </div>
                   )}
