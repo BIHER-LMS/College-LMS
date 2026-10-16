@@ -3,6 +3,8 @@ import { firebaseAuth } from '../../config/firebase';
 import prisma from '../../config/database';
 import { AuthenticatedUserContext } from './faculty.types';
 
+import { memoryCache } from '../../lib/cache';
+
 declare global {
   namespace Express {
     interface Request {
@@ -27,6 +29,14 @@ export async function facultyAuthMiddleware(req: Request, res: Response, next: N
     } catch {
       res.status(401).json({ error: 'Unauthorized: Invalid Firebase ID token' });
       return;
+    }
+
+    const cacheKey = `faculty_context:${decodedToken.uid}`;
+    const cached = memoryCache.get<any>(cacheKey);
+    if (cached) {
+      (req as any).user = cached;
+      req.facultyUser = cached;
+      return next();
     }
 
     const authedUser = await prisma.authedUser.findUnique({
@@ -56,7 +66,7 @@ export async function facultyAuthMiddleware(req: Request, res: Response, next: N
       return;
     }
 
-    (req as any).user = {
+    const facultyUser = {
       uid: decodedToken.uid,
       email: decodedToken.email || authedUser.email,
       role,
@@ -65,7 +75,10 @@ export async function facultyAuthMiddleware(req: Request, res: Response, next: N
       display_name: authedUser.display_name,
       photo_url: authedUser.photo_url,
     };
-    req.facultyUser = (req as any).user;
+    memoryCache.set(cacheKey, facultyUser, 45); // 45s TTL
+
+    (req as any).user = facultyUser;
+    req.facultyUser = facultyUser;
 
     next();
   } catch (error) {

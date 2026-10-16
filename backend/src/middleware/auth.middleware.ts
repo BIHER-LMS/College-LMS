@@ -4,6 +4,7 @@ import prisma from '../config/database';
 import { AppError } from '../utils/errors';
 import { ErrorCodes } from '../utils/response';
 import { logger } from '../utils/logger';
+import { memoryCache } from '../lib/cache';
 
 /**
  * Extended Express Request carrying the authenticated LMS user.
@@ -67,23 +68,28 @@ export async function authenticateFirebaseUser(
     req.firebaseUid = firebaseUid;
     req.verifiedEmail = decodedToken.email?.trim().toLowerCase();
 
-    // Find LMS user
-    let user = await prisma.user.findUnique({
-      where: { firebaseUid },
-      include: {
-        userRoles: {
-          include: {
-            role: {
-              include: {
-                permissions: {
-                  include: { permission: true },
+    // Check bounded in-memory cache for user context
+    const cacheKey = `auth_user:${firebaseUid}`;
+    let user = memoryCache.get<any>(cacheKey);
+
+    if (!user) {
+      // Find LMS user in DB
+      user = await prisma.user.findUnique({
+        where: { firebaseUid },
+        include: {
+          userRoles: {
+            include: {
+              role: {
+                include: {
+                  permissions: {
+                    include: { permission: true },
+                  },
                 },
               },
             },
           },
         },
-      },
-    });
+      });
 
     if (!user) {
       // Auto-provision if user exists in authed_users with an assigned role
@@ -148,6 +154,11 @@ export async function authenticateFirebaseUser(
       }
     }
 
+      if (user) {
+        memoryCache.set(cacheKey, user, 45);
+      }
+    }
+
     if (!user) {
       // User has a Firebase account but hasn't onboarded yet
       // This is OK for the onboarding endpoint, so we just
@@ -176,10 +187,10 @@ export async function authenticateFirebaseUser(
     }
 
     // Build roles array with permissions
-    const roles = user.userRoles.map((ur) => ({
+    const roles = user.userRoles.map((ur: any) => ({
       id: ur.role.id,
       name: ur.role.name,
-      permissions: ur.role.permissions.map((rp) => rp.permission.name),
+      permissions: ur.role.permissions.map((rp: any) => rp.permission.name),
     }));
 
     req.user = {

@@ -6,6 +6,25 @@ The platform is deployed via **Vercel** configured as a multi-service workspace 
 - `src: "/api/(.*)"` -> `backend/src/server.ts`
 - `src: "/(.*)"` -> `frontend/index.html` (React SPA)
 
+## MCP Integrations (Antigravity Verified)
+
+### Vercel MCP
+- **Project Name:** `college-lms-2026`
+- **Project ID:** `prj_40kv9p1Veh06Nmg8mdleDTmf9ayH`
+- **Account / Team ID:** `team_axRS5QoFBXgdOqkzkxKSiVei`
+- **Production URL:** `https://college-lms-2026-ten.vercel.app`
+- **Transport:** Stdio via `npx mcp-remote https://mcp.vercel.com`
+
+### Supabase MCP
+- **Project Name:** `College LMS`
+- **Project Ref / ID:** `lmnbsauvjqursjxocsgf`
+- **Status:** `ACTIVE_HEALTHY`
+- **Region:** `ap-northeast-1` (Tokyo)
+- **Database Host:** `db.lmnbsauvjqursjxocsgf.supabase.co`
+- **Organization ID:** `zfgeulitzxtmcqdbnycf`
+- **Postgres Engine:** PostgreSQL 17
+- **Transport:** SSE via `https://mcp.supabase.com/mcp`
+
 ## Environment Variables
 Ensure these are set in Vercel:
 - `DATABASE_URL`: `postgresql://...aws-0-ap-northeast-1.pooler.supabase.com:6543/postgres?pgbouncer=true`
@@ -16,3 +35,4 @@ Ensure these are set in Vercel:
 - `FRONTEND_URL`: Hosted URL domain
 
 *Note: Database connection fails on Vercel unless using the IPv4 pooler in `DATABASE_URL`!*
+

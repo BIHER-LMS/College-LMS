@@ -1,10 +1,12 @@
 import { useState, useEffect } from 'react';
+import { Loader2 } from 'lucide-react';
 import { fetchUsers, fetchPendingUsers, updateUserProfile, fetchDepartments } from '../../services/collegeService';
 
 export function ManageStudents({ collegeId }: { collegeId: string }) {
   const [students, setStudents] = useState<any[]>([]);
   const [pendingStudents, setPendingStudents] = useState<any[]>([]);
   const [departments, setDepartments] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
   
   useEffect(() => {
     if (collegeId) {
@@ -14,8 +16,19 @@ export function ManageStudents({ collegeId }: { collegeId: string }) {
   }, [collegeId]);
 
   const loadStudents = async () => {
-    setStudents(await fetchUsers({ college_id: collegeId, role: 'STUDENT' }));
-    setPendingStudents(await fetchPendingUsers(collegeId, 'STUDENT'));
+    setLoading(true);
+    try {
+      const [studentData, pendingData] = await Promise.all([
+        fetchUsers({ college_id: collegeId, role: 'STUDENT' }),
+        fetchPendingUsers(collegeId, 'STUDENT'),
+      ]);
+      setStudents(studentData);
+      setPendingStudents(pendingData);
+    } catch (err) {
+      console.error('Error loading students:', err);
+    } finally {
+      setLoading(false);
+    }
   };
 
   const handleUpdate = async (uid: string, field: string, value: string) => {
@@ -94,24 +107,40 @@ export function ManageStudents({ collegeId }: { collegeId: string }) {
             <tr><th className="px-6 py-4">Register No.</th><th className="px-6 py-4">Name</th><th className="px-6 py-4">Email</th><th className="px-6 py-4">Department</th></tr>
           </thead>
           <tbody className="divide-y">
-            {students.map(s => (
-              <tr key={s.uid}>
-                <td className="px-6 py-4 font-mono"><input value={s.register_number || ''} onBlur={e => handleUpdate(s.uid, 'register_number', e.target.value)} onChange={e => { s.register_number = e.target.value; setStudents([...students]); }} className="w-24 border px-2 py-1 text-xs rounded" placeholder="Set Reg No" /></td>
-                <td className="px-6 py-4 font-medium">{s.display_name || 'No Name'}</td>
-                <td className="px-6 py-4 text-slate-500">{s.email}</td>
-                <td className="px-6 py-4">
-                  <select 
-                    value={s.department_id || ''} 
-                    onChange={e => handleUpdate(s.uid, 'department_id', e.target.value)}
-                    className="h-8 px-2 border rounded text-xs"
-                  >
-                    <option value="">Unassigned</option>
-                    {departments.map(d => <option key={d.id} value={d.id}>{d.name}</option>)}
-                  </select>
+            {loading ? (
+              <tr>
+                <td colSpan={4} className="px-6 py-12 text-center text-slate-500">
+                  <div className="flex flex-col items-center justify-center gap-2.5">
+                    <Loader2 className="w-7 h-7 animate-spin text-blue-600" />
+                    <span className="text-xs font-medium text-slate-500">Loading student accounts...</span>
+                  </div>
                 </td>
               </tr>
-            ))}
-            {students.length === 0 && <tr><td colSpan={4} className="px-6 py-8 text-center text-slate-500">No Student accounts found.</td></tr>}
+            ) : students.length === 0 ? (
+              <tr>
+                <td colSpan={4} className="px-6 py-8 text-center text-slate-500">
+                  No Student accounts found.
+                </td>
+              </tr>
+            ) : (
+              students.map(s => (
+                <tr key={s.uid}>
+                  <td className="px-6 py-4 font-mono"><input value={s.register_number || ''} onBlur={e => handleUpdate(s.uid, 'register_number', e.target.value)} onChange={e => { s.register_number = e.target.value; setStudents([...students]); }} className="w-24 border px-2 py-1 text-xs rounded" placeholder="Set Reg No" /></td>
+                  <td className="px-6 py-4 font-medium">{s.display_name || 'No Name'}</td>
+                  <td className="px-6 py-4 text-slate-500">{s.email}</td>
+                  <td className="px-6 py-4">
+                    <select 
+                      value={s.department_id || ''} 
+                      onChange={e => handleUpdate(s.uid, 'department_id', e.target.value)}
+                      className="h-8 px-2 border rounded text-xs"
+                    >
+                      <option value="">Unassigned</option>
+                      {departments.map(d => <option key={d.id} value={d.id}>{d.name}</option>)}
+                    </select>
+                  </td>
+                </tr>
+              ))
+            )}
           </tbody>
         </table>
       </div>

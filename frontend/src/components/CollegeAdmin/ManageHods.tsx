@@ -6,6 +6,7 @@ export function ManageHods({ collegeId }: { collegeId: string }) {
   const [hods, setHods] = useState<any[]>([]);
   const [pendingHods, setPendingHods] = useState<any[]>([]);
   const [departments, setDepartments] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
   const [updatingUid, setUpdatingUid] = useState<string | null>(null);
   const [actionLoading, setActionLoading] = useState<{ uid: string; type: 'approve' | 'reject' } | null>(null);
 
@@ -17,8 +18,19 @@ export function ManageHods({ collegeId }: { collegeId: string }) {
   }, [collegeId]);
 
   const loadHods = async () => {
-    setHods(await fetchUsers({ college_id: collegeId, role: 'HOD' }));
-    setPendingHods(await fetchPendingUsers(collegeId, 'HOD'));
+    setLoading(true);
+    try {
+      const [hodData, pendingData] = await Promise.all([
+        fetchUsers({ college_id: collegeId, role: 'HOD' }),
+        fetchPendingUsers(collegeId, 'HOD'),
+      ]);
+      setHods(hodData);
+      setPendingHods(pendingData);
+    } catch (err) {
+      console.error('Error loading HODs:', err);
+    } finally {
+      setLoading(false);
+    }
   };
 
   const assignDepartment = async (uid: string, deptId: string) => {
@@ -139,29 +151,39 @@ export function ManageHods({ collegeId }: { collegeId: string }) {
             </tr>
           </thead>
           <tbody className="divide-y">
-            {hods.map(h => (
-              <tr key={h.uid}>
-                <td className="px-6 py-4 font-medium">{h.display_name || h.name || 'No Name'}</td>
-                <td className="px-6 py-4 text-slate-500">{h.email}</td>
-                <td className="px-6 py-4">
-                  <select 
-                    value={h.department_id || ''} 
-                    disabled={updatingUid === h.uid}
-                    onChange={e => assignDepartment(h.uid, e.target.value)}
-                    className="h-8 px-2 border rounded text-xs disabled:opacity-50"
-                  >
-                    <option value="">Unassigned</option>
-                    {departments.map(d => <option key={d.id} value={d.id}>{d.name}</option>)}
-                  </select>
+            {loading ? (
+              <tr>
+                <td colSpan={3} className="px-6 py-12 text-center text-slate-500">
+                  <div className="flex flex-col items-center justify-center gap-2.5">
+                    <Loader2 className="w-7 h-7 animate-spin text-blue-600" />
+                    <span className="text-xs font-medium text-slate-500">Loading HOD accounts...</span>
+                  </div>
                 </td>
               </tr>
-            ))}
-            {hods.length === 0 && (
+            ) : hods.length === 0 ? (
               <tr>
                 <td colSpan={3} className="px-6 py-8 text-center text-slate-500">
                   No active HOD accounts found in this college.
                 </td>
               </tr>
+            ) : (
+              hods.map(h => (
+                <tr key={h.uid}>
+                  <td className="px-6 py-4 font-medium">{h.display_name || h.name || 'No Name'}</td>
+                  <td className="px-6 py-4 text-slate-500">{h.email}</td>
+                  <td className="px-6 py-4">
+                    <select 
+                      value={h.department_id || ''} 
+                      disabled={updatingUid === h.uid}
+                      onChange={e => assignDepartment(h.uid, e.target.value)}
+                      className="h-8 px-2 border rounded text-xs disabled:opacity-50"
+                    >
+                      <option value="">Unassigned</option>
+                      {departments.map(d => <option key={d.id} value={d.id}>{d.name}</option>)}
+                    </select>
+                  </td>
+                </tr>
+              ))
             )}
           </tbody>
         </table>

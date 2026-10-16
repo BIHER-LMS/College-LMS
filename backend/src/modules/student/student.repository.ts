@@ -1,4 +1,5 @@
 import prisma from '../../config/database';
+import { memoryCache } from '../../lib/cache';
 import {
   StudentContext,
   StudentProfile,
@@ -153,6 +154,16 @@ export class StudentRepository {
     deptData: DepartmentInfo | null;
     classInchargeData: ClassInchargeInfo | null;
   }> {
+    const cacheKey = `class_hierarchy:${classId}`;
+    const cached = memoryCache.get<{
+      classData: ClassInfo | null;
+      batchData: BatchInfo | null;
+      programData: ProgramInfo | null;
+      deptData: DepartmentInfo | null;
+      classInchargeData: ClassInchargeInfo | null;
+    }>(cacheKey);
+    if (cached) return cached;
+
     const data = await prisma.class.findUnique({
       where: { id: classId },
       include: {
@@ -248,13 +259,16 @@ export class StudentRepository {
       };
     }
 
-    return {
+    const result = {
       classData,
       batchData,
       programData,
       deptData,
       classInchargeData,
     };
+
+    memoryCache.set(cacheKey, result, 60);
+    return result;
   }
 
   /**
@@ -339,6 +353,10 @@ export class StudentRepository {
    * Fetch Subjects for Department, optionally filtered by semester
    */
   async getSubjectsByDepartment(departmentId: string, semesterNumber?: number): Promise<SubjectInfo[]> {
+    const cacheKey = `subjects:${departmentId}:${semesterNumber ?? 'all'}`;
+    const cached = memoryCache.get<SubjectInfo[]>(cacheKey);
+    if (cached) return cached;
+
     const data = await prisma.subject.findMany({
       where: {
         department_id: departmentId,
@@ -350,7 +368,7 @@ export class StudentRepository {
       ]
     });
 
-    return data.map((s: any) => ({
+    const result = data.map((s: any) => ({
       id: s.id,
       departmentId: s.department_id,
       name: s.name,
@@ -359,6 +377,9 @@ export class StudentRepository {
       semesterNumber: s.semester_number,
       isActive: s.is_active ?? true,
     }));
+
+    memoryCache.set(cacheKey, result, 300);
+    return result;
   }
 
   /**
@@ -394,6 +415,10 @@ export class StudentRepository {
    * Fetch Academic Years for College
    */
   async getAcademicYears(collegeId: string): Promise<AcademicYearInfo[]> {
+    const cacheKey = `acad_years:${collegeId}`;
+    const cached = memoryCache.get<AcademicYearInfo[]>(cacheKey);
+    if (cached) return cached;
+
     const data = await prisma.academicYear.findMany({
       where: { college_id: collegeId },
       orderBy: [
@@ -402,7 +427,7 @@ export class StudentRepository {
       ]
     });
 
-    return data.map((ay: any) => ({
+    const result = data.map((ay: any) => ({
       id: ay.id,
       collegeId: ay.college_id,
       name: ay.name,
@@ -410,12 +435,19 @@ export class StudentRepository {
       endDate: ay.end_date.toISOString(),
       isCurrent: ay.is_current ?? false,
     }));
+
+    memoryCache.set(cacheKey, result, 300);
+    return result;
   }
 
   /**
    * Fetch Semesters for Academic Year
    */
   async getSemesters(academicYearId?: string): Promise<SemesterInfo[]> {
+    const cacheKey = `semesters:${academicYearId || 'all'}`;
+    const cached = memoryCache.get<SemesterInfo[]>(cacheKey);
+    if (cached) return cached;
+
     const data = await prisma.semester.findMany({
       where: {
         ...(academicYearId ? { academic_year_id: academicYearId } : {})
@@ -424,7 +456,7 @@ export class StudentRepository {
       orderBy: { term_number: 'asc' }
     });
 
-    return data.map((sem: any) => ({
+    const result = data.map((sem: any) => ({
       id: sem.id,
       academicYearId: sem.academic_year_id,
       termNumber: sem.term_number,
@@ -436,12 +468,19 @@ export class StudentRepository {
         isCurrent: sem.academicYear.is_current ?? false,
       } : null,
     }));
+
+    memoryCache.set(cacheKey, result, 300);
+    return result;
   }
 
   /**
    * Fetch Class Master Timetable for a specific class (Created by Class Incharge)
    */
   async getClassTimetable(classId: string): Promise<ClassTimetableSlot[]> {
+    const cacheKey = `class_timetable:${classId}`;
+    const cached = memoryCache.get<ClassTimetableSlot[]>(cacheKey);
+    if (cached) return cached;
+
     try {
       const slots: any = await prisma.$queryRawUnsafe(
         `SELECT id, class_id, day_of_week, period, start_time, end_time, subject_name, subject_code, faculty_name, room
@@ -461,7 +500,7 @@ export class StudentRepository {
            period ASC, start_time ASC;`,
         classId
       );
-      return (slots || []).map((s: any) => ({
+      const result = (slots || []).map((s: any) => ({
         id: s.id,
         class_id: s.class_id,
         day_of_week: s.day_of_week,
@@ -473,6 +512,8 @@ export class StudentRepository {
         faculty_name: s.faculty_name,
         room: s.room,
       }));
+      memoryCache.set(cacheKey, result, 60);
+      return result;
     } catch (err: any) {
       console.error('StudentRepository.getClassTimetable error:', err);
       return [];
@@ -483,33 +524,38 @@ export class StudentRepository {
    * Fetch Student Attendance Summary from attendance_records and attendance_sessions
    */
   async getStudentAttendanceSummary(studentUid: string): Promise<StudentAttendanceSummary> {
-    try {
-      const overall: any = await prisma.$queryRawUnsafe(
-        `SELECT 
-           COUNT(ar.id)::int as total,
-           COUNT(CASE WHEN ar.status IN ('PRESENT', 'LATE', 'EXCUSED') THEN 1 END)::int as attended,
-           COUNT(CASE WHEN ar.status = 'PRESENT' THEN 1 END)::int as present,
-           COUNT(CASE WHEN ar.status = 'LATE' THEN 1 END)::int as late,
-           COUNT(CASE WHEN ar.status = 'EXCUSED' THEN 1 END)::int as excused,
-           COUNT(CASE WHEN ar.status = 'ABSENT' THEN 1 END)::int as absent
-         FROM attendance_records ar
-         WHERE ar.student_uid = $1;`,
-        studentUid
-      );
+    const cacheKey = `student_att_sum:${studentUid}`;
+    const cached = memoryCache.get<StudentAttendanceSummary>(cacheKey);
+    if (cached) return cached;
 
-      const today: any = await prisma.$queryRawUnsafe(
-        `SELECT 
-           COUNT(ar.id)::int as total,
-           COUNT(CASE WHEN ar.status IN ('PRESENT', 'LATE', 'EXCUSED') THEN 1 END)::int as attended,
-           COUNT(CASE WHEN ar.status = 'PRESENT' THEN 1 END)::int as present,
-           COUNT(CASE WHEN ar.status = 'LATE' THEN 1 END)::int as late,
-           COUNT(CASE WHEN ar.status = 'EXCUSED' THEN 1 END)::int as excused,
-           COUNT(CASE WHEN ar.status = 'ABSENT' THEN 1 END)::int as absent
-         FROM attendance_records ar
-         JOIN attendance_sessions s ON ar.attendance_session_id = s.id
-         WHERE ar.student_uid = $1 AND s.date = CURRENT_DATE;`,
-        studentUid
-      );
+    try {
+      const [overall, today]: [any, any] = await Promise.all([
+        prisma.$queryRawUnsafe(
+          `SELECT 
+             COUNT(ar.id)::int as total,
+             COUNT(CASE WHEN ar.status IN ('PRESENT', 'LATE', 'EXCUSED') THEN 1 END)::int as attended,
+             COUNT(CASE WHEN ar.status = 'PRESENT' THEN 1 END)::int as present,
+             COUNT(CASE WHEN ar.status = 'LATE' THEN 1 END)::int as late,
+             COUNT(CASE WHEN ar.status = 'EXCUSED' THEN 1 END)::int as excused,
+             COUNT(CASE WHEN ar.status = 'ABSENT' THEN 1 END)::int as absent
+           FROM attendance_records ar
+           WHERE ar.student_uid = $1;`,
+          studentUid
+        ),
+        prisma.$queryRawUnsafe(
+          `SELECT 
+             COUNT(ar.id)::int as total,
+             COUNT(CASE WHEN ar.status IN ('PRESENT', 'LATE', 'EXCUSED') THEN 1 END)::int as attended,
+             COUNT(CASE WHEN ar.status = 'PRESENT' THEN 1 END)::int as present,
+             COUNT(CASE WHEN ar.status = 'LATE' THEN 1 END)::int as late,
+             COUNT(CASE WHEN ar.status = 'EXCUSED' THEN 1 END)::int as excused,
+             COUNT(CASE WHEN ar.status = 'ABSENT' THEN 1 END)::int as absent
+           FROM attendance_records ar
+           JOIN attendance_sessions s ON ar.attendance_session_id = s.id
+           WHERE ar.student_uid = $1 AND s.date = CURRENT_DATE;`,
+          studentUid
+        ),
+      ]);
 
       const totalSessions = overall[0]?.total || 0;
       const attendedSessions = overall[0]?.attended || 0;
@@ -538,7 +584,7 @@ export class StudentRepository {
       const todayExcused = today[0]?.excused || 0;
       const todayEffectivePercentage = todayTotal > 0 ? Math.round((todayAttended / todayTotal) * 100) : 0;
 
-      return {
+      const result: StudentAttendanceSummary = {
         totalSessions,
         attendedSessions,
         presentCount,
@@ -556,6 +602,9 @@ export class StudentRepository {
         todayExcused,
         todayEffectivePercentage,
       };
+
+      memoryCache.set(cacheKey, result, 30);
+      return result;
     } catch (err: any) {
       console.error('StudentRepository.getStudentAttendanceSummary error:', err);
       return {
@@ -584,6 +633,10 @@ export class StudentRepository {
    */
   async getSubjectAttendance(studentUid: string, departmentId?: string | null, semesterNumber?: number | null): Promise<StudentSubjectAttendance[]> {
     if (!departmentId) return [];
+    const cacheKey = `student_subj_att:${studentUid}:${departmentId}:${semesterNumber ?? 'all'}`;
+    const cached = memoryCache.get<StudentSubjectAttendance[]>(cacheKey);
+    if (cached) return cached;
+
     try {
       let rows: any = [];
       if (semesterNumber) {
@@ -629,7 +682,7 @@ export class StudentRepository {
         );
       }
 
-      return (rows || []).map((r: any) => {
+      const result = (rows || []).map((r: any) => {
         const held = r.held || 0;
         const attended = r.attended || 0;
         const excused = r.excused || 0;
@@ -649,6 +702,9 @@ export class StudentRepository {
           status,
         };
       });
+
+      memoryCache.set(cacheKey, result, 30);
+      return result;
     } catch (err: any) {
       console.error('StudentRepository.getSubjectAttendance error:', err);
       return [];

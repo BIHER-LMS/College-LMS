@@ -42,11 +42,28 @@ const api = axios.create({
 
 // Only a fresh token from Firebase Auth can authenticate a faculty request.
 api.interceptors.request.use(async (config) => {
-  await auth.authStateReady();
+  if (!auth.currentUser) {
+    await auth.authStateReady();
+  }
   if (!auth.currentUser) throw new Error('Firebase sign-in required');
   config.headers.Authorization = `Bearer ${await auth.currentUser.getIdToken()}`;
   return config;
 });
+ 
+// In-flight GET request deduplication to prevent duplicate concurrent network calls
+const inFlightFacultyGets = new Map<string, Promise<any>>();
+const originalGet = api.get.bind(api);
+(api as any).get = function <T = any>(url: string, config?: any): Promise<any> {
+  const cacheKey = `${url}:${JSON.stringify(config?.params || {})}`;
+  const inFlight = inFlightFacultyGets.get(cacheKey);
+  if (inFlight) return inFlight;
+
+  const promise = originalGet<T>(url, config).finally(() => {
+    inFlightFacultyGets.delete(cacheKey);
+  });
+  inFlightFacultyGets.set(cacheKey, promise);
+  return promise;
+};
 
 export const facultyApi = {
   // Dashboard

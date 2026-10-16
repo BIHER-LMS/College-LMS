@@ -26,15 +26,17 @@ const BASE_URL = import.meta.env.VITE_API_BASE_URL || '/api';
 
 /** A token is accepted only from the current Firebase session, never localStorage. */
 export async function getAuthToken(): Promise<string> {
-  await auth.authStateReady();
+  if (!auth.currentUser) {
+    await auth.authStateReady();
+  }
   if (!auth.currentUser) throw new Error('Firebase sign-in required');
   return auth.currentUser.getIdToken();
 }
 
-/**
- * Standard HTTP fetch wrapper with authorization header & error extraction
- */
-async function request<T>(endpoint: string, options: RequestInit = {}): Promise<T> {
+// In-flight GET request deduplication
+const inFlightStudentGets = new Map<string, Promise<any>>();
+
+async function executeRequest<T>(endpoint: string, options: RequestInit = {}): Promise<T> {
   const token = await getAuthToken();
   const isFormData = typeof FormData !== 'undefined' && options.body instanceof FormData;
   const headers: HeadersInit = {
@@ -66,6 +68,22 @@ async function request<T>(endpoint: string, options: RequestInit = {}): Promise<
   }
 
   return body.data;
+}
+
+async function request<T>(endpoint: string, options: RequestInit = {}): Promise<T> {
+  const method = (options.method || 'GET').toUpperCase();
+  if (method === 'GET') {
+    const existing = inFlightStudentGets.get(endpoint);
+    if (existing) return existing as Promise<T>;
+
+    const promise = executeRequest<T>(endpoint, options).finally(() => {
+      inFlightStudentGets.delete(endpoint);
+    });
+    inFlightStudentGets.set(endpoint, promise);
+    return promise;
+  }
+
+  return executeRequest<T>(endpoint, options);
 }
 
 export const studentApi = {

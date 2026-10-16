@@ -19,6 +19,7 @@ import {
   ShieldCheck,
   UserCheck,
   UserX,
+  Loader2,
 } from 'lucide-react';
 
 export function ManageFaculty({ collegeId }: { collegeId: string }) {
@@ -152,7 +153,7 @@ export function ManageFaculty({ collegeId }: { collegeId: string }) {
         <div className="flex items-center gap-2">
           <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-slate-50 border border-slate-200 text-xs font-semibold text-slate-700">
             <span>Total Faculty:</span>
-            <span className="text-blue-600 font-bold">{faculty.length}</span>
+            <span className="text-blue-600 font-bold">{loading ? '...' : faculty.length}</span>
           </div>
         </div>
       </div>
@@ -275,7 +276,17 @@ export function ManageFaculty({ collegeId }: { collegeId: string }) {
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100">
-              {faculty.map((f) => {
+              {loading ? (
+                <tr>
+                  <td colSpan={4} className="px-6 py-12 text-center text-slate-500">
+                    <div className="flex flex-col items-center justify-center gap-2.5">
+                      <Loader2 className="w-7 h-7 animate-spin text-blue-600" />
+                      <span className="text-xs font-medium text-slate-500">Loading faculty directory...</span>
+                    </div>
+                  </td>
+                </tr>
+              ) : (
+                faculty.map((f) => {
                 // Find currently assigned class incharge for this faculty
                 const assignedClass = classes.find((c) => c.faculty_uid === f.uid);
 
@@ -432,8 +443,9 @@ export function ManageFaculty({ collegeId }: { collegeId: string }) {
                       </div>
                     </td>
                   </tr>
-                );
-              })}
+                  );
+                })
+              )}
 
               {!loading && faculty.length === 0 && (
                 <tr>

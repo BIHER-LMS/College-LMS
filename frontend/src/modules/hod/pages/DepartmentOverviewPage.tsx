@@ -1,24 +1,34 @@
-import React, { useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
+import { Loader2 } from 'lucide-react';
 import { fetchHODDashboard, fetchDepartment, fetchPrograms, fetchFaculty, fetchStudents } from "../store/slices/hodSlice";
-;
-;
-import type { RootState, AppDispatch } from "../store/store";;
+import type { RootState, AppDispatch } from "../store/store";
 
 export const DepartmentOverviewPage: React.FC = () => {
   const dispatch = useDispatch<AppDispatch>();
   const { dashboard, department, programs, faculty, students } = useSelector((state: RootState) => state.hod);
+  const [initialLoading, setInitialLoading] = useState(true);
 
   useEffect(() => {
-    dispatch(fetchHODDashboard());
-    dispatch(fetchDepartment());
-    dispatch(fetchPrograms());
-    dispatch(fetchFaculty());
-    dispatch(fetchStudents());
+    let isMounted = true;
+    setInitialLoading(true);
+    Promise.all([
+      dispatch(fetchHODDashboard()),
+      dispatch(fetchDepartment()),
+      dispatch(fetchPrograms()),
+      dispatch(fetchFaculty()),
+      dispatch(fetchStudents()),
+    ]).finally(() => {
+      if (isMounted) setInitialLoading(false);
+    });
+    return () => {
+      isMounted = false;
+    };
   }, [dispatch]);
 
   const dept = department || dashboard?.department;
   const stats = dashboard?.statistics;
+  const isFetching = initialLoading || (!dept && !dashboard);
 
   return (
     <div className="mx-auto flex max-w-[1440px] flex-col gap-6 font-body text-[#0b1c30]">
@@ -28,7 +38,7 @@ export const DepartmentOverviewPage: React.FC = () => {
           <div className="flex items-center gap-2">
             <span className="material-symbols-outlined text-[24px] text-[#0b1c30]">domain</span>
             <h1 className="font-headline text-xl font-bold text-[#0b1c30]">
-              {dept?.name || 'Department Overview & Profile'}
+              {dept?.name || (isFetching ? 'Loading Department Overview...' : 'Department Overview & Profile')}
             </h1>
           </div>
           {dept?.code && (
@@ -60,10 +70,19 @@ export const DepartmentOverviewPage: React.FC = () => {
         <div className="border border-[#c5c6cd]/30 bg-white p-5 flex flex-col justify-between">
           <div>
             <span className="text-[10px] font-bold uppercase text-[#44474d]">Head of Department</span>
-            <h3 className="mt-1 font-headline text-base font-bold text-[#0b1c30]">
-              {dept?.hod?.name || dept?.hodName || 'Loading...'}
-            </h3>
-            <p className="text-xs text-[#44474d] mt-0.5">{dept?.hod?.email || 'Loading...'}</p>
+            {isFetching ? (
+              <div className="mt-2 flex items-center gap-2 text-slate-500">
+                <Loader2 className="w-4 h-4 animate-spin text-blue-600" />
+                <span className="text-xs font-medium">Loading HOD...</span>
+              </div>
+            ) : (
+              <>
+                <h3 className="mt-1 font-headline text-base font-bold text-[#0b1c30]">
+                  {dept?.hod?.name || dept?.hodName || 'Not Assigned'}
+                </h3>
+                <p className="text-xs text-[#44474d] mt-0.5">{dept?.hod?.email || '—'}</p>
+              </>
+            )}
           </div>
           <span className="mt-3 inline-block w-fit bg-[#eff4ff] px-2 py-0.5 text-[10px] font-bold text-indigo-700">
             Authenticated HOD Context
@@ -73,10 +92,19 @@ export const DepartmentOverviewPage: React.FC = () => {
         <div className="border border-[#c5c6cd]/30 bg-white p-5 flex flex-col justify-between">
           <div>
             <span className="text-[10px] font-bold uppercase text-[#44474d]">Academic Offerings</span>
-            <h3 className="mt-1 font-headline text-base font-bold text-[#0b1c30]">
-              {programs.length} Registered Degree Program{programs.length === 1 ? '' : 's'}
-            </h3>
-            <p className="text-xs text-[#44474d] mt-0.5">{stats?.subjectCount || 0} Department Syllabi Courses</p>
+            {isFetching ? (
+              <div className="mt-2 flex items-center gap-2 text-slate-500">
+                <Loader2 className="w-4 h-4 animate-spin text-blue-600" />
+                <span className="text-xs font-medium">Loading offerings...</span>
+              </div>
+            ) : (
+              <>
+                <h3 className="mt-1 font-headline text-base font-bold text-[#0b1c30]">
+                  {programs.length} Registered Degree Program{programs.length === 1 ? '' : 's'}
+                </h3>
+                <p className="text-xs text-[#44474d] mt-0.5">{stats?.subjectCount || 0} Department Syllabi Courses</p>
+              </>
+            )}
           </div>
           <span className="mt-3 text-[11px] font-bold text-[#069669]">Curriculum Operational</span>
         </div>
@@ -86,25 +114,49 @@ export const DepartmentOverviewPage: React.FC = () => {
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
         <div className="border border-[#c5c6cd]/30 bg-white p-4">
           <span className="text-[10px] text-gray-500 uppercase font-semibold">Faculty Staff</span>
-          <div className="font-headline text-2xl font-bold text-[#0b1c30] mt-1">{faculty.length}</div>
+          <div className="font-headline text-2xl font-bold text-[#0b1c30] mt-1 flex items-center h-8">
+            {isFetching ? (
+              <Loader2 className="w-5 h-5 animate-spin text-blue-600" />
+            ) : (
+              faculty.length
+            )}
+          </div>
           <span className="text-[10px] text-[#069669] font-bold">100% Department Scoped</span>
         </div>
 
         <div className="border border-[#c5c6cd]/30 bg-white p-4">
           <span className="text-[10px] text-gray-500 uppercase font-semibold">Enrolled Students</span>
-          <div className="font-headline text-2xl font-bold text-[#0b1c30] mt-1">{students.length}</div>
+          <div className="font-headline text-2xl font-bold text-[#0b1c30] mt-1 flex items-center h-8">
+            {isFetching ? (
+              <Loader2 className="w-5 h-5 animate-spin text-blue-600" />
+            ) : (
+              students.length
+            )}
+          </div>
           <span className="text-[10px] text-[#069669] font-bold">Active Roster</span>
         </div>
 
         <div className="border border-[#c5c6cd]/30 bg-white p-4">
           <span className="text-[10px] text-gray-500 uppercase font-semibold">Academic Programs</span>
-          <div className="font-headline text-2xl font-bold text-[#0b1c30] mt-1">{programs.length}</div>
+          <div className="font-headline text-2xl font-bold text-[#0b1c30] mt-1 flex items-center h-8">
+            {isFetching ? (
+              <Loader2 className="w-5 h-5 animate-spin text-blue-600" />
+            ) : (
+              programs.length
+            )}
+          </div>
           <span className="text-[10px] text-gray-500">UG / PG Offerings</span>
         </div>
 
         <div className="border border-[#c5c6cd]/30 bg-white p-4">
           <span className="text-[10px] text-gray-500 uppercase font-semibold">Syllabus Courses</span>
-          <div className="font-headline text-2xl font-bold text-[#0b1c30] mt-1">{stats?.subjectCount || 0}</div>
+          <div className="font-headline text-2xl font-bold text-[#0b1c30] mt-1 flex items-center h-8">
+            {isFetching ? (
+              <Loader2 className="w-5 h-5 animate-spin text-blue-600" />
+            ) : (
+              stats?.subjectCount || 0
+            )}
+          </div>
           <span className="text-[10px] text-gray-500">Active Modules</span>
         </div>
       </div>
@@ -114,7 +166,12 @@ export const DepartmentOverviewPage: React.FC = () => {
         <h3 className="font-headline text-base font-bold text-[#0b1c30] mb-3">
           Degree Programs in {dept?.name || 'Department'}
         </h3>
-        {programs.length === 0 ? (
+        {isFetching ? (
+          <div className="p-8 text-center text-xs text-slate-500 border border-dashed border-[#c5c6cd]/30 flex flex-col items-center justify-center gap-2">
+            <Loader2 className="w-6 h-6 animate-spin text-blue-600" />
+            <span className="font-medium">Loading degree programs...</span>
+          </div>
+        ) : programs.length === 0 ? (
           <div className="p-8 text-center text-xs text-gray-400 border border-dashed border-[#c5c6cd]/30">
             No degree programs registered.
           </div>

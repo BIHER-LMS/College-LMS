@@ -11,6 +11,7 @@ import studentAiRoutes from './ai/studentAi.routes';
 import { studentAiController } from './ai/studentAi.controller';
 import { studentChatRequestBodySchema } from './ai/studentAi.validation';
 import { validate } from '../../middleware/validation.middleware';
+import { memoryCache } from '../../lib/cache';
 import './services/studentDataToolService';
 import './services/studentRagToolService';
 
@@ -20,6 +21,13 @@ export async function buildStudentContext(req: any, res: any, next: any) {
   try {
     const firebaseUid = req.firebaseUid || req.user?.firebaseUid || req.user?.id;
     if (!firebaseUid) throw new AppError(401, 'UNAUTHORIZED', 'No user found');
+
+    const cacheKey = `student_context:${firebaseUid}`;
+    const cached = memoryCache.get<StudentContext>(cacheKey);
+    if (cached) {
+      req.studentContext = cached;
+      return next();
+    }
     
     const dbUser = await prisma.authedUser.findUnique({
       where: { uid: firebaseUid },
@@ -39,7 +47,7 @@ export async function buildStudentContext(req: any, res: any, next: any) {
       throw new AppError(403, 'FORBIDDEN', 'Student account is not approved or has an inconsistent college/class assignment');
     }
 
-    req.studentContext = {
+    const studentContext: StudentContext = {
       uid: dbUser.uid,
       email: dbUser.email,
       displayName: dbUser.display_name,
@@ -49,7 +57,10 @@ export async function buildStudentContext(req: any, res: any, next: any) {
       departmentId: dbUser.department_id,
       classId: dbUser.class_id,
       registerNumber: dbUser.register_number
-    } as StudentContext;
+    };
+
+    memoryCache.set(cacheKey, studentContext, 45); // 45s TTL
+    req.studentContext = studentContext;
     
     next();
   } catch (error) {

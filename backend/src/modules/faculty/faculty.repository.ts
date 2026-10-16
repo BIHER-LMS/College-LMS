@@ -1,4 +1,5 @@
 import prisma from '../../config/database';
+import { memoryCache } from '../../lib/cache';
 import { isDatabaseAvailable, markDatabaseUnavailable } from '../../lib/dbHealth';
 import { leaveService } from '../leaves/leave.service';
 import {
@@ -1434,6 +1435,10 @@ export class FacultyRepository {
 
   async getTodayReminders(facultyUid: string, targetDate?: string): Promise<TodayRemindersSummary> {
     const today = targetDate || new Date().toISOString().split('T')[0];
+    const cacheKey = `today_reminders:${facultyUid}:${today}`;
+    const cached = memoryCache.get<TodayRemindersSummary>(cacheKey);
+    if (cached) return cached;
+
     const todayObj = new Date(today + 'T00:00:00');
     const dayOfWeek = todayObj.toLocaleDateString('en-US', { weekday: 'long' });
     const dateFormatted = todayObj.toLocaleDateString('en-US', {
@@ -1443,28 +1448,21 @@ export class FacultyRepository {
       day: 'numeric',
     });
 
-    // 1. Fetch today's timetable slots
+    // 1, 2, 3. Fetch today's timetable slots, reminders, and assigned classes concurrently
     let todaySchedule: FacultyTimetableSlot[] = [];
+    let reminders: FacultyReminder[] = [];
+    let assignedClasses: any[] = [];
+
     if (await isDatabaseAvailable()) {
-      try {
-        const slots: any = await prisma.$queryRawUnsafe(
+      const [slotsRes, rowsRes, classesRes] = await Promise.allSettled([
+        prisma.$queryRawUnsafe(
           `SELECT * FROM faculty_timetables 
            WHERE faculty_uid = $1 AND LOWER(TRIM(day_of_week)) = LOWER(TRIM($2))
            ORDER BY period ASC, start_time ASC;`,
           facultyUid,
           dayOfWeek
-        );
-        todaySchedule = slots || [];
-      } catch (err) {
-        console.error('getTodayReminders timetable error:', err);
-      }
-    }
-
-    // 2. Fetch faculty reminders
-    let reminders: FacultyReminder[] = [];
-    if (await isDatabaseAvailable()) {
-      try {
-        const rows: any = await prisma.$queryRawUnsafe(
+        ),
+        prisma.$queryRawUnsafe(
           `SELECT * FROM faculty_reminders 
            WHERE faculty_uid = $1
            ORDER BY 
@@ -1473,45 +1471,73 @@ export class FacultyRepository {
              CASE priority WHEN 'HIGH' THEN 1 WHEN 'MEDIUM' THEN 2 ELSE 3 END ASC,
              created_at DESC;`,
           facultyUid
-        );
-        reminders = rows || [];
-      } catch (err) {
-        console.error('getTodayReminders reminders error:', err);
-      }
-    }
+        ),
+        this.getAssignedClasses(facultyUid),
+      ]);
 
-    // 3. Fetch assigned classes
-    const assignedClasses = await this.getAssignedClasses(facultyUid);
+      if (slotsRes.status === 'fulfilled') {
+        todaySchedule = (slotsRes.value as any) || [];
+      } else {
+        console.error('getTodayReminders timetable error:', slotsRes.reason);
+      }
+
+      if (rowsRes.status === 'fulfilled') {
+        reminders = (rowsRes.value as any) || [];
+      } else {
+        console.error('getTodayReminders reminders error:', rowsRes.reason);
+      }
+
+      if (classesRes.status === 'fulfilled') {
+        assignedClasses = classesRes.value || [];
+      } else {
+        console.error('getTodayReminders classes error:', classesRes.reason);
+      }
+    } else {
+      assignedClasses = await this.getAssignedClasses(facultyUid);
+    }
 
     const classReminders: TodayClassReminder[] = [];
     let pendingAttendanceCount = 0;
     let pendingMarksCount = 0;
+
+    // Batch fetch attendance sessions for all relevant class IDs
+    const relevantClassIds: string[] = Array.from(
+      new Set(
+        (todaySchedule && todaySchedule.length > 0)
+          ? todaySchedule.map((s: any) => s.class_id).filter(Boolean)
+          : assignedClasses.map((c: any) => c.id).filter(Boolean)
+      )
+    );
+
+    const sessionMap = new Map<string, string | null>();
+    if (relevantClassIds.length > 0 && (await isDatabaseAvailable())) {
+      try {
+        const sessions: any = await prisma.$queryRawUnsafe(
+          `SELECT class_id, period, updated_at FROM attendance_sessions
+           WHERE class_id = ANY($1::uuid[]) AND date = $2::date;`,
+          relevantClassIds,
+          today
+        );
+        if (Array.isArray(sessions)) {
+          for (const s of sessions) {
+            const k = `${s.class_id}_${s.period}`;
+            sessionMap.set(k, s.updated_at ? new Date(s.updated_at).toISOString() : null);
+          }
+        }
+      } catch (err) {
+        console.warn('Batch attendance sessions fetch warning:', err);
+      }
+    }
 
     // If faculty has timetable slots scheduled for today, use them:
     if (todaySchedule && todaySchedule.length > 0) {
       for (const slot of todaySchedule) {
         const classId = slot.class_id || slot.id || 'sched-' + slot.period;
         const period = slot.period || 'Period 1';
-        const key = `${classId}_${today}_${period}`;
+        const sessionKey = `${slot.class_id}_${period}`;
 
-        let isMarked = false;
-        let lastMarkedAt: string | null = null;
-
-        if (slot.class_id && (await isDatabaseAvailable())) {
-          try {
-            const sessions: any = await prisma.$queryRawUnsafe(
-              `SELECT id, updated_at FROM attendance_sessions
-               WHERE class_id = $1::uuid AND date = $2::date AND period = $3 LIMIT 1;`,
-              slot.class_id,
-              today,
-              period
-            );
-            if (sessions && sessions.length > 0) {
-              isMarked = true;
-              lastMarkedAt = sessions[0].updated_at ? new Date(sessions[0].updated_at).toISOString() : null;
-            }
-          } catch (err) {}
-        }
+        const isMarked = sessionMap.has(sessionKey);
+        const lastMarkedAt = isMarked ? sessionMap.get(sessionKey)! : null;
 
         if (!isMarked) {
           pendingAttendanceCount++;
@@ -1551,26 +1577,10 @@ export class FacultyRepository {
       for (const cls of assignedClasses) {
         const classId = cls.id;
         const period = 'Period 1';
-        const key = `${classId}_${today}_${period}`;
+        const sessionKey = `${classId}_${period}`;
 
-        let isMarked = false;
-        let lastMarkedAt: string | null = null;
-
-        if (await isDatabaseAvailable()) {
-          try {
-            const sessions: any = await prisma.$queryRawUnsafe(
-              `SELECT id, updated_at FROM attendance_sessions
-               WHERE class_id = $1::uuid AND date = $2::date AND period = $3 LIMIT 1;`,
-              classId,
-              today,
-              period
-            );
-            if (sessions && sessions.length > 0) {
-              isMarked = true;
-              lastMarkedAt = sessions[0].updated_at ? new Date(sessions[0].updated_at).toISOString() : null;
-            }
-          } catch (err) {}
-        }
+        const isMarked = sessionMap.has(sessionKey);
+        const lastMarkedAt = isMarked ? sessionMap.get(sessionKey)! : null;
 
         if (!isMarked) pendingAttendanceCount++;
 
@@ -1606,7 +1616,7 @@ export class FacultyRepository {
 
     const pendingRemindersCount = reminders.filter((r) => r.status === 'PENDING').length;
 
-    return {
+    const result: TodayRemindersSummary = {
       date: dateFormatted,
       dateIso: today,
       totalClassesToday: classReminders.length,
@@ -1617,6 +1627,9 @@ export class FacultyRepository {
       todaySchedule,
       reminders,
     };
+
+    memoryCache.set(cacheKey, result, 30);
+    return result;
   }
 
   // ==========================================
