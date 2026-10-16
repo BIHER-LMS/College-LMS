@@ -475,6 +475,8 @@ export class StudentRepository {
 
   /**
    * Fetch Class Master Timetable for a specific class (Created by Class Incharge)
+   * Unifies slots defined directly on class_timetables and faculty_timetables for this class,
+   * resolving faculty name and subject code in a single performant indexed query.
    */
   async getClassTimetable(classId: string): Promise<ClassTimetableSlot[]> {
     const cacheKey = `class_timetable:${classId}`;
@@ -483,9 +485,43 @@ export class StudentRepository {
 
     try {
       const slots: any = await prisma.$queryRawUnsafe(
-        `SELECT id, class_id, day_of_week, period, start_time, end_time, subject_name, subject_code, faculty_name, room
-         FROM class_timetables
-         WHERE class_id = $1::uuid
+        `SELECT * FROM (
+           SELECT 
+             ct.id, 
+             ct.class_id, 
+             ct.day_of_week, 
+             ct.period, 
+             ct.start_time, 
+             ct.end_time, 
+             ct.subject_name, 
+             ct.subject_code, 
+             ct.faculty_name, 
+             ct.room
+           FROM class_timetables ct
+           WHERE ct.class_id = $1::uuid
+           UNION ALL
+           SELECT 
+             ft.id, 
+             ft.class_id, 
+             ft.day_of_week, 
+             ft.period, 
+             ft.start_time, 
+             ft.end_time, 
+             ft.subject_name, 
+             COALESCE(s.code, '') AS subject_code, 
+             COALESCE(u.display_name, u.email, 'Class Incharge') AS faculty_name, 
+             ft.room
+           FROM faculty_timetables ft
+           LEFT JOIN authed_users u ON u.uid = ft.faculty_uid
+           LEFT JOIN subjects s ON s.id = ft.subject_id
+           WHERE ft.class_id = $1::uuid
+             AND NOT EXISTS (
+               SELECT 1 FROM class_timetables ct2 
+               WHERE ct2.class_id = ft.class_id 
+                 AND LOWER(TRIM(ct2.day_of_week)) = LOWER(TRIM(ft.day_of_week))
+                 AND LOWER(TRIM(ct2.period)) = LOWER(TRIM(ft.period))
+             )
+         ) unified
          ORDER BY 
            CASE LOWER(TRIM(day_of_week))
              WHEN 'monday' THEN 1
@@ -512,7 +548,7 @@ export class StudentRepository {
         faculty_name: s.faculty_name,
         room: s.room,
       }));
-      memoryCache.set(cacheKey, result, 60);
+      memoryCache.set(cacheKey, result, 15);
       return result;
     } catch (err: any) {
       console.error('StudentRepository.getClassTimetable error:', err);

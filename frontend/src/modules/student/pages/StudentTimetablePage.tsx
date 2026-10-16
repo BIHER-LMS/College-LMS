@@ -49,6 +49,50 @@ export const StudentTimetablePage: React.FC = () => {
     loadClassIncharge();
   }, [loadTimetable, loadClass, loadClassIncharge]);
 
+  // Real-time synchronization: cross-tab broadcast, focus/visibility re-fetch, and periodic background polling
+  useEffect(() => {
+    let channel: BroadcastChannel | null = null;
+    try {
+      if (typeof window !== "undefined" && "BroadcastChannel" in window) {
+        channel = new BroadcastChannel("aura_timetable_sync");
+        channel.onmessage = (event) => {
+          if (event.data?.type === "TIMETABLE_CHANGED") {
+            loadTimetable();
+          }
+        };
+      }
+    } catch {
+      // Ignore broadcast channel errors
+    }
+
+    const onFocus = () => {
+      loadTimetable();
+    };
+
+    const onVisibilityChange = () => {
+      if (document.visibilityState === "visible") {
+        loadTimetable();
+      }
+    };
+
+    window.addEventListener("focus", onFocus);
+    document.addEventListener("visibilitychange", onVisibilityChange);
+
+    // 20-second active poll while tab is visible
+    const pollInterval = setInterval(() => {
+      if (document.visibilityState === "visible") {
+        loadTimetable();
+      }
+    }, 20000);
+
+    return () => {
+      if (channel) channel.close();
+      window.removeEventListener("focus", onFocus);
+      document.removeEventListener("visibilitychange", onVisibilityChange);
+      clearInterval(pollInterval);
+    };
+  }, [loadTimetable]);
+
   // Extract period number from slot string (e.g. "Period 1" -> "1", "1" -> "1")
   const normalizePeriodId = (periodStr: string): string => {
     const match = periodStr.match(/\d+/);
@@ -138,6 +182,19 @@ export const StudentTimetablePage: React.FC = () => {
               <span>Day-by-Day</span>
             </button>
           </div>
+
+          <button
+            onClick={() => loadTimetable()}
+            disabled={loading.timetable}
+            className="inline-flex items-center gap-1.5 px-3 py-2 bg-white text-slate-700 hover:text-slate-900 border border-slate-200 rounded-md text-xs font-semibold hover:bg-slate-50 shadow-2xs transition-colors cursor-pointer disabled:opacity-60"
+            type="button"
+            title="Refresh Time Table"
+          >
+            <span className={`material-symbols-outlined text-[1.125rem] text-slate-600 ${loading.timetable ? "animate-spin" : ""}`}>
+              refresh
+            </span>
+            <span className="hidden sm:inline">{loading.timetable ? "Refreshing..." : "Refresh"}</span>
+          </button>
 
           <button
             onClick={handlePrint}

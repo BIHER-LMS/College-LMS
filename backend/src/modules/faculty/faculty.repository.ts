@@ -1697,6 +1697,10 @@ export class FacultyRepository {
         data.id,
         facultyUid
       );
+      if (classId) {
+        memoryCache.del(`class_timetable:${classId}`);
+      }
+      memoryCache.delPattern(/^class_timetable:/);
       return updated[0];
     } else {
       const inserted: any = await prisma.$queryRawUnsafe(
@@ -1714,6 +1718,10 @@ export class FacultyRepository {
         data.subject_name || '',
         data.room || null
       );
+      if (classId) {
+        memoryCache.del(`class_timetable:${classId}`);
+      }
+      memoryCache.delPattern(/^class_timetable:/);
       return inserted[0];
     }
   }
@@ -1747,9 +1755,15 @@ export class FacultyRepository {
         slot.subject_name || 'General Instruction',
         slot.room || null
       );
-      if (res && res[0]) insertedList.push(res[0]);
+      if (res && res[0]) {
+        insertedList.push(res[0]);
+        if (classId) {
+          memoryCache.del(`class_timetable:${classId}`);
+        }
+      }
     }
 
+    memoryCache.delPattern(/^class_timetable:/);
     return { count: insertedList.length, slots: insertedList };
   }
 
@@ -1757,9 +1771,13 @@ export class FacultyRepository {
     await this.assertFacultyIdentity(facultyUid);
     try {
       const rows: any[] = await prisma.$queryRawUnsafe(
-        `DELETE FROM faculty_timetables WHERE id = $1::uuid AND faculty_uid = $2 RETURNING id;`,
+        `DELETE FROM faculty_timetables WHERE id = $1::uuid AND faculty_uid = $2 RETURNING id, class_id;`,
         slotId, facultyUid
       );
+      if (rows && rows.length > 0 && rows[0].class_id) {
+        memoryCache.del(`class_timetable:${rows[0].class_id}`);
+      }
+      memoryCache.delPattern(/^class_timetable:/);
       return rows.length > 0;
     } catch (err) {
       console.error('deleteTimetableSlot error:', err);
@@ -2188,6 +2206,9 @@ export class FacultyRepository {
         slot.id,
         classId
       );
+      if (classId) {
+        memoryCache.del(`class_timetable:${classId}`);
+      }
       return updated[0];
     } else {
       const inserted: any = await prisma.$queryRawUnsafe(
@@ -2204,6 +2225,9 @@ export class FacultyRepository {
         slot.faculty_name || null,
         slot.room || null
       );
+      if (classId) {
+        memoryCache.del(`class_timetable:${classId}`);
+      }
       return inserted[0];
     }
   }
@@ -2241,6 +2265,10 @@ export class FacultyRepository {
       if (res && res[0]) insertedList.push(res[0]);
     }
 
+    if (classId) {
+      memoryCache.del(`class_timetable:${classId}`);
+    }
+
     return { count: insertedList.length, slots: insertedList };
   }
 
@@ -2251,6 +2279,9 @@ export class FacultyRepository {
         slotId,
         classId
       );
+      if (classId) {
+        memoryCache.del(`class_timetable:${classId}`);
+      }
       return true;
     } catch (err) {
       console.error('deleteClassTimetableSlot error:', err);

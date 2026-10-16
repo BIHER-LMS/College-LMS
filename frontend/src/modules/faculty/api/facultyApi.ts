@@ -65,6 +65,18 @@ const originalGet = api.get.bind(api);
   return promise;
 };
 
+function broadcastTimetableChange() {
+  try {
+    if (typeof window !== 'undefined' && 'BroadcastChannel' in window) {
+      const channel = new BroadcastChannel('aura_timetable_sync');
+      channel.postMessage({ type: 'TIMETABLE_CHANGED', timestamp: Date.now() });
+      channel.close();
+    }
+  } catch {
+    // Ignore cross-context broadcast errors
+  }
+}
+
 export const facultyApi = {
   // Dashboard
   getDashboard: async (): Promise<FacultyDashboardData> => {
@@ -174,6 +186,7 @@ export const facultyApi = {
 
   saveTimetableSlot: async (slot: Partial<FacultyTimetableSlot>): Promise<FacultyTimetableSlot> => {
     const res = await api.post<FacultyTimetableSlot>('/faculty/timetable', slot);
+    broadcastTimetableChange();
     return res.data;
   },
 
@@ -185,6 +198,7 @@ export const facultyApi = {
       slots,
       replaceExisting,
     });
+    broadcastTimetableChange();
     return res.data;
   },
 

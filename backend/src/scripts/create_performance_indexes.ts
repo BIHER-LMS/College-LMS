@@ -10,6 +10,8 @@ export async function createPerformanceIndexes() {
     `CREATE INDEX IF NOT EXISTS idx_authed_users_lower_email ON authed_users(LOWER(email));`,
     `CREATE INDEX IF NOT EXISTS idx_classes_faculty_uid ON classes(faculty_uid);`,
     `CREATE INDEX IF NOT EXISTS idx_subjects_dept ON subjects(department_id);`,
+    `CREATE INDEX IF NOT EXISTS idx_faculty_timetables_class_id ON faculty_timetables(class_id);`,
+    `CREATE INDEX IF NOT EXISTS idx_class_timetables_class_day ON class_timetables(class_id, day_of_week);`,
   ];
 
   for (const sql of indexStatements) {
@@ -32,7 +34,9 @@ export async function createPerformanceIndexes() {
         'idx_authed_users_college',
         'idx_authed_users_lower_email',
         'idx_classes_faculty_uid',
-        'idx_subjects_dept'
+        'idx_subjects_dept',
+        'idx_faculty_timetables_class_id',
+        'idx_class_timetables_class_day'
       );
   `;
   console.log('Verified active performance indexes:', created);

@@ -114,6 +114,7 @@ export class StudentController {
 
   async getTimetable(req: Request, res: Response, next: NextFunction) {
     try {
+      res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
       const data = await studentService.getClassTimetable((req as any).studentContext!);
       return successResponse(res, data, 200, 'Class master timetable retrieved');
     } catch (error) {
