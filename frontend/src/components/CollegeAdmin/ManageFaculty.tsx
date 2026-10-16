@@ -68,9 +68,18 @@ export function ManageFaculty({ collegeId }: { collegeId: string }) {
   };
 
   const assignDepartment = async (uid: string, deptId: string) => {
+    if (!deptId) {
+      showNotification('error', 'Faculty members must be assigned to an active department.');
+      return;
+    }
     setUpdatingUid(uid);
     try {
-      await updateUserProfile(uid, { department_id: deptId || null });
+      const f = faculty.find((fac) => fac.uid === uid);
+      const isDeptChanging = f && f.department_id && f.department_id !== deptId;
+      await updateUserProfile(uid, {
+        department_id: deptId,
+        ...(isDeptChanging ? { subject_id: null } : {}),
+      });
       showNotification('success', 'Faculty department assignment updated.');
       await loadAllData();
     } catch (err: any) {
@@ -96,7 +105,8 @@ export function ManageFaculty({ collegeId }: { collegeId: string }) {
   const handleClassInchargeChange = async (facultyUid: string, classId: string) => {
     setUpdatingUid(facultyUid);
     try {
-      await assignFacultyClassIncharge(facultyUid, classId || null);
+      const currentAssignedClass = classes.find((c) => c.faculty_uid === facultyUid);
+      await assignFacultyClassIncharge(facultyUid, classId || null, currentAssignedClass?.id);
       showNotification('success', 'Class incharge appointment updated successfully.');
       await loadAllData();
     } catch (err: any) {
@@ -336,7 +346,9 @@ export function ManageFaculty({ collegeId }: { collegeId: string }) {
                           disabled={updatingUid === f.uid}
                           className="h-8 px-2.5 bg-white border border-slate-200 rounded-lg text-xs font-medium text-slate-700 hover:border-slate-300 focus:outline-none focus:ring-1 focus:ring-blue-500"
                         >
-                          <option value="">Unassigned Dept</option>
+                          <option value="" disabled>
+                            Select Department
+                          </option>
                           {departments.map((d) => (
                             <option key={d.id} value={d.id}>
                               {d.name} ({d.code})

@@ -544,7 +544,7 @@ export async function assignUser(a: Actor, email: string, uid: string, data: { d
     if (old.role === 'FACULTY' && !dep) throw deny('Faculty requires department');
     if (old.role === 'STUDENT' && !dep) throw deny('Student requires department');
     if (data.class_id !== undefined && data.class_id && (!dep || !await tx.class.findFirst({ where: { id: data.class_id, batch: { program: { department_id: dep, department: { college_id: tenant(a) } } } }, select: { id: true } }))) throw missing();
-    if (data.subject_id !== undefined && data.subject_id && (old.role !== 'FACULTY' || !dep || !await tx.subject.findFirst({ where: { id: data.subject_id, department_id: dep, department: { college_id: tenant(a) } }, select: { id: true } }))) throw missing();
+    if (data.subject_id !== undefined && data.subject_id && (old.role !== 'FACULTY' || !dep || !await tx.subject.findFirst({ where: { id: data.subject_id, department: { college_id: tenant(a) } }, select: { id: true } }))) throw missing();
     if (data.register_number !== undefined && old.role !== 'STUDENT') throw deny();
     if (old.role === 'STUDENT' && data.department_id !== undefined && old.class_id && data.department_id !== old.department_id && data.class_id === undefined) throw conflict('Reassign enrollment with department');
     if (old.role === 'FACULTY' && data.department_id !== undefined && old.department_id !== dep && (await tx.class.count({ where: { faculty_uid: uid } }) || old.subject_id && data.subject_id === undefined)) throw conflict('Clear faculty assignments first');

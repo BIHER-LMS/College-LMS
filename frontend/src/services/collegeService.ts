@@ -629,14 +629,26 @@ export const fetchAllCollegeClasses = async (collegeId: string): Promise<ClassRe
   }
 };
 
-export const assignFacultyClassIncharge = async (facultyUid: string, classId: string | null) => {
+export const assignFacultyClassIncharge = async (
+  facultyUid: string,
+  classId: string | null,
+  currentClassId?: string | null
+) => {
   try {
-    // This is a complex operation - first unassign from any current class
-    // then assign to new class. The secure API handles this in updateStructure.
-    const data = await secureDataApi.updateStructure('classes', classId || '', {
-      faculty_uid: classId ? facultyUid : null,
-    });
-    return data;
+    // If the faculty is currently incharge of a different class, clear it first
+    if (currentClassId && currentClassId !== classId) {
+      await secureDataApi.updateStructure('classes', currentClassId, {
+        faculty_uid: null,
+      });
+    }
+    // If a new class is specified, assign the faculty to that class
+    if (classId) {
+      const data = await secureDataApi.updateStructure('classes', classId, {
+        faculty_uid: facultyUid,
+      });
+      return data;
+    }
+    return null;
   } catch (err) {
     console.error('Error assigning class incharge:', err);
     throw err;
@@ -645,8 +657,8 @@ export const assignFacultyClassIncharge = async (facultyUid: string, classId: st
 
 export const assignFacultySubject = async (facultyUid: string, subjectId: string | null) => {
   try {
-    const data = await secureDataApi.updateStructure('subjects', subjectId || '', {
-      faculty_uid: subjectId ? facultyUid : null,
+    const data = await secureDataApi.assignUser(facultyUid, {
+      subject_id: subjectId || null,
     });
     return data;
   } catch (err) {
