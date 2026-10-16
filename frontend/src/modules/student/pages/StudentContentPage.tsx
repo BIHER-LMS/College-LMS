@@ -77,9 +77,13 @@ export const StudentContentPage: React.FC = () => {
   const handleOpenContent = async (item: any, topic?: any) => {
     const selectedSub = subjects.find((s) => s.classSubjectId === selectedSubjectId);
 
+    const isMarkdown = (item.contentType || item.content_type) === 'MARKDOWN';
+    const hasMarkdown = !!(item.markdownContent || item.markdown_content);
+
     const initialContent = {
       ...item,
       contentType: item.contentType || item.content_type,
+      markdownContent: item.markdownContent || item.markdown_content || '',
       topic: item.topic || topic || { title: topic?.title || 'Learning Topic' },
       classSubject: item.classSubject || {
         subjectName: selectedSub?.subject?.name || selectedSub?.subjectName || 'Course',
@@ -92,7 +96,7 @@ export const StudentContentPage: React.FC = () => {
     setCurrentProgress(initialContent.progress);
     setLastTrackedTime(initialContent.progress?.lastPositionSeconds || 0);
     setReadingSessionSeconds(0);
-    setActiveContentLoading(false);
+    setActiveContentLoading(isMarkdown && !hasMarkdown);
     setIsPreviewModalOpen(true);
 
     // Asynchronously log the initial VIEW event & fetch fresh progress without blocking the UI
@@ -102,6 +106,7 @@ export const StudentContentPage: React.FC = () => {
         setActiveContent((prev: any) => ({
           ...prev,
           ...freshContent,
+          markdownContent: freshContent.markdownContent || freshContent.markdown_content || prev?.markdownContent || '',
           topic: freshContent.topic || prev?.topic,
           classSubject: freshContent.classSubject || prev?.classSubject,
         }));
@@ -112,6 +117,8 @@ export const StudentContentPage: React.FC = () => {
       }
     } catch (err) {
       console.warn('Background sync for content progress:', err);
+    } finally {
+      setActiveContentLoading(false);
     }
   };
 
@@ -947,7 +954,10 @@ export const StudentContentPage: React.FC = () => {
                     <div className="w-full h-full flex flex-col bg-white">
                       <div className="flex-1 text-slate-800 p-6 sm:p-10 overflow-y-auto">
                         <div className="max-w-4xl mx-auto">
-                          <MarkdownViewer content={activeContent.markdownContent || activeContent.markdown_content || ''} />
+                          <MarkdownViewer
+                            content={activeContent.markdownContent || activeContent.markdown_content || ''}
+                            isLoading={activeContentLoading}
+                          />
                         </div>
                       </div>
 

@@ -51,6 +51,7 @@ export class StudentContentService {
                     file_size_bytes: true,
                     youtube_url: true,
                     youtube_video_id: true,
+                    markdown_content: true,
                     duration_seconds: true,
                     order_index: true,
                     is_downloadable: true,
@@ -94,6 +95,7 @@ export class StudentContentService {
               fileSizeBytes: c.file_size_bytes ? Number(c.file_size_bytes) : null,
               youtubeUrl: c.youtube_url,
               youtubeVideoId: c.youtube_video_id,
+              markdownContent: c.markdown_content || null,
               durationSeconds: c.duration_seconds,
               isDownloadable: c.is_downloadable,
               progress: {

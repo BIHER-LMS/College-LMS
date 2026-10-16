@@ -7,6 +7,7 @@ import './MarkdownViewer.css';
 interface MarkdownViewerProps {
   content: string;
   className?: string;
+  isLoading?: boolean;
 }
 
 // Initialize Mermaid once globally with clean modern styling
@@ -26,14 +27,14 @@ mermaid.initialize({
   },
 });
 
-export const MarkdownViewer: React.FC<MarkdownViewerProps> = ({ content, className = '' }) => {
+export const MarkdownViewer: React.FC<MarkdownViewerProps> = ({ content, className = '', isLoading = false }) => {
   const containerRef = useRef<HTMLDivElement>(null);
   const [renderedHtml, setRenderedHtml] = useState<string>('');
 
   // Configure marked custom renderer
   useEffect(() => {
-    if (!content || !content.trim()) {
-      setRenderedHtml('<p class="text-slate-400 italic">No content provided.</p>');
+    if (isLoading || !content || !content.trim()) {
+      setRenderedHtml('');
       return;
     }
 
@@ -235,6 +236,18 @@ export const MarkdownViewer: React.FC<MarkdownViewerProps> = ({ content, classNa
       isSubscribed = false;
     };
   }, [renderedHtml]);
+
+  if (isLoading || !content || !content.trim()) {
+    return (
+      <div className={`markdown-body ${className} py-16 flex flex-col items-center justify-center gap-4 text-slate-500`}>
+        <div className="w-10 h-10 rounded-full border-3 border-indigo-100 border-t-indigo-600 animate-spin"></div>
+        <div className="text-center space-y-1">
+          <p className="text-sm font-semibold text-slate-800">Loading lecture notes & diagrams...</p>
+          <p className="text-xs text-slate-400">Rendering high-speed markdown and diagrams</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div
