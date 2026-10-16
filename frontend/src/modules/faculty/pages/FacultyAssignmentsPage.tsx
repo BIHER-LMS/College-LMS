@@ -1,7 +1,8 @@
 import React, { useEffect, useState } from 'react';
 import { facultyApi } from '../api/facultyApi';
 import { facultyContentApi } from '../api/facultyContentApi';
-import { Clock, FileText, Upload, Download, CheckCircle, Award, History, X, Loader2 } from 'lucide-react';
+import { Clock, FileText, Upload, Download, CheckCircle, Award, History, X, Loader2, ExternalLink } from 'lucide-react';
+import { downloadFileWithGuaranteedName } from '../../../utils/fileDownload';
 
 export const FacultyAssignmentsPage: React.FC = () => {
   const [subjects, setSubjects] = useState<any[]>([]);
@@ -369,14 +370,35 @@ export const FacultyAssignmentsPage: React.FC = () => {
                           <span>{sub.grade ? 'Re-grade' : 'Grade'}</span>
                         </button>
 
-                        <a
-                          href={sub.attachmentUrl || sub.fileUrl || sub.file_url}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="bg-white border border-slate-300 px-3 py-1.5 rounded-lg text-xs font-semibold text-indigo-600 hover:bg-indigo-50 transition flex items-center gap-1.5"
-                        >
-                          <Download className="w-3.5 h-3.5" /> View File
-                        </a>
+                        {(sub.attachmentUrl || sub.fileUrl || sub.file_url) && (
+                          <div className="flex items-center gap-1.5">
+                            <a
+                              href={sub.attachmentUrl || sub.fileUrl || sub.file_url}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="bg-white border border-slate-300 px-2.5 py-1.5 rounded-lg text-xs font-semibold text-slate-700 hover:text-indigo-600 hover:bg-slate-50 transition flex items-center gap-1"
+                              title="Open submission in new tab"
+                            >
+                              <ExternalLink className="w-3.5 h-3.5" /> View
+                            </a>
+                            <button
+                              type="button"
+                              onClick={() => {
+                                const fileUrl = sub.attachmentUrl || sub.fileUrl || sub.file_url;
+                                const reg = sub.student?.register_number || 'student';
+                                const name = sub.student?.display_name?.replace(/[^a-zA-Z0-9]/g, '_') || 'submission';
+                                const cleanUrl = fileUrl.split('?')[0];
+                                const extMatch = cleanUrl.match(/\.([a-zA-Z0-9]+)$/);
+                                const ext = extMatch ? extMatch[1] : 'pdf';
+                                downloadFileWithGuaranteedName(fileUrl, `${reg}_${name}_submission.${ext}`);
+                              }}
+                              className="bg-emerald-50 border border-emerald-200 px-2.5 py-1.5 rounded-lg text-xs font-semibold text-emerald-700 hover:bg-emerald-100 transition flex items-center gap-1"
+                              title="Download student submission"
+                            >
+                              <Download className="w-3.5 h-3.5" /> Download
+                            </button>
+                          </div>
+                        )}
                       </div>
                     </div>
                   ))}

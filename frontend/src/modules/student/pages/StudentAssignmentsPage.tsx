@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { studentApi } from '../api/studentApi';
 import { Calendar, Clock, FileText, Upload, CheckCircle, AlertCircle, Download, FileImage, ExternalLink } from 'lucide-react';
+import { downloadFileWithGuaranteedName } from '../../../utils/fileDownload';
 
 export const StudentAssignmentsPage: React.FC = () => {
   const [assignments, setAssignments] = useState<any[]>([]);
@@ -160,8 +161,25 @@ export const StudentAssignmentsPage: React.FC = () => {
                           className="inline-flex items-center gap-1 px-3 py-1.5 text-xs font-semibold text-indigo-600 hover:text-indigo-800 bg-white border border-slate-200 rounded-lg shadow-2xs hover:bg-slate-50 transition"
                         >
                           <ExternalLink className="w-3.5 h-3.5" />
-                          <span>View Submission</span>
+                          <span>View</span>
                         </a>
+
+                        <button
+                          type="button"
+                          onClick={() => {
+                            const fileUrl = assignment.submission.file_url;
+                            const title = assignment.title?.replace(/[^a-zA-Z0-9]/g, '_') || 'assignment';
+                            const cleanUrl = fileUrl.split('?')[0];
+                            const extMatch = cleanUrl.match(/\.([a-zA-Z0-9]+)$/);
+                            const ext = extMatch ? extMatch[1] : 'pdf';
+                            downloadFileWithGuaranteedName(fileUrl, `my_${title}_submission.${ext}`);
+                          }}
+                          className="inline-flex items-center gap-1 px-3 py-1.5 text-xs font-semibold text-emerald-700 hover:text-emerald-800 bg-emerald-50 border border-emerald-200 rounded-lg shadow-2xs hover:bg-emerald-100 transition"
+                          title="Download your submission"
+                        >
+                          <Download className="w-3.5 h-3.5" />
+                          <span>Download</span>
+                        </button>
 
                         <input
                           type="file"

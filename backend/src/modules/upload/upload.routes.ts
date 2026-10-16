@@ -31,6 +31,7 @@ router.post(
       const folder = (req.body.folder as string) || 'college_lms/uploads';
       const result = await storageService.uploadBuffer(req.file.buffer, {
         folder,
+        originalFilename: req.file.originalname,
         resourceType: req.file.mimetype.startsWith('image/') ? 'image' : 'auto',
       });
 
@@ -64,7 +65,7 @@ router.post(
       }
 
       const folder = (req.body.folder as string) || 'college_lms/announcements';
-      const result = await storageService.uploadImage(req.file.buffer, folder);
+      const result = await storageService.uploadImage(req.file.buffer, folder, undefined, req.file.originalname);
 
       return sendSuccess(
         res,

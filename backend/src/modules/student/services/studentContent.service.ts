@@ -15,51 +15,52 @@ export class StudentContentService {
       throw new AppError(400, 'BAD_REQUEST', 'Student is not assigned to any class.');
     }
 
-    const classSubjects = await prisma.classSubject.findMany({
-      where: { class_id: studentContext.classId },
-      include: {
-        subject: true,
-        faculty: {
-          select: {
-            uid: true,
-            display_name: true,
-            email: true,
-            photo_url: true,
+    // Parallel fetch: classSubjects and student progressRecords run concurrently
+    const [classSubjects, progressRecords] = await Promise.all([
+      prisma.classSubject.findMany({
+        where: { class_id: studentContext.classId },
+        include: {
+          subject: true,
+          faculty: {
+            select: {
+              uid: true,
+              display_name: true,
+              email: true,
+              photo_url: true,
+            },
           },
-        },
-        topics: {
-          where: { is_published: true },
-          orderBy: { order_index: 'asc' },
-          include: {
-            contents: {
-              where: { is_published: true },
-              orderBy: { order_index: 'asc' },
-              select: {
-                id: true,
-                topic_id: true,
-                title: true,
-                description: true,
-                content_type: true,
-                file_url: true,
-                file_name: true,
-                file_size_bytes: true,
-                youtube_url: true,
-                youtube_video_id: true,
-                duration_seconds: true,
-                order_index: true,
-                is_downloadable: true,
-                created_at: true,
+          topics: {
+            where: { is_published: true },
+            orderBy: { order_index: 'asc' },
+            include: {
+              contents: {
+                where: { is_published: true },
+                orderBy: { order_index: 'asc' },
+                select: {
+                  id: true,
+                  topic_id: true,
+                  title: true,
+                  description: true,
+                  content_type: true,
+                  file_url: true,
+                  file_name: true,
+                  file_size_bytes: true,
+                  youtube_url: true,
+                  youtube_video_id: true,
+                  duration_seconds: true,
+                  order_index: true,
+                  is_downloadable: true,
+                  created_at: true,
+                },
               },
             },
           },
         },
-      },
-    });
-
-    // Fetch all student progress records for this student in this class
-    const progressRecords = await prisma.studentContentProgress.findMany({
-      where: { student_uid: studentContext.uid },
-    });
+      }),
+      prisma.studentContentProgress.findMany({
+        where: { student_uid: studentContext.uid },
+      }),
+    ]);
 
     const progressMap = new Map<string, any>();
     for (const p of progressRecords) {
@@ -270,31 +271,31 @@ export class StudentContentService {
     const pos = Math.max(0, event.positionSeconds ?? 0);
     const dur = Math.max(0, event.durationSeconds ?? content.duration_seconds ?? 0);
 
-    // 1. Append raw telemetry event
-    await prisma.learningEvent.create({
-      data: {
-        student_uid: studentContext.uid,
-        content_id: contentId,
-        class_subject_id: content.class_subject_id,
-        event_type: event.eventType,
-        position_seconds: pos,
-        duration_seconds: dur,
-        playback_rate: event.playbackRate ?? 1.0,
-        seek_from: event.seekFrom ?? null,
-        seek_to: event.seekTo ?? null,
-        metadata: event.metadata ?? null,
-      },
-    });
-
-    // 2. Fetch or create progress record
-    let progress = await prisma.studentContentProgress.findUnique({
-      where: {
-        student_uid_content_id: {
+    // 1 & 2. Append raw telemetry event and read current progress record concurrently
+    const [_, progress] = await Promise.all([
+      prisma.learningEvent.create({
+        data: {
           student_uid: studentContext.uid,
           content_id: contentId,
+          class_subject_id: content.class_subject_id,
+          event_type: event.eventType,
+          position_seconds: pos,
+          duration_seconds: dur,
+          playback_rate: event.playbackRate ?? 1.0,
+          seek_from: event.seekFrom ?? null,
+          seek_to: event.seekTo ?? null,
+          metadata: event.metadata ?? null,
         },
-      },
-    });
+      }),
+      prisma.studentContentProgress.findUnique({
+        where: {
+          student_uid_content_id: {
+            student_uid: studentContext.uid,
+            content_id: contentId,
+          },
+        },
+      }),
+    ]);
 
     const isRewind = event.eventType === 'REWIND';
     const isSeek = event.eventType === 'SEEK';

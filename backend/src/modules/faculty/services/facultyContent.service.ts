@@ -1,5 +1,6 @@
 import prisma from '../../../config/database';
 import { storageService } from '../../../services/storage.service';
+import { memoryCache } from '../../../lib/cache';
 import { AppError } from '../../../utils/errors';
 import { logger } from '../../../utils/logger';
 import { LearningContentType } from '@prisma/client';
@@ -52,12 +53,23 @@ export interface UpdateContentInput {
 
 export class FacultyContentService {
   /**
+   * Helper to invalidate topics cache for a class subject
+   */
+  private invalidateTopicsCache(classSubjectId: string) {
+    memoryCache.delPattern(new RegExp(`^faculty_topics:${classSubjectId}`));
+  }
+
+  /**
    * Verify that the faculty is authorized to manage this classSubject.
    */
   private async verifyFacultyAccess(facultyUid: string, classSubjectId: string): Promise<any> {
     if (!classSubjectId || typeof classSubjectId !== 'string' || !classSubjectId.trim()) {
       throw new AppError(400, 'VALIDATION_ERROR', 'A valid classSubjectId is required.');
     }
+
+    const accessCacheKey = `fac_access:${facultyUid}:${classSubjectId}`;
+    const cachedAccess = memoryCache.get(accessCacheKey);
+    if (cachedAccess) return cachedAccess;
 
     const facultyUser = await prisma.authedUser.findUnique({
       where: { uid: facultyUid },
@@ -84,6 +96,7 @@ export class FacultyContentService {
       throw new AppError(403, 'FORBIDDEN', 'You are not assigned to teach this subject for this class.');
     }
 
+    memoryCache.set(accessCacheKey, classSubject, 60);
     return classSubject;
   }
 
@@ -93,6 +106,10 @@ export class FacultyContentService {
 
   async getTopics(classSubjectId: string, facultyUid: string) {
     await this.verifyFacultyAccess(facultyUid, classSubjectId);
+
+    const cacheKey = `faculty_topics:${classSubjectId}:${facultyUid}`;
+    const cached = memoryCache.get(cacheKey);
+    if (cached) return cached;
 
     const topics = await prisma.topic.findMany({
       where: { class_subject_id: classSubjectId },
@@ -114,13 +131,16 @@ export class FacultyContentService {
       },
     });
 
-    return topics.map((t) => ({
+    const result = topics.map((t) => ({
       ...t,
       contents: (t.contents || []).map((c) => ({
         ...c,
         file_size_bytes: c.file_size_bytes != null ? Number(c.file_size_bytes) : null,
       })),
     }));
+
+    memoryCache.set(cacheKey, result, 30);
+    return result;
   }
 
   async createTopic(input: CreateTopicInput, facultyUid: string) {
@@ -147,6 +167,7 @@ export class FacultyContentService {
       },
     });
 
+    this.invalidateTopicsCache(input.classSubjectId);
     logger.info('Created topic:', { topicId: topic.id, facultyUid });
     return topic;
   }
@@ -172,6 +193,7 @@ export class FacultyContentService {
       },
     });
 
+    this.invalidateTopicsCache(existing.class_subject_id);
     return updated;
   }
 
@@ -190,6 +212,7 @@ export class FacultyContentService {
       where: { id: topicId },
     });
 
+    this.invalidateTopicsCache(existing.class_subject_id);
     return { message: 'Topic deleted successfully' };
   }
 
@@ -305,6 +328,7 @@ export class FacultyContentService {
       },
     });
 
+    this.invalidateTopicsCache(input.classSubjectId);
     return {
       ...content,
       file_size_bytes: content.file_size_bytes ? Number(content.file_size_bytes) : null,
@@ -357,6 +381,7 @@ export class FacultyContentService {
     const folder = `college_lms/learning_content/${meta.classSubjectId}`;
     const uploadRes = await storageService.uploadBuffer(file.buffer, {
       folder,
+      originalFilename: file.originalname,
       resourceType: isVideo ? 'video' : 'auto',
       tags: ['learning_content', `class_subject_${meta.classSubjectId}`, contentType],
     });
@@ -414,6 +439,7 @@ export class FacultyContentService {
       },
     });
 
+    this.invalidateTopicsCache(existing.class_subject_id);
     return {
       ...updated,
       file_size_bytes: updated.file_size_bytes ? Number(updated.file_size_bytes) : null,
@@ -435,6 +461,7 @@ export class FacultyContentService {
       where: { id: contentId },
     });
 
+    this.invalidateTopicsCache(existing.class_subject_id);
     return { message: 'Content deleted successfully' };
   }
 

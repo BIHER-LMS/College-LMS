@@ -39,21 +39,21 @@ export async function facultyAuthMiddleware(req: Request, res: Response, next: N
       return next();
     }
 
-    const authedUser = await prisma.authedUser.findUnique({
-      where: { uid: decodedToken.uid },
-      include: { department: true },
-    });
+    const [authedUser, dbUser] = await Promise.all([
+      prisma.authedUser.findUnique({
+        where: { uid: decodedToken.uid },
+        include: { department: true },
+      }),
+      prisma.user.findUnique({
+        where: { firebaseUid: decodedToken.uid },
+        include: { userRoles: { include: { role: true } } },
+      }),
+    ]);
+
     if (!authedUser) {
       res.status(401).json({ error: 'Unauthorized: User not registered in database' });
       return;
     }
-
-    // Both account systems may coexist. Neither may override a disabled or
-    // conflicting assignment in the other system.
-    const dbUser = await prisma.user.findUnique({
-      where: { firebaseUid: decodedToken.uid },
-      include: { userRoles: { include: { role: true } } },
-    });
     const role = authedUser.role?.toUpperCase();
     if (!['ACTIVE', 'APPROVED'].includes(authedUser.approval_status?.toUpperCase() || '') ||
         !role || !authedUser.college_id || !authedUser.department_id ||

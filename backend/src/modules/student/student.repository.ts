@@ -548,7 +548,7 @@ export class StudentRepository {
         faculty_name: s.faculty_name,
         room: s.room,
       }));
-      memoryCache.set(cacheKey, result, 15);
+      memoryCache.set(cacheKey, result, 60);
       return result;
     } catch (err: any) {
       console.error('StudentRepository.getClassTimetable error:', err);

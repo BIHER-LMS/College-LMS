@@ -1,6 +1,7 @@
 import express from 'express';
 import cors from 'cors';
 import helmet from 'helmet';
+import compression from 'compression';
 import rateLimit from 'express-rate-limit';
 import { env } from './config/env';
 import { errorHandler, notFoundHandler } from './middleware/error.middleware';
@@ -25,7 +26,8 @@ import uploadRoutes from './modules/upload/upload.routes';
 
 const app = express();
 
-// ─── Security Middleware ─────────────────────────────
+// ─── Performance & Security Middleware ───────────────
+app.use(compression({ threshold: 1024 }));
 app.use(helmet());
 
 app.use(

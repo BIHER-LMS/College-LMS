@@ -853,6 +853,10 @@ export class FacultyRepository {
   }
 
   async getDepartmentById(departmentId: string): Promise<any> {
+    const cacheKey = `dept:${departmentId}`;
+    const cached = memoryCache.get(cacheKey);
+    if (cached) return cached;
+
     if (await isDatabaseAvailable()) {
       try {
         const dept = await (prisma as any).department.findUnique({
@@ -869,10 +873,12 @@ export class FacultyRepository {
           },
         });
         if (dept) {
-          return {
+          const result = {
             ...dept,
             authed_users_departments_hod_uidToauthed_users: dept.hod || dept.authed_users_departments_hod_uidToauthed_users,
           };
+          memoryCache.set(cacheKey, result, 300);
+          return result;
         }
       } catch (err: any) {
         markDatabaseUnavailable();
@@ -887,6 +893,10 @@ export class FacultyRepository {
   }
 
   async getDepartmentSubjects(departmentId: string, semesterNumber?: number): Promise<any[]> {
+    const cacheKey = `dept_subjects:${departmentId}:${semesterNumber || 'all'}`;
+    const cached = memoryCache.get<any[]>(cacheKey);
+    if (cached) return cached;
+
     if (await isDatabaseAvailable()) {
       try {
         const subjects = await (prisma as any).subject.findMany({
@@ -899,7 +909,10 @@ export class FacultyRepository {
             { code: 'asc' },
           ],
         });
-        if (subjects && subjects.length > 0) return subjects;
+        if (subjects && subjects.length > 0) {
+          memoryCache.set(cacheKey, subjects, 300);
+          return subjects;
+        }
       } catch (err: any) {
         markDatabaseUnavailable();
         if (!this.isDevMode) throw err;
@@ -941,6 +954,10 @@ export class FacultyRepository {
   }
 
   async getCurrentAcademicYear(collegeId: string): Promise<any> {
+    const cacheKey = `academic_year_current:${collegeId}`;
+    const cached = memoryCache.get(cacheKey);
+    if (cached) return cached;
+
     if (await isDatabaseAvailable()) {
       try {
         const year = await (prisma as any).academicYear.findFirst({
@@ -952,7 +969,10 @@ export class FacultyRepository {
             semesters: true,
           },
         });
-        if (year) return year;
+        if (year) {
+          memoryCache.set(cacheKey, year, 300);
+          return year;
+        }
       } catch (err: any) {
         markDatabaseUnavailable();
         if (!this.isDevMode) throw err;
@@ -1636,6 +1656,10 @@ export class FacultyRepository {
   // TIMETABLE METHODS
   // ==========================================
   async getTimetable(facultyUid: string): Promise<FacultyTimetableSlot[]> {
+    const cacheKey = `faculty_timetable:${facultyUid}`;
+    const cached = memoryCache.get<FacultyTimetableSlot[]>(cacheKey);
+    if (cached) return cached;
+
     if (await isDatabaseAvailable()) {
       try {
         let slots: any = await prisma.$queryRawUnsafe(
@@ -1657,7 +1681,9 @@ export class FacultyRepository {
           facultyUid
         );
 
-        return slots || [];
+        const result = slots || [];
+        memoryCache.set(cacheKey, result, 30);
+        return result;
       } catch (err: any) {
         console.error('getTimetable error:', err);
         return [];
@@ -1699,7 +1725,9 @@ export class FacultyRepository {
       );
       if (classId) {
         memoryCache.del(`class_timetable:${classId}`);
+        memoryCache.del(`faculty_class_timetable:${classId}`);
       }
+      memoryCache.del(`faculty_timetable:${facultyUid}`);
       memoryCache.delPattern(/^class_timetable:/);
       return updated[0];
     } else {
@@ -1720,13 +1748,19 @@ export class FacultyRepository {
       );
       if (classId) {
         memoryCache.del(`class_timetable:${classId}`);
+        memoryCache.del(`faculty_class_timetable:${classId}`);
       }
+      memoryCache.del(`faculty_timetable:${facultyUid}`);
       memoryCache.delPattern(/^class_timetable:/);
       return inserted[0];
     }
   }
 
-  async bulkSaveTimetable(facultyUid: string, slots: Partial<FacultyTimetableSlot>[], replaceExisting: boolean = true): Promise<{ count: number; slots: FacultyTimetableSlot[] }> {
+  async bulkSaveTimetable(
+    facultyUid: string,
+    slots: Partial<FacultyTimetableSlot>[],
+    replaceExisting: boolean = true
+  ): Promise<{ count: number; slots: FacultyTimetableSlot[] }> {
     if (replaceExisting) {
       await prisma.$queryRawUnsafe(
         `DELETE FROM faculty_timetables WHERE faculty_uid = $1;`,
@@ -1734,16 +1768,33 @@ export class FacultyRepository {
       ).catch(() => {});
     }
 
-    const insertedList: FacultyTimetableSlot[] = [];
-    for (const slot of slots) {
-      if (!slot.day_of_week || !slot.period) continue;
-      const classId = (slot.class_id && slot.class_id.length > 20 && !slot.class_id.includes(' ')) ? slot.class_id : null;
-      const subjectId = (slot.subject_id && slot.subject_id.length > 20 && !slot.subject_id.includes(' ')) ? slot.subject_id : null;
+    const validSlots = slots.filter((s) => s.day_of_week && s.period);
+    if (validSlots.length === 0) {
+      memoryCache.del(`faculty_timetable:${facultyUid}`);
+      memoryCache.delPattern(/^class_timetable:/);
+      memoryCache.delPattern(/^faculty_class_timetable:/);
+      return { count: 0, slots: [] };
+    }
 
-      const res: any = await prisma.$queryRawUnsafe(
-        `INSERT INTO faculty_timetables (faculty_uid, day_of_week, period, start_time, end_time, class_id, class_name, subject_id, subject_name, room)
-         VALUES ($1, $2, $3, $4, $5, $6::uuid, $7, $8::uuid, $9, $10)
-         RETURNING *;`,
+    // Build single parameterized batch query
+    const valuePlaceholders: string[] = [];
+    const params: any[] = [];
+    let pIdx = 1;
+
+    for (const slot of validSlots) {
+      const classId =
+        slot.class_id && slot.class_id.length > 20 && !slot.class_id.includes(' ')
+          ? slot.class_id
+          : null;
+      const subjectId =
+        slot.subject_id && slot.subject_id.length > 20 && !slot.subject_id.includes(' ')
+          ? slot.subject_id
+          : null;
+
+      valuePlaceholders.push(
+        `($${pIdx}, $${pIdx + 1}, $${pIdx + 2}, $${pIdx + 3}, $${pIdx + 4}, $${pIdx + 5}::uuid, $${pIdx + 6}, $${pIdx + 7}::uuid, $${pIdx + 8}, $${pIdx + 9})`
+      );
+      params.push(
         facultyUid,
         slot.day_of_week,
         slot.period,
@@ -1755,16 +1806,22 @@ export class FacultyRepository {
         slot.subject_name || 'General Instruction',
         slot.room || null
       );
-      if (res && res[0]) {
-        insertedList.push(res[0]);
-        if (classId) {
-          memoryCache.del(`class_timetable:${classId}`);
-        }
-      }
+      pIdx += 10;
     }
 
+    const inserted: any = await prisma.$queryRawUnsafe(
+      `INSERT INTO faculty_timetables (faculty_uid, day_of_week, period, start_time, end_time, class_id, class_name, subject_id, subject_name, room)
+       VALUES ${valuePlaceholders.join(', ')}
+       RETURNING *;`,
+      ...params
+    );
+
+    memoryCache.del(`faculty_timetable:${facultyUid}`);
     memoryCache.delPattern(/^class_timetable:/);
-    return { count: insertedList.length, slots: insertedList };
+    memoryCache.delPattern(/^faculty_class_timetable:/);
+
+    const resultSlots = inserted || [];
+    return { count: resultSlots.length, slots: resultSlots };
   }
 
   async deleteTimetableSlot(facultyUid: string, slotId: string): Promise<boolean> {
@@ -1776,8 +1833,11 @@ export class FacultyRepository {
       );
       if (rows && rows.length > 0 && rows[0].class_id) {
         memoryCache.del(`class_timetable:${rows[0].class_id}`);
+        memoryCache.del(`faculty_class_timetable:${rows[0].class_id}`);
       }
+      memoryCache.del(`faculty_timetable:${facultyUid}`);
       memoryCache.delPattern(/^class_timetable:/);
+      memoryCache.delPattern(/^faculty_class_timetable:/);
       return rows.length > 0;
     } catch (err) {
       console.error('deleteTimetableSlot error:', err);
@@ -2151,6 +2211,10 @@ export class FacultyRepository {
   // ==========================================
   async getClassTimetable(facultyUid: string, classId: string): Promise<ClassTimetableSlot[]> {
     await this.assertFacultyClassAccess(facultyUid, classId);
+    const cacheKey = `faculty_class_timetable:${classId}`;
+    const cached = memoryCache.get<ClassTimetableSlot[]>(cacheKey);
+    if (cached) return cached;
+
     if (await isDatabaseAvailable()) {
       try {
         const slots: any = await prisma.$queryRawUnsafe(
@@ -2171,7 +2235,9 @@ export class FacultyRepository {
              period ASC, start_time ASC;`,
           classId, facultyUid, false
         );
-        return slots || [];
+        const result = slots || [];
+        memoryCache.set(cacheKey, result, 30);
+        return result;
       } catch (err: any) {
         console.error('getClassTimetable error:', err);
         return [];
@@ -2208,6 +2274,7 @@ export class FacultyRepository {
       );
       if (classId) {
         memoryCache.del(`class_timetable:${classId}`);
+        memoryCache.del(`faculty_class_timetable:${classId}`);
       }
       return updated[0];
     } else {
@@ -2227,6 +2294,7 @@ export class FacultyRepository {
       );
       if (classId) {
         memoryCache.del(`class_timetable:${classId}`);
+        memoryCache.del(`faculty_class_timetable:${classId}`);
       }
       return inserted[0];
     }
@@ -2244,14 +2312,25 @@ export class FacultyRepository {
       ).catch(() => {});
     }
 
-    const insertedList: ClassTimetableSlot[] = [];
-    for (const slot of slots) {
-      if (!slot.day_of_week || !slot.period || !slot.subject_name) continue;
+    const validSlots = slots.filter((s) => s.day_of_week && s.period && s.subject_name);
+    if (validSlots.length === 0) {
+      if (classId) {
+        memoryCache.del(`class_timetable:${classId}`);
+        memoryCache.del(`faculty_class_timetable:${classId}`);
+      }
+      return { count: 0, slots: [] };
+    }
 
-      const res: any = await prisma.$queryRawUnsafe(
-        `INSERT INTO class_timetables (class_id, day_of_week, period, start_time, end_time, subject_name, subject_code, faculty_name, room)
-         VALUES ($1::uuid, $2, $3, $4, $5, $6, $7, $8, $9)
-         RETURNING *;`,
+    // Build single parameterized batch query
+    const valuePlaceholders: string[] = [];
+    const params: any[] = [];
+    let pIdx = 1;
+
+    for (const slot of validSlots) {
+      valuePlaceholders.push(
+        `($${pIdx}::uuid, $${pIdx + 1}, $${pIdx + 2}, $${pIdx + 3}, $${pIdx + 4}, $${pIdx + 5}, $${pIdx + 6}, $${pIdx + 7}, $${pIdx + 8})`
+      );
+      params.push(
         classId,
         slot.day_of_week,
         slot.period,
@@ -2262,14 +2341,23 @@ export class FacultyRepository {
         slot.faculty_name || null,
         slot.room || null
       );
-      if (res && res[0]) insertedList.push(res[0]);
+      pIdx += 9;
     }
+
+    const inserted: any = await prisma.$queryRawUnsafe(
+      `INSERT INTO class_timetables (class_id, day_of_week, period, start_time, end_time, subject_name, subject_code, faculty_name, room)
+       VALUES ${valuePlaceholders.join(', ')}
+       RETURNING *;`,
+      ...params
+    );
 
     if (classId) {
       memoryCache.del(`class_timetable:${classId}`);
+      memoryCache.del(`faculty_class_timetable:${classId}`);
     }
 
-    return { count: insertedList.length, slots: insertedList };
+    const resultSlots = inserted || [];
+    return { count: resultSlots.length, slots: resultSlots };
   }
 
   async deleteClassTimetableSlot(classId: string, slotId: string): Promise<boolean> {
@@ -2281,6 +2369,7 @@ export class FacultyRepository {
       );
       if (classId) {
         memoryCache.del(`class_timetable:${classId}`);
+        memoryCache.del(`faculty_class_timetable:${classId}`);
       }
       return true;
     } catch (err) {

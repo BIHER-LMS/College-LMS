@@ -9,7 +9,7 @@ export const uploadMemory = multer({
     fileSize: 15 * 1024 * 1024, // 15MB maximum file size
   },
   fileFilter: (_req, file, cb) => {
-    // Allow images and common document formats
+    // Allow images, presentations, office documents, PDFs, and archives
     const allowedMimeTypes = [
       'image/jpeg',
       'image/png',
@@ -19,13 +19,20 @@ export const uploadMemory = multer({
       'application/pdf',
       'application/msword',
       'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+      'application/vnd.ms-powerpoint',
+      'application/vnd.openxmlformats-officedocument.presentationml.presentation',
+      'application/zip',
+      'application/x-zip-compressed',
       'text/plain',
+      'text/markdown',
+      'text/x-markdown',
     ];
 
-    if (allowedMimeTypes.includes(file.mimetype) || file.mimetype.startsWith('image/')) {
+    const isAllowedExt = /\.(pdf|ppt|pptx|doc|docx|md|markdown|txt|zip|jpg|jpeg|png|webp|gif|svg)$/i.test(file.originalname);
+    if (allowedMimeTypes.includes(file.mimetype) || file.mimetype.startsWith('image/') || isAllowedExt) {
       cb(null, true);
     } else {
-      cb(new Error(`Unsupported file type: ${file.mimetype}. Please upload an image or PDF.`));
+      cb(new Error(`Unsupported file type: ${file.mimetype}. Allowed types: Images, PDFs, Office Documents (.ppt, .pptx, .doc, .docx), Zip, Markdown.`));
     }
   },
 });

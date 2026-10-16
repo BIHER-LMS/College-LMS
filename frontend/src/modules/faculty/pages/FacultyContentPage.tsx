@@ -16,9 +16,11 @@ import {
   Lock,
   Eye,
   X,
+  Download,
 } from 'lucide-react';
 import { facultyContentApi } from '../api/facultyContentApi';
 import { facultyApi } from '../api/facultyApi';
+import { downloadFileWithGuaranteedName } from '../../../utils/fileDownload';
 
 const YoutubeIcon: React.FC<{ className?: string }> = ({ className = 'w-5 h-5' }) => (
   <svg className={className} viewBox="0 0 24 24" fill="currentColor">
@@ -57,6 +59,21 @@ export const FacultyContentPage: React.FC = () => {
   // In-App LMS Preview State
   const [previewContent, setPreviewContent] = useState<any>(null);
   const [isPreviewModalOpen, setIsPreviewModalOpen] = useState<boolean>(false);
+  const [viewerEngine, setViewerEngine] = useState<'office' | 'google'>('office');
+  const [downloadingFile, setDownloadingFile] = useState<boolean>(false);
+
+  const handleDownloadFile = async (url: string, name: string) => {
+    if (!url) return;
+    try {
+      setDownloadingFile(true);
+      await downloadFileWithGuaranteedName(url, name);
+    } catch (e: any) {
+      console.error(e);
+      alert(e.message || 'Download failed');
+    } finally {
+      setDownloadingFile(false);
+    }
+  };
 
   // Load faculty's assigned subjects
   useEffect(() => {
@@ -540,6 +557,18 @@ export const FacultyContentPage: React.FC = () => {
                                 View
                               </a>
                             )}
+                            {item.file_url && (
+                              <button
+                                type="button"
+                                onClick={() => handleDownloadFile(item.file_url, item.file_name || item.title)}
+                                disabled={downloadingFile}
+                                className="flex items-center gap-1 text-xs font-medium text-emerald-700 hover:text-emerald-800 bg-emerald-50 hover:bg-emerald-100 px-3 py-1.5 rounded-lg transition"
+                                title="Download Material"
+                              >
+                                <Download className="w-3.5 h-3.5" />
+                                <span>Download</span>
+                              </button>
+                            )}
                             {item.youtube_url && (
                               <a
                                 href={item.youtube_url}
@@ -869,16 +898,70 @@ export const FacultyContentPage: React.FC = () => {
                 </div>
               </div>
 
-              <div className="flex items-center gap-3">
-                <span className="text-[11px] font-semibold bg-indigo-900/60 text-indigo-300 border border-indigo-700 px-2.5 py-1 rounded-md">
-                  Faculty LMS Preview
-                </span>
+              <div className="flex items-center gap-2 sm:gap-3">
+                {/* Engine switcher for Office & PPT documents */}
+                {(previewContent.content_type === 'PPT' || previewContent.content_type === 'DOC') && (
+                  <div className="hidden sm:flex items-center bg-slate-800 rounded-lg p-0.5 border border-slate-700 text-xs">
+                    <button
+                      type="button"
+                      onClick={() => setViewerEngine('office')}
+                      className={`px-2.5 py-1 rounded-md font-medium transition ${
+                        viewerEngine === 'office'
+                          ? 'bg-indigo-600 text-white shadow-xs'
+                          : 'text-slate-400 hover:text-white'
+                      }`}
+                      title="Use Microsoft Office Online Viewer"
+                    >
+                      Office Online
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setViewerEngine('google')}
+                      className={`px-2.5 py-1 rounded-md font-medium transition ${
+                        viewerEngine === 'google'
+                          ? 'bg-indigo-600 text-white shadow-xs'
+                          : 'text-slate-400 hover:text-white'
+                      }`}
+                      title="Use Google Docs Viewer"
+                    >
+                      Google Docs
+                    </button>
+                  </div>
+                )}
+
+                {previewContent.file_url && (
+                  <a
+                    href={previewContent.file_url}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="flex items-center gap-1.5 text-xs text-slate-300 hover:text-white bg-white/10 hover:bg-white/20 px-2.5 py-1.5 rounded-lg transition"
+                    title="Open original file in new browser tab"
+                  >
+                    <ExternalLink className="w-3.5 h-3.5" />
+                    <span className="hidden sm:inline">New Tab</span>
+                  </a>
+                )}
+
+                {previewContent.file_url && (
+                  <button
+                    type="button"
+                    onClick={() => handleDownloadFile(previewContent.file_url, previewContent.file_name || previewContent.title)}
+                    disabled={downloadingFile}
+                    className="flex items-center gap-1.5 text-xs font-semibold text-white bg-emerald-600 hover:bg-emerald-500 px-3 py-1.5 rounded-lg shadow-xs transition disabled:opacity-50"
+                    title="Download file with original filename"
+                  >
+                    <Download className="w-3.5 h-3.5" />
+                    <span>{downloadingFile ? 'Saving...' : 'Download'}</span>
+                  </button>
+                )}
+
                 <button
                   onClick={() => {
                     setIsPreviewModalOpen(false);
                     setPreviewContent(null);
                   }}
                   className="p-1.5 text-slate-400 hover:text-white rounded-lg hover:bg-white/10 transition"
+                  title="Close preview"
                 >
                   <X className="w-5 h-5" />
                 </button>
@@ -929,12 +1012,60 @@ export const FacultyContentPage: React.FC = () => {
                 <div className="w-full h-full flex flex-col bg-slate-900">
                   <div className="flex-1 w-full bg-slate-950 flex flex-col items-center justify-center relative">
                     <iframe
-                      src={`https://docs.google.com/viewer?url=${encodeURIComponent(
-                        previewContent.file_url
-                      )}&embedded=true`}
+                      src={
+                        viewerEngine === 'office'
+                          ? `https://view.officeapps.live.com/op/embed.aspx?src=${encodeURIComponent(
+                              previewContent.file_url
+                            )}`
+                          : `https://docs.google.com/viewer?url=${encodeURIComponent(
+                              previewContent.file_url
+                            )}&embedded=true`
+                      }
                       title={previewContent.title}
                       className="w-full h-full border-0 bg-white"
                     />
+                  </div>
+
+                  {/* Office Document Engagement & Action Bar */}
+                  <div className="p-3 bg-slate-900 border-t border-slate-800 flex items-center justify-between text-xs text-white">
+                    <div className="flex items-center gap-2 text-slate-400">
+                      <span>Viewer:</span>
+                      <strong className="text-white">
+                        {viewerEngine === 'office' ? 'Microsoft Office Online' : 'Google Docs Viewer'}
+                      </strong>
+                      <span className="text-slate-600">•</span>
+                      <button
+                        type="button"
+                        onClick={() => setViewerEngine(viewerEngine === 'office' ? 'google' : 'office')}
+                        className="text-indigo-400 hover:text-indigo-300 underline font-medium"
+                      >
+                        Switch to {viewerEngine === 'office' ? 'Google Docs Viewer' : 'Microsoft Office Online'}
+                      </button>
+                    </div>
+
+                    <div className="flex items-center gap-3">
+                      <a
+                        href={
+                          viewerEngine === 'office'
+                            ? `https://view.officeapps.live.com/op/view.aspx?src=${encodeURIComponent(previewContent.file_url)}`
+                            : `https://docs.google.com/viewer?url=${encodeURIComponent(previewContent.file_url)}`
+                        }
+                        target="_blank"
+                        rel="noreferrer"
+                        className="text-slate-400 hover:text-indigo-400 flex items-center gap-1 transition"
+                      >
+                        <ExternalLink className="w-3.5 h-3.5" />
+                        External View
+                      </a>
+                      <button
+                        type="button"
+                        onClick={() => handleDownloadFile(previewContent.file_url, previewContent.file_name || previewContent.title)}
+                        className="text-emerald-400 hover:text-emerald-300 font-semibold flex items-center gap-1 transition"
+                      >
+                        <Download className="w-3.5 h-3.5" />
+                        Download Original
+                      </button>
+                    </div>
                   </div>
                 </div>
               )}

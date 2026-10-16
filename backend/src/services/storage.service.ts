@@ -1,3 +1,4 @@
+import path from 'path';
 import { cloudinary } from '../config/cloudinary';
 
 export interface UploadResult {
@@ -12,6 +13,7 @@ export interface UploadResult {
 export interface UploadOptions {
   folder?: string;
   publicId?: string;
+  originalFilename?: string;
   resourceType?: 'image' | 'raw' | 'auto' | 'video';
   tags?: string[];
 }
@@ -22,12 +24,41 @@ export class StorageService {
    */
   async uploadBuffer(buffer: Buffer, options: UploadOptions = {}): Promise<UploadResult> {
     return new Promise((resolve, reject) => {
+      let publicId = options.publicId;
+      const ext = options.originalFilename ? path.extname(options.originalFilename).toLowerCase() : '';
+
+      // For Cloudinary, raw and office document files (PPT, DOC, PDF, ZIP, TXT) REQUIRE the extension
+      // to be embedded in the public_id, otherwise Cloudinary strips extensions and Google/MS viewers return 400.
+      if (!publicId && options.originalFilename) {
+        const rawBase = path.basename(options.originalFilename, ext);
+        const safeBase = rawBase.replace(/[^a-zA-Z0-9_-]/g, '_').slice(0, 40) || 'file';
+        publicId = `${safeBase}_${Date.now()}${ext}`;
+      } else if (publicId && ext && !publicId.toLowerCase().endsWith(ext)) {
+        publicId = `${publicId}${ext}`;
+      }
+
+      // Determine resource_type
+      let resourceType = options.resourceType || 'auto';
+      if (
+        ext === '.ppt' ||
+        ext === '.pptx' ||
+        ext === '.doc' ||
+        ext === '.docx' ||
+        ext === '.xls' ||
+        ext === '.xlsx' ||
+        ext === '.zip'
+      ) {
+        resourceType = 'raw';
+      }
+
       const uploadStream = cloudinary.uploader.upload_stream(
         {
           folder: options.folder || 'college_lms/uploads',
-          public_id: options.publicId,
-          resource_type: options.resourceType || 'auto',
+          public_id: publicId,
+          resource_type: resourceType,
           tags: options.tags || ['college_lms'],
+          use_filename: true,
+          unique_filename: true,
         },
         (error, result) => {
           if (error) {
@@ -62,12 +93,15 @@ export class StorageService {
     studentUid: string,
     assignmentId: string
   ): Promise<UploadResult> {
-    const safeBaseName = originalName.replace(/[^a-zA-Z0-9_-]/g, '_').slice(0, 50);
-    const publicId = `${studentUid}_${Date.now()}_${safeBaseName}`;
+    const ext = path.extname(originalName).toLowerCase();
+    const rawBase = path.basename(originalName, ext);
+    const safeBase = rawBase.replace(/[^a-zA-Z0-9_-]/g, '_').slice(0, 40) || 'submission';
+    const publicId = `${studentUid}_${Date.now()}_${safeBase}${ext}`;
 
     return this.uploadBuffer(buffer, {
       folder: `college_lms/assignments/${assignmentId}/submissions`,
       publicId,
+      originalFilename: originalName,
       resourceType: 'auto',
       tags: ['assignment_submission', `assignment_${assignmentId}`, `student_${studentUid}`],
     });
@@ -79,11 +113,13 @@ export class StorageService {
   async uploadImage(
     buffer: Buffer,
     folder: string = 'college_lms/images',
-    customPublicId?: string
+    customPublicId?: string,
+    originalFilename?: string
   ): Promise<UploadResult> {
     return this.uploadBuffer(buffer, {
       folder,
       publicId: customPublicId,
+      originalFilename,
       resourceType: 'image',
       tags: ['college_lms_image'],
     });
