@@ -2,7 +2,6 @@ import React, { useEffect, useRef, useState } from 'react';
 import { marked } from 'marked';
 import DOMPurify from 'dompurify';
 import mermaid from 'mermaid';
-import { Copy, Check, GitFork, AlertCircle, FileCode } from 'lucide-react';
 import './MarkdownViewer.css';
 
 interface MarkdownViewerProps {
@@ -30,7 +29,6 @@ mermaid.initialize({
 export const MarkdownViewer: React.FC<MarkdownViewerProps> = ({ content, className = '' }) => {
   const containerRef = useRef<HTMLDivElement>(null);
   const [renderedHtml, setRenderedHtml] = useState<string>('');
-  const [copiedId, setCopiedId] = useState<string | null>(null);
 
   // Configure marked custom renderer
   useEffect(() => {
@@ -42,8 +40,7 @@ export const MarkdownViewer: React.FC<MarkdownViewerProps> = ({ content, classNa
     const renderer = new marked.Renderer();
 
     // Custom code block renderer to identify and isolate mermaid blocks
-    const defaultCode = renderer.code.bind(renderer);
-    renderer.code = function ({ text, lang, escaped }: { text: string; lang?: string; escaped?: boolean }) {
+    renderer.code = function ({ text, lang }: { text: string; lang?: string }) {
       const trimmedLang = (lang || '').trim().toLowerCase();
       const trimmedText = text.trim();
 
@@ -97,13 +94,9 @@ export const MarkdownViewer: React.FC<MarkdownViewerProps> = ({ content, classNa
     };
 
     // Custom table renderer to ensure horizontal scroll responsiveness
-    renderer.table = function ({ header, rows }: { header: string; rows: string }) {
-      return `<div class="table-wrapper">
-        <table>
-          <thead>${header}</thead>
-          <tbody>${rows}</tbody>
-        </table>
-      </div>`;
+    const defaultTable = renderer.table.bind(renderer);
+    renderer.table = function (token: any) {
+      return `<div class="table-wrapper">${defaultTable(token)}</div>`;
     };
 
     // Parse markdown into HTML
