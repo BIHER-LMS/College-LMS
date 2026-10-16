@@ -1,5 +1,6 @@
 import prisma from '../../config/database';
 import { logger } from '../../utils/logger';
+import { memoryCache } from '../../lib/cache';
 import { AppError } from '../../utils/errors';
 import { ErrorCodes } from '../../utils/response';
 import type { StudentLeaveRecord, CreateLeaveInput, ReviewLeaveInput } from './leave.types';
@@ -70,6 +71,9 @@ export class LeaveService {
     );
 
     if (rows && rows.length > 0) {
+      // Invalidate student leaves and class leaves cache
+      memoryCache.delPattern(new RegExp(`^student_leaves:${studentUid}`));
+      memoryCache.delPattern(new RegExp(`^class_leaves:${student.class_id}`));
       return rows[0] as StudentLeaveRecord;
     }
 
@@ -80,30 +84,37 @@ export class LeaveService {
    * Get all leaves submitted by a specific student
    */
   async getStudentLeaves(studentUid: string): Promise<StudentLeaveRecord[]> {
-    try {
-      const rows: any = await prisma.$queryRawUnsafe(
-        `
-        SELECT
-          l.id, l.college_id, l.class_id, l.student_uid, l.student_name, l.register_number,
-          l.reason_category, l.explanation,
-          to_char(l.from_date, 'YYYY-MM-DD') as from_date,
-          to_char(l.to_date, 'YYYY-MM-DD') as to_date,
-          l.status, l.reviewed_by_uid, l.reviewed_by_name, l.review_remarks,
-          l.reviewed_at, l.created_at, l.updated_at,
-          c.name as class_name
-        FROM student_leaves l
-        LEFT JOIN classes c ON l.class_id = c.id
-        WHERE l.student_uid = $1
-        ORDER BY l.created_at DESC
-        `,
-        studentUid
-      );
+    const cacheKey = `student_leaves:${studentUid}`;
+    return memoryCache.getOrSet(
+      cacheKey,
+      async () => {
+        try {
+          const rows: any = await prisma.$queryRawUnsafe(
+            `
+            SELECT
+              l.id, l.college_id, l.class_id, l.student_uid, l.student_name, l.register_number,
+              l.reason_category, l.explanation,
+              to_char(l.from_date, 'YYYY-MM-DD') as from_date,
+              to_char(l.to_date, 'YYYY-MM-DD') as to_date,
+              l.status, l.reviewed_by_uid, l.reviewed_by_name, l.review_remarks,
+              l.reviewed_at, l.created_at, l.updated_at,
+              c.name as class_name
+            FROM student_leaves l
+            LEFT JOIN classes c ON l.class_id = c.id
+            WHERE l.student_uid = $1
+            ORDER BY l.created_at DESC
+            `,
+            studentUid
+          );
 
-      return (rows || []) as StudentLeaveRecord[];
-    } catch (err: any) {
-      logger.error('LeaveService.getStudentLeaves error:', { error: err.message });
-      return [];
-    }
+          return (rows || []) as StudentLeaveRecord[];
+        } catch (err: any) {
+          logger.error('LeaveService.getStudentLeaves error:', { error: err.message });
+          return [];
+        }
+      },
+      30
+    );
   }
 
   /**
@@ -113,43 +124,50 @@ export class LeaveService {
     classId: string,
     options?: { date?: string; status?: string }
   ): Promise<StudentLeaveRecord[]> {
-    try {
-      let query = `
-        SELECT
-          l.id, l.college_id, l.class_id, l.student_uid, l.student_name, l.register_number,
-          l.reason_category, l.explanation,
-          to_char(l.from_date, 'YYYY-MM-DD') as from_date,
-          to_char(l.to_date, 'YYYY-MM-DD') as to_date,
-          l.status, l.reviewed_by_uid, l.reviewed_by_name, l.review_remarks,
-          l.reviewed_at, l.created_at, l.updated_at,
-          c.name as class_name
-        FROM student_leaves l
-        LEFT JOIN classes c ON l.class_id = c.id
-        WHERE l.class_id = $1::uuid
-      `;
-      const params: any[] = [classId];
-      let paramIdx = 2;
+    const cacheKey = `class_leaves:${classId}:${options?.date || 'all'}:${options?.status || 'all'}`;
+    return memoryCache.getOrSet(
+      cacheKey,
+      async () => {
+        try {
+          let query = `
+            SELECT
+              l.id, l.college_id, l.class_id, l.student_uid, l.student_name, l.register_number,
+              l.reason_category, l.explanation,
+              to_char(l.from_date, 'YYYY-MM-DD') as from_date,
+              to_char(l.to_date, 'YYYY-MM-DD') as to_date,
+              l.status, l.reviewed_by_uid, l.reviewed_by_name, l.review_remarks,
+              l.reviewed_at, l.created_at, l.updated_at,
+              c.name as class_name
+            FROM student_leaves l
+            LEFT JOIN classes c ON l.class_id = c.id
+            WHERE l.class_id = $1::uuid
+          `;
+          const params: any[] = [classId];
+          let paramIdx = 2;
 
-      if (options?.date) {
-        query += ` AND l.from_date <= $${paramIdx}::date AND l.to_date >= $${paramIdx}::date`;
-        params.push(options.date);
-        paramIdx++;
-      }
+          if (options?.date) {
+            query += ` AND l.from_date <= $${paramIdx}::date AND l.to_date >= $${paramIdx}::date`;
+            params.push(options.date);
+            paramIdx++;
+          }
 
-      if (options?.status && options.status !== 'ALL') {
-        query += ` AND l.status = $${paramIdx}`;
-        params.push(options.status);
-        paramIdx++;
-      }
+          if (options?.status && options.status !== 'ALL') {
+            query += ` AND l.status = $${paramIdx}`;
+            params.push(options.status);
+            paramIdx++;
+          }
 
-      query += ` ORDER BY l.created_at DESC`;
+          query += ` ORDER BY l.created_at DESC`;
 
-      const rows: any = await prisma.$queryRawUnsafe(query, ...params);
-      return (rows || []) as StudentLeaveRecord[];
-    } catch (err: any) {
-      logger.error('LeaveService.getClassLeaves error:', { error: err.message });
-      return [];
-    }
+          const rows: any = await prisma.$queryRawUnsafe(query, ...params);
+          return (rows || []) as StudentLeaveRecord[];
+        } catch (err: any) {
+          logger.error('LeaveService.getClassLeaves error:', { error: err.message });
+          return [];
+        }
+      },
+      30
+    );
   }
 
   /**
@@ -231,6 +249,11 @@ export class LeaveService {
     );
 
     if (updatedRows && updatedRows.length > 0) {
+      // Invalidate student leaves, class leaves, and attendance cache
+      memoryCache.delPattern(new RegExp(`^student_leaves:${leave.student_uid}`));
+      memoryCache.delPattern(new RegExp(`^class_leaves:${leave.class_id}`));
+      memoryCache.delPattern(new RegExp(`^class_date_leaves_map:${leave.class_id}`));
+      memoryCache.delPattern(new RegExp(`^student_attendance.*:${leave.student_uid}`));
       return updatedRows[0] as StudentLeaveRecord;
     }
 

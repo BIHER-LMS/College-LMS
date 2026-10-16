@@ -21,6 +21,7 @@ import {
 import { facultyContentApi } from '../api/facultyContentApi';
 import { facultyApi } from '../api/facultyApi';
 import { downloadFileWithGuaranteedName } from '../../../utils/fileDownload';
+import { MarkdownViewer } from '../../../components/MarkdownViewer';
 
 const YoutubeIcon: React.FC<{ className?: string }> = ({ className = 'w-5 h-5' }) => (
   <svg className={className} viewBox="0 0 24 24" fill="currentColor">
@@ -1072,14 +1073,9 @@ export const FacultyContentPage: React.FC = () => {
 
               {/* MARKDOWN NOTES VIEWER */}
               {previewContent.content_type === 'MARKDOWN' && (
-                <div className="w-full h-full bg-white text-slate-800 p-8 overflow-y-auto">
-                  <div className="max-w-3xl mx-auto">
-                    <h1 className="text-2xl font-bold text-slate-900 pb-3 border-b border-slate-200 mb-6">
-                      {previewContent.title}
-                    </h1>
-                    <div className="prose prose-slate max-w-none whitespace-pre-wrap font-sans text-sm leading-relaxed">
-                      {previewContent.markdown_content || 'No content provided.'}
-                    </div>
+                <div className="w-full h-full bg-white text-slate-800 p-6 sm:p-10 overflow-y-auto">
+                  <div className="max-w-4xl mx-auto">
+                    <MarkdownViewer content={previewContent.markdown_content || previewContent.markdownContent || ''} />
                   </div>
                 </div>
               )}

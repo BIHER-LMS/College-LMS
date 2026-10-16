@@ -14,6 +14,7 @@ import {
 } from 'lucide-react';
 import { studentApi } from '../api/studentApi';
 import { downloadFileWithGuaranteedName } from '../../../utils/fileDownload';
+import { MarkdownViewer } from '../../../components/MarkdownViewer';
 
 declare global {
   interface Window {
@@ -944,14 +945,9 @@ export const StudentContentPage: React.FC = () => {
                   {/* MARKDOWN NOTES VIEWER */}
                   {activeContent.contentType === 'MARKDOWN' && (
                     <div className="w-full h-full flex flex-col bg-white">
-                      <div className="flex-1 text-slate-800 p-8 overflow-y-auto">
-                        <div className="max-w-3xl mx-auto">
-                          <h1 className="text-2xl font-bold text-slate-900 pb-3 border-b border-slate-200 mb-6">
-                            {activeContent.title}
-                          </h1>
-                          <div className="prose prose-slate max-w-none whitespace-pre-wrap font-sans text-sm leading-relaxed">
-                            {activeContent.markdownContent || 'No content provided.'}
-                          </div>
+                      <div className="flex-1 text-slate-800 p-6 sm:p-10 overflow-y-auto">
+                        <div className="max-w-4xl mx-auto">
+                          <MarkdownViewer content={activeContent.markdownContent || activeContent.markdown_content || ''} />
                         </div>
                       </div>
 

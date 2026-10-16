@@ -12,6 +12,7 @@ const successResponse = (res: Response, data: any, status = 200, message?: strin
 export class StudentController {
   async getDashboard(req: Request, res: Response, next: NextFunction) {
     try {
+      res.setHeader('Cache-Control', 'private, max-age=15, stale-while-revalidate=30');
       const data = await studentService.getDashboard((req as any).studentContext!);
       return successResponse(res, data, 200, 'Student dashboard loaded successfully');
     } catch (error) {
@@ -114,7 +115,7 @@ export class StudentController {
 
   async getTimetable(req: Request, res: Response, next: NextFunction) {
     try {
-      res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
+      res.setHeader('Cache-Control', 'private, max-age=30, stale-while-revalidate=60');
       const data = await studentService.getClassTimetable((req as any).studentContext!);
       return successResponse(res, data, 200, 'Class master timetable retrieved');
     } catch (error) {
@@ -124,6 +125,7 @@ export class StudentController {
 
   async getAttendance(req: Request, res: Response, next: NextFunction) {
     try {
+      res.setHeader('Cache-Control', 'private, max-age=15, stale-while-revalidate=30');
       const date = req.query.date as string | undefined;
       const data = await studentService.getAttendance((req as any).studentContext!, date);
       return successResponse(res, data, 200, 'Student attendance and period logs retrieved');
@@ -134,6 +136,7 @@ export class StudentController {
 
   async getAssignments(req: Request, res: Response, next: NextFunction) {
     try {
+      res.setHeader('Cache-Control', 'private, max-age=15, stale-while-revalidate=30');
       const data = await studentService.getAssignments((req as any).studentContext!);
       return successResponse(res, data, 200, 'Student assignments retrieved');
     } catch (error) {

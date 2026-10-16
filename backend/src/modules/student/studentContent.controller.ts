@@ -7,6 +7,7 @@ export class StudentContentController {
   async getStudentSubjectsAndContents(req: Request, res: Response) {
     try {
       const studentContext = (req as any).studentContext as StudentContext;
+      res.setHeader('Cache-Control', 'private, max-age=20, stale-while-revalidate=60');
       const subjects = await studentContentService.getStudentSubjectsAndContents(studentContext);
       return sendSuccess(res, subjects);
     } catch (err: any) {

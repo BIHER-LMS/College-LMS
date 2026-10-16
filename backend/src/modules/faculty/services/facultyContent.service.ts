@@ -57,6 +57,7 @@ export class FacultyContentService {
    */
   private invalidateTopicsCache(classSubjectId: string) {
     memoryCache.delPattern(new RegExp(`^faculty_topics:${classSubjectId}`));
+    memoryCache.delPattern(/^student_learning_contents:/);
   }
 
   /**

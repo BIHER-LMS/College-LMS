@@ -228,7 +228,9 @@ export async function authenticateFirebaseUser(
       roles,
     };
 
-    res.setHeader('Cache-Control', 'private, no-cache, no-store, must-revalidate');
+    // Default cache control for authenticated endpoints (allows client-side ETag / 304 revalidation)
+    // Custom controllers can override this with public edge caching (e.g. announcements) or private max-age.
+    res.setHeader('Cache-Control', 'private, no-cache');
     next();
   } catch (error) {
     next(error);

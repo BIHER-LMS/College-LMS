@@ -155,120 +155,110 @@ export class StudentRepository {
     classInchargeData: ClassInchargeInfo | null;
   }> {
     const cacheKey = `class_hierarchy:${classId}`;
-    const cached = memoryCache.get<{
-      classData: ClassInfo | null;
-      batchData: BatchInfo | null;
-      programData: ProgramInfo | null;
-      deptData: DepartmentInfo | null;
-      classInchargeData: ClassInchargeInfo | null;
-    }>(cacheKey);
-    if (cached) return cached;
-
-    const data = await prisma.class.findUnique({
-      where: { id: classId },
-      include: {
-        batch: {
-          include: {
-            program: {
-              include: {
-                department: {
-                  include: {
-                    college: true,
-                    hod: true,
+    return memoryCache.getOrSet(cacheKey, async () => {
+      const data = await prisma.class.findUnique({
+        where: { id: classId },
+        include: {
+          batch: {
+            include: {
+              program: {
+                include: {
+                  department: {
+                    include: {
+                      college: true,
+                      hod: true,
+                    },
                   },
                 },
               },
             },
           },
+          faculty: true,
         },
-        faculty: true,
-      },
-    });
-
-    if (!data) {
-      return {
-        classData: null,
-        batchData: null,
-        programData: null,
-        deptData: null,
-        classInchargeData: null,
-      };
-    }
-
-    const classData: ClassInfo = {
-      id: data.id,
-      batchId: data.batch_id,
-      name: data.name,
-      currentSemester: data.current_semester || 1,
-      facultyUid: data.faculty_uid,
-      isActive: data.is_active ?? true,
-    };
-
-    const batch = data.batch;
-    const batchData: BatchInfo | null = batch ? {
-      id: batch.id,
-      programId: batch.program_id,
-      startYear: batch.start_year,
-      endYear: batch.end_year,
-      name: `${batch.start_year} - ${batch.end_year}`,
-      isActive: batch.is_active ?? true,
-    } : null;
-
-    const program = batch?.program;
-    const programData: ProgramInfo | null = program ? {
-      id: program.id,
-      departmentId: program.department_id,
-      name: program.name,
-      type: program.type,
-      durationYears: program.duration_years,
-      isActive: program.is_active ?? true,
-    } : null;
-
-    const dept = program?.department;
-    const deptData: DepartmentInfo | null = dept ? {
-      id: dept.id,
-      collegeId: dept.college_id,
-      name: dept.name,
-      code: dept.code,
-      hodUid: dept.hod_uid,
-      collegeName: dept.college?.name || 'Aura Academia College of Technology',
-      isActive: dept.is_active ?? true,
-      hod: dept.hod ? {
-        uid: dept.hod.uid,
-        displayName: dept.hod.display_name,
-        email: dept.hod.email,
-        photoURL: dept.hod.photo_url,
-      } : null,
-    } : null;
-
-    let classInchargeData: ClassInchargeInfo | null = null;
-    if (data.faculty) {
-      const userRecord = await prisma.user.findUnique({
-        where: { firebaseUid: data.faculty.uid },
-        include: { profile: true },
       });
-      const profile = userRecord?.profile;
-      classInchargeData = {
-        facultyUid: data.faculty.uid,
-        name: data.faculty.display_name || 'Faculty Incharge',
-        email: data.faculty.email,
-        phone: profile?.phone || userRecord?.phone || null,
-        photoUrl: profile?.profilePhotoUrl || data.faculty.photo_url || null,
-        designation: profile?.designation || 'Class Incharge / Assistant Professor',
-        department: profile?.department || dept?.name || 'Department Faculty',
+
+      if (!data) {
+        return {
+          classData: null,
+          batchData: null,
+          programData: null,
+          deptData: null,
+          classInchargeData: null,
+        };
+      }
+
+      const classData: ClassInfo = {
+        id: data.id,
+        batchId: data.batch_id,
+        name: data.name,
+        currentSemester: data.current_semester || 1,
+        facultyUid: data.faculty_uid,
+        isActive: data.is_active ?? true,
       };
-    }
 
-    const result = {
-      classData,
-      batchData,
-      programData,
-      deptData,
-      classInchargeData,
-    };
+      const batch = data.batch;
+      const batchData: BatchInfo | null = batch ? {
+        id: batch.id,
+        programId: batch.program_id,
+        startYear: batch.start_year,
+        endYear: batch.end_year,
+        name: `${batch.start_year} - ${batch.end_year}`,
+        isActive: batch.is_active ?? true,
+      } : null;
 
-    memoryCache.set(cacheKey, result, 60);
-    return result;
+      const program = batch?.program;
+      const programData: ProgramInfo | null = program ? {
+        id: program.id,
+        departmentId: program.department_id,
+        name: program.name,
+        type: program.type,
+        durationYears: program.duration_years,
+        isActive: program.is_active ?? true,
+      } : null;
+
+      const dept = program?.department;
+      const deptData: DepartmentInfo | null = dept ? {
+        id: dept.id,
+        collegeId: dept.college_id,
+        name: dept.name,
+        code: dept.code,
+        hodUid: dept.hod_uid,
+        collegeName: dept.college?.name || 'Aura Academia College of Technology',
+        isActive: dept.is_active ?? true,
+        hod: dept.hod ? {
+          uid: dept.hod.uid,
+          displayName: dept.hod.display_name,
+          email: dept.hod.email,
+          photoURL: dept.hod.photo_url,
+        } : null,
+      } : null;
+
+      let classInchargeData: ClassInchargeInfo | null = null;
+      if (data.faculty) {
+        const userRecord = await prisma.user.findUnique({
+          where: { firebaseUid: data.faculty.uid },
+          include: { profile: true },
+        });
+        const profile = userRecord?.profile;
+        classInchargeData = {
+          facultyUid: data.faculty.uid,
+          name: data.faculty.display_name || 'Faculty Incharge',
+          email: data.faculty.email,
+          phone: profile?.phone || userRecord?.phone || null,
+          photoUrl: profile?.profilePhotoUrl || data.faculty.photo_url || null,
+          designation: profile?.designation || 'Class Incharge / Assistant Professor',
+          department: profile?.department || dept?.name || 'Department Faculty',
+        };
+      }
+
+      return {
+        classData,
+        batchData,
+        programData,
+        deptData,
+        classInchargeData,
+      };
+    }, 60);
   }
 
   /**
@@ -817,40 +807,43 @@ export class StudentRepository {
   }
 
   async getAssignments(classId: string, studentUid: string) {
-    const assignments = await prisma.assignment.findMany({
-      where: {
-        classSubject: {
-          class_id: classId
-        }
-      },
-      include: {
-        classSubject: {
-          include: {
-            subject: { select: { name: true, code: true } },
-            faculty: { select: { display_name: true } }
+    const cacheKey = `student_assignments:${classId}:${studentUid}`;
+    return memoryCache.getOrSet(cacheKey, async () => {
+      const assignments = await prisma.assignment.findMany({
+        where: {
+          classSubject: {
+            class_id: classId
           }
         },
-        submissions: {
-          where: { student_uid: studentUid },
-          take: 1
-        }
-      },
-      orderBy: { due_date: 'asc' }
-    });
+        include: {
+          classSubject: {
+            include: {
+              subject: { select: { name: true, code: true } },
+              faculty: { select: { display_name: true } }
+            }
+          },
+          submissions: {
+            where: { student_uid: studentUid },
+            take: 1
+          }
+        },
+        orderBy: { due_date: 'asc' }
+      });
 
-    return assignments.map(a => ({
-      id: a.id,
-      title: a.title,
-      description: a.description,
-      dueDate: a.due_date,
-      attachmentUrl: (a as any).attachment_url || null,
-      createdAt: a.created_at,
-      subjectName: a.classSubject.subject.name,
-      subjectCode: a.classSubject.subject.code,
-      facultyName: a.classSubject.faculty?.display_name || 'Unassigned',
-      isSubmitted: a.submissions.length > 0,
-      submission: a.submissions[0] || null
-    }));
+      return assignments.map(a => ({
+        id: a.id,
+        title: a.title,
+        description: a.description,
+        dueDate: a.due_date,
+        attachmentUrl: (a as any).attachment_url || null,
+        createdAt: a.created_at,
+        subjectName: a.classSubject.subject.name,
+        subjectCode: a.classSubject.subject.code,
+        facultyName: a.classSubject.faculty?.display_name || 'Unassigned',
+        isSubmitted: a.submissions.length > 0,
+        submission: a.submissions[0] || null
+      }));
+    }, 30); // 30s TTL
   }
 
   async submitAssignment(studentUid: string, assignmentId: string, data: any) {
@@ -866,7 +859,7 @@ export class StudentRepository {
     }
     
     // upsert submission
-    return prisma.studentSubmission.upsert({
+    const res = await prisma.studentSubmission.upsert({
       where: {
         assignment_id_student_uid: {
           assignment_id: assignmentId,
@@ -883,6 +876,10 @@ export class StudentRepository {
         file_url: attachmentUrl
       }
     });
+
+    // Invalidate student assignments cache
+    memoryCache.delPattern(new RegExp(`^student_assignments:.*:${studentUid}`));
+    return res;
   }
 }
 

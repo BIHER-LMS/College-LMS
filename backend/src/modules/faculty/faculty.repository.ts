@@ -2597,7 +2597,7 @@ export class FacultyRepository {
       throw new Error('Unauthorized or invalid class subject');
     }
 
-    return prisma.assignment.create({
+    const created = await prisma.assignment.create({
       data: {
         class_subject_id: classSubjectId,
         title,
@@ -2606,6 +2606,9 @@ export class FacultyRepository {
         attachment_url: attachmentUrl
       }
     });
+
+    memoryCache.delPattern(/^student_assignments:/);
+    return created;
   }
 
   async getAssignments(facultyUid: string, classSubjectId?: string): Promise<any[]> {

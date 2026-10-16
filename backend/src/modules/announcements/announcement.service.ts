@@ -1,5 +1,6 @@
 import prisma from '../../config/database';
 import { logger } from '../../utils/logger';
+import { memoryCache } from '../../lib/cache';
 
 export interface AnnouncementRecord {
   id: string;
@@ -97,6 +98,7 @@ export class AnnouncementService {
       );
 
       if (rows && rows.length > 0) {
+        memoryCache.delPattern(/^announcements:/);
         return rows[0] as AnnouncementRecord;
       }
       throw new Error('Database insert succeeded but returned no rows');
@@ -121,65 +123,73 @@ export class AnnouncementService {
     const isClassIncharge = Boolean(options?.isClassIncharge);
     const isActiveOnly = options?.isActiveOnly !== false;
 
-    try {
-      let query = `
-        SELECT
-          id, college_id, title, description, image_url, target_audience,
-          category, priority, is_pinned, is_active, expires_at,
-          created_by_uid, created_by_name, created_at, updated_at
-        FROM announcements
-        WHERE ($1 = '' OR $1 = 'default' OR college_id = $1 OR college_id = 'default' OR college_id IS NULL)
-      `;
-      const params: any[] = [collegeId || ''];
-      let paramIndex = 2;
+    const cacheKey = `announcements:${collegeId || 'all'}:${role || 'all'}:${isClassIncharge}:${isActiveOnly}:${options?.category || 'ALL'}:${options?.targetAudience || 'ALL'}:${options?.search || ''}`;
 
-      if (isActiveOnly) {
-        query += ` AND is_active = true`;
-      }
+    return memoryCache.getOrSet(
+      cacheKey,
+      async () => {
+        try {
+          let query = `
+            SELECT
+              id, college_id, title, description, image_url, target_audience,
+              category, priority, is_pinned, is_active, expires_at,
+              created_by_uid, created_by_name, created_at, updated_at
+            FROM announcements
+            WHERE ($1 = '' OR $1 = 'default' OR college_id = $1 OR college_id = 'default' OR college_id IS NULL)
+          `;
+          const params: any[] = [collegeId || ''];
+          let paramIndex = 2;
 
-      // Role and audience filtering:
-      if (role && role !== 'COLLEGE_ADMIN' && role !== 'SUPER_ADMIN') {
-        if (role === 'HOD') {
-          query += ` AND ('HOD' = ANY(target_audience) OR 'ALL' = ANY(target_audience))`;
-        } else if (role === 'FACULTY') {
-          if (isClassIncharge) {
-            query += ` AND ('FACULTY' = ANY(target_audience) OR 'CLASS_INCHARGE' = ANY(target_audience) OR 'ALL' = ANY(target_audience))`;
-          } else {
-            // General faculty member who is NOT a class incharge:
-            query += ` AND ('FACULTY' = ANY(target_audience) OR 'ALL' = ANY(target_audience))`;
+          if (isActiveOnly) {
+            query += ` AND is_active = true`;
           }
-        } else if (role === 'STUDENT') {
-          query += ` AND ('STUDENT' = ANY(target_audience) OR 'ALL' = ANY(target_audience))`;
+
+          // Role and audience filtering:
+          if (role && role !== 'COLLEGE_ADMIN' && role !== 'SUPER_ADMIN') {
+            if (role === 'HOD') {
+              query += ` AND ('HOD' = ANY(target_audience) OR 'ALL' = ANY(target_audience))`;
+            } else if (role === 'FACULTY') {
+              if (isClassIncharge) {
+                query += ` AND ('FACULTY' = ANY(target_audience) OR 'CLASS_INCHARGE' = ANY(target_audience) OR 'ALL' = ANY(target_audience))`;
+              } else {
+                // General faculty member who is NOT a class incharge:
+                query += ` AND ('FACULTY' = ANY(target_audience) OR 'ALL' = ANY(target_audience))`;
+              }
+            } else if (role === 'STUDENT') {
+              query += ` AND ('STUDENT' = ANY(target_audience) OR 'ALL' = ANY(target_audience))`;
+            }
+          } else if (options?.targetAudience && options.targetAudience !== 'ALL') {
+            query += ` AND $${paramIndex} = ANY(target_audience)`;
+            params.push(options.targetAudience);
+            paramIndex++;
+          }
+
+          if (options?.category && options.category !== 'ALL') {
+            query += ` AND category = $${paramIndex}`;
+            params.push(options.category);
+            paramIndex++;
+          }
+
+          if (options?.search) {
+            query += ` AND (title ILIKE $${paramIndex} OR description ILIKE $${paramIndex})`;
+            params.push(`%${options.search}%`);
+            paramIndex++;
+          }
+
+          query += ` ORDER BY is_pinned DESC, created_at DESC`;
+
+          const rows: any = await prisma.$queryRawUnsafe(query, ...params);
+          if (Array.isArray(rows)) {
+            return rows as AnnouncementRecord[];
+          }
+          return [];
+        } catch (err: any) {
+          logger.error('Failed to query announcements from PostgreSQL:', { error: err.message });
+          return [];
         }
-      } else if (options?.targetAudience && options.targetAudience !== 'ALL') {
-        query += ` AND $${paramIndex} = ANY(target_audience)`;
-        params.push(options.targetAudience);
-        paramIndex++;
-      }
-
-      if (options?.category && options.category !== 'ALL') {
-        query += ` AND category = $${paramIndex}`;
-        params.push(options.category);
-        paramIndex++;
-      }
-
-      if (options?.search) {
-        query += ` AND (title ILIKE $${paramIndex} OR description ILIKE $${paramIndex})`;
-        params.push(`%${options.search}%`);
-        paramIndex++;
-      }
-
-      query += ` ORDER BY is_pinned DESC, created_at DESC`;
-
-      const rows: any = await prisma.$queryRawUnsafe(query, ...params);
-      if (Array.isArray(rows)) {
-        return rows as AnnouncementRecord[];
-      }
-      return [];
-    } catch (err: any) {
-      logger.error('Failed to query announcements from PostgreSQL:', { error: err.message });
-      return [];
-    }
+      },
+      60
+    );
   }
 
   async updateAnnouncement(
@@ -243,6 +253,7 @@ export class AnnouncementService {
       );
 
       if (rows && rows.length > 0) {
+        memoryCache.delPattern(/^announcements:/);
         return rows[0] as AnnouncementRecord;
       }
       return null;
@@ -258,7 +269,11 @@ export class AnnouncementService {
         `DELETE FROM announcements WHERE id = $1::uuid`,
         id
       );
-      return res > 0;
+      if (res > 0) {
+        memoryCache.delPattern(/^announcements:/);
+        return true;
+      }
+      return false;
     } catch (err: any) {
       logger.error('Failed to delete announcement from PostgreSQL:', { error: err.message });
       throw err;

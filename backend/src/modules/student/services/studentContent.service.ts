@@ -1,5 +1,6 @@
 import prisma from '../../../config/database';
 import { storageService } from '../../../services/storage.service';
+import { memoryCache } from '../../../lib/cache';
 import { AppError } from '../../../utils/errors';
 import { StudentContext } from '../student.types';
 import { LearningEventType } from '@prisma/client';
@@ -9,131 +10,135 @@ import { logger } from '../../../utils/logger';
 export class StudentContentService {
   /**
    * Get all published subjects, topics, and contents for student's enrolled class.
+   * Cached with 45s TTL and invalidated on learning events or faculty changes.
    */
   async getStudentSubjectsAndContents(studentContext: StudentContext) {
     if (!studentContext.classId) {
       throw new AppError(400, 'BAD_REQUEST', 'Student is not assigned to any class.');
     }
 
-    // Parallel fetch: classSubjects and student progressRecords run concurrently
-    const [classSubjects, progressRecords] = await Promise.all([
-      prisma.classSubject.findMany({
-        where: { class_id: studentContext.classId },
-        include: {
-          subject: true,
-          faculty: {
-            select: {
-              uid: true,
-              display_name: true,
-              email: true,
-              photo_url: true,
+    const cacheKey = `student_learning_contents:${studentContext.uid}:${studentContext.classId}`;
+    return memoryCache.getOrSet(cacheKey, async () => {
+      // Parallel fetch: classSubjects and student progressRecords run concurrently
+      const [classSubjects, progressRecords] = await Promise.all([
+        prisma.classSubject.findMany({
+          where: { class_id: studentContext.classId! },
+          include: {
+            subject: true,
+            faculty: {
+              select: {
+                uid: true,
+                display_name: true,
+                email: true,
+                photo_url: true,
+              },
             },
-          },
-          topics: {
-            where: { is_published: true },
-            orderBy: { order_index: 'asc' },
-            include: {
-              contents: {
-                where: { is_published: true },
-                orderBy: { order_index: 'asc' },
-                select: {
-                  id: true,
-                  topic_id: true,
-                  title: true,
-                  description: true,
-                  content_type: true,
-                  file_url: true,
-                  file_name: true,
-                  file_size_bytes: true,
-                  youtube_url: true,
-                  youtube_video_id: true,
-                  duration_seconds: true,
-                  order_index: true,
-                  is_downloadable: true,
-                  created_at: true,
+            topics: {
+              where: { is_published: true },
+              orderBy: { order_index: 'asc' },
+              include: {
+                contents: {
+                  where: { is_published: true },
+                  orderBy: { order_index: 'asc' },
+                  select: {
+                    id: true,
+                    topic_id: true,
+                    title: true,
+                    description: true,
+                    content_type: true,
+                    file_url: true,
+                    file_name: true,
+                    file_size_bytes: true,
+                    youtube_url: true,
+                    youtube_video_id: true,
+                    duration_seconds: true,
+                    order_index: true,
+                    is_downloadable: true,
+                    created_at: true,
+                  },
                 },
               },
             },
           },
-        },
-      }),
-      prisma.studentContentProgress.findMany({
-        where: { student_uid: studentContext.uid },
-      }),
-    ]);
+        }),
+        prisma.studentContentProgress.findMany({
+          where: { student_uid: studentContext.uid },
+        }),
+      ]);
 
-    const progressMap = new Map<string, any>();
-    for (const p of progressRecords) {
-      progressMap.set(p.content_id, p);
-    }
+      const progressMap = new Map<string, any>();
+      for (const p of progressRecords) {
+        progressMap.set(p.content_id, p);
+      }
 
-    // Format response and attach progress
-    const formattedSubjects = classSubjects.map(cs => {
-      let totalItems = 0;
-      let completedItems = 0;
+      // Format response and attach progress
+      const formattedSubjects = (classSubjects as any[]).map((cs: any) => {
+        let totalItems = 0;
+        let completedItems = 0;
 
-      const topics = cs.topics.map(t => {
-        const contents = t.contents.map(c => {
-          totalItems++;
-          const p = progressMap.get(c.id);
-          const isCompleted = p?.is_completed || false;
-          if (isCompleted) completedItems++;
+        const topics = cs.topics.map((t: any) => {
+          const contents = t.contents.map((c: any) => {
+            totalItems++;
+            const p = progressMap.get(c.id);
+            const isCompleted = p?.is_completed || false;
+            if (isCompleted) completedItems++;
+
+            return {
+              id: c.id,
+              topicId: c.topic_id,
+              title: c.title,
+              description: c.description,
+              contentType: c.content_type,
+              fileUrl: c.file_url,
+              fileName: c.file_name,
+              fileSizeBytes: c.file_size_bytes ? Number(c.file_size_bytes) : null,
+              youtubeUrl: c.youtube_url,
+              youtubeVideoId: c.youtube_video_id,
+              durationSeconds: c.duration_seconds,
+              isDownloadable: c.is_downloadable,
+              progress: {
+                isCompleted,
+                completionPercentage: p?.completion_percentage || 0,
+                watchTimeSeconds: p?.watch_time_seconds || 0,
+                lastPositionSeconds: p?.last_position_seconds || 0,
+                rewindCount: p?.rewind_count || 0,
+                seekCount: p?.seek_count || 0,
+                lastAccessedAt: p?.last_accessed_at || null,
+              },
+            };
+          });
 
           return {
-            id: c.id,
-            topicId: c.topic_id,
-            title: c.title,
-            description: c.description,
-            contentType: c.content_type,
-            fileUrl: c.file_url,
-            fileName: c.file_name,
-            fileSizeBytes: c.file_size_bytes ? Number(c.file_size_bytes) : null,
-            youtubeUrl: c.youtube_url,
-            youtubeVideoId: c.youtube_video_id,
-            durationSeconds: c.duration_seconds,
-            isDownloadable: c.is_downloadable,
-            progress: {
-              isCompleted,
-              completionPercentage: p?.completion_percentage || 0,
-              watchTimeSeconds: p?.watch_time_seconds || 0,
-              lastPositionSeconds: p?.last_position_seconds || 0,
-              rewindCount: p?.rewind_count || 0,
-              seekCount: p?.seek_count || 0,
-              lastAccessedAt: p?.last_accessed_at || null,
-            },
+            id: t.id,
+            title: t.title,
+            description: t.description,
+            orderIndex: t.order_index,
+            contents,
           };
         });
 
+        const overallCompletionRate = totalItems > 0
+          ? Math.round((completedItems / totalItems) * 100)
+          : 0;
+
         return {
-          id: t.id,
-          title: t.title,
-          description: t.description,
-          orderIndex: t.order_index,
-          contents,
+          classSubjectId: cs.id,
+          subject: {
+            id: cs.subject.id,
+            name: cs.subject.name,
+            code: cs.subject.code,
+            credits: cs.subject.credits,
+          },
+          faculty: cs.faculty,
+          totalItems,
+          completedItems,
+          overallCompletionRate,
+          topics,
         };
       });
 
-      const overallCompletionRate = totalItems > 0
-        ? Math.round((completedItems / totalItems) * 100)
-        : 0;
-
-      return {
-        classSubjectId: cs.id,
-        subject: {
-          id: cs.subject.id,
-          name: cs.subject.name,
-          code: cs.subject.code,
-          credits: cs.subject.credits,
-        },
-        faculty: cs.faculty,
-        totalItems,
-        completedItems,
-        overallCompletionRate,
-        topics,
-      };
-    });
-
-    return formattedSubjects;
+      return formattedSubjects;
+    }, 45); // 45s TTL
   }
 
   /**
@@ -356,7 +361,10 @@ export class StudentContentService {
       },
     });
 
-    // 3. Trigger async ML feature recalculation
+    // 3. Invalidate student learning contents cache
+    memoryCache.delPattern(new RegExp(`^student_learning_contents:${studentContext.uid}`));
+
+    // 4. Trigger async ML feature recalculation
     AnalyticsFeatureEngine.recalculateStudentFeatures(studentContext.uid, content.class_subject_id).catch(err => {
       logger.error('Background feature recalculation error:', err);
     });
@@ -478,6 +486,9 @@ export class StudentContentService {
         submitted_at: new Date(),
       },
     });
+
+    // Invalidate student assignments cache so submitted status updates immediately
+    memoryCache.delPattern(new RegExp(`^student_assignments:.*:${studentContext.uid}`));
 
     // Recalculate features
     AnalyticsFeatureEngine.recalculateStudentFeatures(studentContext.uid, assignment.class_subject_id).catch(() => {});

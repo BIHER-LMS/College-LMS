@@ -26,6 +26,7 @@ export class AnnouncementController {
         isActiveOnly,
       });
 
+      res.setHeader('Cache-Control', 'public, max-age=10, s-maxage=60, stale-while-revalidate=300');
       return sendSuccess(res, data, 200);
     } catch (err) {
       return next(err);

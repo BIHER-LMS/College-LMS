@@ -18,73 +18,81 @@ import {
   StudentPeriodAttendanceRecord,
 } from './student.types';
 import { AppError } from '../../utils/errors';
+import { memoryCache } from '../../lib/cache';
 
 export class StudentService {
   constructor(private readonly studentRepo: StudentRepository) {}
 
   /**
    * Derive and load complete student dashboard
-   * Optimized with parallelized stages and single-query hierarchy load.
+   * Optimized with parallelized stages, single-query hierarchy load, and memory caching.
    */
   async getDashboard(studentContext: StudentContext): Promise<StudentDashboardResponse> {
-    // Stage 1: Parallel fetch of profile, class full hierarchy, and academic years
-    const [profile, hierarchy, academicYears] = await Promise.all([
-      this.getProfile(studentContext),
-      studentContext.classId
-        ? this.studentRepo.getClassFullHierarchy(studentContext.classId)
-        : Promise.resolve({
-            classData: null,
-            batchData: null,
-            programData: null,
-            deptData: null,
-            classInchargeData: null,
-          }),
-      studentContext.collegeId
-        ? this.studentRepo.getAcademicYears(studentContext.collegeId)
-        : Promise.resolve([]),
-    ]);
+    const cacheKey = `student_dashboard:${studentContext.uid}`;
+    return memoryCache.getOrSet(
+      cacheKey,
+      async () => {
+        // Stage 1: Parallel fetch of profile, class full hierarchy, and academic years
+        const [profile, hierarchy, academicYears] = await Promise.all([
+          this.getProfile(studentContext),
+          studentContext.classId
+            ? this.studentRepo.getClassFullHierarchy(studentContext.classId)
+            : Promise.resolve({
+                classData: null,
+                batchData: null,
+                programData: null,
+                deptData: null,
+                classInchargeData: null,
+              }),
+          studentContext.collegeId
+            ? this.studentRepo.getAcademicYears(studentContext.collegeId)
+            : Promise.resolve([]),
+        ]);
 
-    const { classData, batchData, programData, classInchargeData } = hierarchy;
-    let deptData = hierarchy.deptData;
+        const { classData, batchData, programData, classInchargeData } = hierarchy;
+        let deptData = hierarchy.deptData;
 
-    // Fallback if department could not be resolved from class hierarchy
-    const resolvedDeptId = programData?.departmentId || studentContext.departmentId;
-    if (!deptData && resolvedDeptId) {
-      deptData = await this.studentRepo.getDepartmentById(resolvedDeptId);
-    }
+        // Fallback if department could not be resolved from class hierarchy
+        const resolvedDeptId = programData?.departmentId || studentContext.departmentId;
+        if (!deptData && resolvedDeptId) {
+          deptData = await this.studentRepo.getDepartmentById(resolvedDeptId);
+        }
 
-    const currentYear = academicYears.find((ay) => ay.isCurrent) || academicYears[0] || null;
+        const currentYear = academicYears.find((ay) => ay.isCurrent) || academicYears[0] || null;
 
-    // Stage 2: Parallel fetch of subjects and semesters
-    const [subjects, semesters] = await Promise.all([
-      resolvedDeptId
-        ? this.studentRepo.getSubjectsByDepartment(resolvedDeptId, classData?.currentSemester).then(async (subs) => {
-            if (subs.length === 0) {
-              return this.studentRepo.getSubjectsByDepartment(resolvedDeptId);
-            }
-            return subs;
-          })
-        : Promise.resolve([]),
-      currentYear ? this.studentRepo.getSemesters(currentYear.id) : Promise.resolve([]),
-    ]);
+        // Stage 2: Parallel fetch of subjects and semesters
+        const [subjects, semesters] = await Promise.all([
+          resolvedDeptId
+            ? this.studentRepo.getSubjectsByDepartment(resolvedDeptId, classData?.currentSemester).then(async (subs) => {
+                if (subs.length === 0) {
+                  return this.studentRepo.getSubjectsByDepartment(resolvedDeptId);
+                }
+                return subs;
+              })
+            : Promise.resolve([]),
+          currentYear ? this.studentRepo.getSemesters(currentYear.id) : Promise.resolve([]),
+        ]);
 
-    let semesterData: SemesterInfo | null = null;
-    if (semesters.length > 0) {
-      const currentSemNum = classData?.currentSemester || 1;
-      semesterData = semesters.find((s) => s.termNumber === currentSemNum) || semesters[0] || null;
-    }
+        let semesterData: SemesterInfo | null = null;
+        if (semesters.length > 0) {
+          const currentSemNum = classData?.currentSemester || 1;
+          semesterData = semesters.find((s) => s.termNumber === currentSemNum) || semesters[0] || null;
+        }
 
-    return {
-      student: profile,
-      class: classData,
-      batch: batchData,
-      program: programData,
-      department: deptData,
-      classIncharge: classInchargeData,
-      academicYear: currentYear,
-      semester: semesterData,
-      subjects,
-    };
+        return {
+          student: profile,
+          class: classData,
+          batch: batchData,
+          program: programData,
+          department: deptData,
+          classIncharge: classInchargeData,
+          academicYear: currentYear,
+          semester: semesterData,
+          subjects,
+        };
+      },
+      45
+    );
   }
 
   /**
@@ -106,6 +114,8 @@ export class StudentService {
     if (!updated) {
       throw new AppError(404, 'NOT_FOUND', 'Student profile could not be updated');
     }
+    // Invalidate dashboard cache so profile changes reflect immediately
+    memoryCache.del(`student_dashboard:${studentContext.uid}`);
     return updated;
   }
 
@@ -292,10 +302,14 @@ export class StudentService {
 
   /**
    * Get Student Attendance & Real Timetable Schedule
-   * Optimized with single date-range query and parallel base data loading.
+   * Optimized with single date-range query, memory caching, and parallel base data loading.
    */
   async getAttendance(studentContext: StudentContext, selectedDateStr?: string): Promise<StudentAttendanceResponse> {
-    // Calculate dates for current week (Monday - Friday)
+    const cacheKey = `student_attendance_view:${studentContext.uid}:${selectedDateStr || 'current'}`;
+    return memoryCache.getOrSet(
+      cacheKey,
+      async () => {
+        // Calculate dates for current week (Monday - Friday)
     const now = selectedDateStr ? new Date(selectedDateStr) : new Date();
     const currentDayOfWeek = now.getDay();
     const diffToMonday = (currentDayOfWeek === 0 ? -6 : 1) - currentDayOfWeek;
@@ -407,11 +421,14 @@ export class StudentService {
       });
     }
 
-    return {
-      summary,
-      subjectBreakdown,
-      dailySchedule,
-    };
+        return {
+          summary,
+          subjectBreakdown,
+          dailySchedule,
+        };
+      },
+      30
+    );
   }
 
   async getAssignments(ctx: StudentContext) {

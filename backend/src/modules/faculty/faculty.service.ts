@@ -420,6 +420,8 @@ export class FacultyService {
     // Invalidate attendance stats & history cache for this class
     memoryCache.del(`attendance:stats:${input.classId}`);
     memoryCache.del(`attendance:history:${input.classId}`);
+    memoryCache.delPattern(/^student_attendance/);
+    memoryCache.delPattern(/^student_dashboard/);
     return result;
   }
 
