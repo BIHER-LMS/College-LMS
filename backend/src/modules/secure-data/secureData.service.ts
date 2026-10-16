@@ -401,6 +401,20 @@ export async function listAllCollegeClasses(a: Actor, collegeId: string) {
       is_active: true,
       batch_id: true,
       created_at: true,
+      batch: {
+        select: {
+          id: true,
+          start_year: true,
+          end_year: true,
+          program: {
+            select: {
+              id: true,
+              name: true,
+              department_id: true,
+            },
+          },
+        },
+      },
     },
     orderBy: { name: 'asc' },
     take: 500,

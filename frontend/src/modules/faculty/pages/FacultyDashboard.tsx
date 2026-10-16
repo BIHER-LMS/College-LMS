@@ -20,9 +20,12 @@ export const FacultyDashboard: React.FC = () => {
   const { dashboard, profile, loading, loadDashboard, loadProfile } = useFaculty();
 
   useEffect(() => {
-    loadDashboard();
+    // FacultyLayout handles initial loadDashboard(); only dispatch if not already loaded or loading
+    if (!dashboard && !loading.dashboard) {
+      loadDashboard();
+    }
     loadProfile();
-  }, []);
+  }, [dashboard, loading.dashboard]);
 
   const isClassIncharge = dashboard?.classIncharge?.isAssigned || false;
   const assignedClass = dashboard?.classIncharge?.class;

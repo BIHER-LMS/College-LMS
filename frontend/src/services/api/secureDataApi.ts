@@ -358,6 +358,7 @@ export const secureDataApi = {
         is_active?: boolean;
         batch_id?: string;
         created_at?: string;
+        batch?: any;
       }>
     >(`/secure-data/colleges/${encodeURIComponent(collegeId)}/classes`)
       .then((data) => {

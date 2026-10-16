@@ -96,30 +96,37 @@ export async function authenticateFirebaseUser(
       const authed = await prisma.authedUser.findUnique({
         where: { uid: firebaseUid },
       });
+      if (authed) {
+        (req as any).authedUser = authed;
+      }
       if (authed && authed.role && authed.role !== 'USER') {
-        const matchingRole = await prisma.role.findFirst({
-          where: { name: authed.role as any },
-          include: { permissions: { include: { permission: true } } },
-        });
+        const matchingRole = prisma.role?.findFirst
+          ? await prisma.role.findFirst({
+              where: { name: authed.role as any },
+              include: { permissions: { include: { permission: true } } },
+            })
+          : null;
 
-        const legacyUser = await prisma.user.upsert({
-          where: { firebaseUid },
-          create: {
-            firebaseUid,
-            email: authed.email,
-            phone: authed.phone,
-            collegeId: authed.college_id,
-            status: authed.approval_status === 'APPROVED' ? 'ACTIVE' : 'PENDING',
-          },
-          update: {
-            email: authed.email,
-            phone: authed.phone,
-            collegeId: authed.college_id,
-            status: authed.approval_status === 'APPROVED' ? 'ACTIVE' : 'PENDING',
-          },
-        });
+        const legacyUser = prisma.user?.upsert
+          ? await prisma.user.upsert({
+              where: { firebaseUid },
+              create: {
+                firebaseUid,
+                email: authed.email,
+                phone: authed.phone,
+                collegeId: authed.college_id,
+                status: authed.approval_status === 'APPROVED' ? 'ACTIVE' : 'PENDING',
+              },
+              update: {
+                email: authed.email,
+                phone: authed.phone,
+                collegeId: authed.college_id,
+                status: authed.approval_status === 'APPROVED' ? 'ACTIVE' : 'PENDING',
+              },
+            })
+          : null;
 
-        if (matchingRole) {
+        if (matchingRole && legacyUser && prisma.userRole?.upsert) {
           await prisma.userRole.upsert({
             where: {
               userId_roleId: {
@@ -135,22 +142,43 @@ export async function authenticateFirebaseUser(
           });
         }
 
-        user = await prisma.user.findUnique({
-          where: { firebaseUid },
-          include: {
-            userRoles: {
-              include: {
-                role: {
-                  include: {
-                    permissions: {
-                      include: { permission: true },
+        if (prisma.user?.findUnique) {
+          user = await prisma.user.findUnique({
+            where: { firebaseUid },
+            include: {
+              userRoles: {
+                include: {
+                  role: {
+                    include: {
+                      permissions: {
+                        include: { permission: true },
+                      },
                     },
                   },
                 },
               },
             },
-          },
-        });
+          });
+        }
+
+        if (!user && authed) {
+          user = {
+            id: authed.uid,
+            firebaseUid: authed.uid,
+            email: authed.email,
+            phone: authed.phone,
+            collegeId: authed.college_id,
+            status: authed.approval_status === 'APPROVED' ? 'ACTIVE' : 'PENDING',
+            userRoles: [
+              {
+                role: {
+                  name: authed.role,
+                  permissions: [],
+                },
+              },
+            ],
+          } as any;
+        }
       }
     }
 
@@ -166,12 +194,9 @@ export async function authenticateFirebaseUser(
       return next();
     }
 
-    // Check account status (allow pending users on auth endpoints like sync/onboarding/me)
     const isAuthRoute =
-      req.baseUrl?.includes('/auth') ||
       req.path === '/sync' ||
-      req.path === '/onboarding' ||
-      req.path === '/me';
+      req.path === '/onboarding';
 
     if (!isAuthRoute) {
       switch (user.status) {

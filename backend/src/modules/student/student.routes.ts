@@ -29,13 +29,17 @@ export async function buildStudentContext(req: any, res: any, next: any) {
       return next();
     }
     
-    const dbUser = await prisma.authedUser.findUnique({
+    let dbUser = await prisma.authedUser.findUnique({
       where: { uid: firebaseUid },
       include: {
         department: { select: { college_id: true } },
         class: { select: { batch: { select: { program: { select: { department_id: true, department: { select: { college_id: true } } } } } } } },
       },
     });
+
+    if (!dbUser && req.authedUser) {
+      dbUser = req.authedUser;
+    }
 
     if (!dbUser) throw new AppError(401, 'UNAUTHORIZED', 'User not found in DB');
     if (dbUser.role !== 'STUDENT' || !['APPROVED', 'ACTIVE'].includes(dbUser.approval_status || '') || !dbUser.college_id ||

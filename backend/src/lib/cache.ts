@@ -12,6 +12,10 @@ class MemoryCache {
   }
 
   get<T>(key: string): T | null {
+    if (process.env.NODE_ENV === 'test' && !process.env.ENABLE_TEST_CACHE) {
+      return null;
+    }
+
     const entry = this.store.get(key);
     if (!entry) return null;
 

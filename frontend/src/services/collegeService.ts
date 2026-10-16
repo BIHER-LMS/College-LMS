@@ -79,6 +79,16 @@ export interface ClassRecord {
   is_active: boolean;
   created_at?: string;
   updated_at?: string;
+  batch?: {
+    id?: string;
+    start_year?: number;
+    end_year?: number;
+    program?: {
+      id?: string;
+      name?: string;
+      department_id?: string;
+    };
+  };
 }
 
 export interface SubjectRecord {

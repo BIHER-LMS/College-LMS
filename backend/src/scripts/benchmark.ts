@@ -222,13 +222,22 @@ async function runSuite() {
     results.push(reportSeq);
 
     console.log(`Benchmarking [${endpoint}] (C=5, 20 requests)...`);
-    const reportConc = await runEndpointBenchmark(endpoint, {
+    const reportConc5 = await runEndpointBenchmark(endpoint, {
       targetUrl: TARGET_URL,
       iterations: 20,
       concurrency: 5,
       testToken: TEST_TOKEN,
     });
-    results.push(reportConc);
+    results.push(reportConc5);
+
+    console.log(`Benchmarking [${endpoint}] (C=10, 20 requests)...`);
+    const reportConc10 = await runEndpointBenchmark(endpoint, {
+      targetUrl: TARGET_URL,
+      iterations: 20,
+      concurrency: 10,
+      testToken: TEST_TOKEN,
+    });
+    results.push(reportConc10);
   }
 
   console.log(`\n========================================================================`);
