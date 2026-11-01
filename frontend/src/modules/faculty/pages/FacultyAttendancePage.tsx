@@ -602,140 +602,273 @@ export const FacultyAttendancePage: React.FC = () => {
                 No students enrolled in this class yet.
               </div>
             ) : (
-              <div className="overflow-x-auto">
-                <table className="w-full text-left border-collapse">
-                  <thead>
-                    <tr className="border-b border-slate-200 bg-slate-50 text-[11px] font-bold text-slate-500 uppercase tracking-wider">
-                      <th className="py-2.5 px-4 w-12 text-center">#</th>
-                      <th className="py-2.5 px-4">Student</th>
-                      <th className="py-2.5 px-4">Register Number</th>
-                      <th className="py-2.5 px-4 text-center">Status</th>
-                      <th className="py-2.5 px-4">Remarks</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-slate-100 text-xs">
-                    {records.map((student, idx) => (
-                      <tr key={student.studentUid} className="hover:bg-slate-50/80 transition-colors">
-                        <td className="py-3 px-4 text-center font-mono text-slate-400">
-                          {idx + 1}
-                        </td>
-                        <td className="py-3 px-4">
-                          <div className="flex items-center space-x-3">
-                            {student.photoUrl ? (
-                              <img
-                                src={student.photoUrl}
-                                alt={student.displayName}
-                                className="w-7 h-7 rounded-full object-cover border border-slate-200"
-                              />
-                            ) : (
-                              <div className="w-7 h-7 rounded-full bg-slate-200 text-slate-700 font-bold text-[10px] flex items-center justify-center">
-                                {student.displayName.charAt(0).toUpperCase()}
-                              </div>
-                            )}
-                            <div>
-                              <p className="font-semibold text-slate-900 leading-tight">
+              <>
+                {/* ─── MOBILE TOUCH-OPTIMIZED CARD VIEW (< 640px) ─── */}
+                <div className="sm:hidden space-y-3 p-3 bg-slate-50/50">
+                  {records.map((student, idx) => (
+                    <div
+                      key={student.studentUid}
+                      className="p-3.5 bg-white rounded-xl border border-slate-200 shadow-2xs space-y-3"
+                    >
+                      {/* Student Info Row */}
+                      <div className="flex items-center justify-between gap-2.5">
+                        <div className="flex items-center space-x-2.5 min-w-0">
+                          {student.photoUrl ? (
+                            <img
+                              src={student.photoUrl}
+                              alt={student.displayName}
+                              className="w-9 h-9 rounded-full object-cover border border-slate-200 shrink-0"
+                            />
+                          ) : (
+                            <div className="w-9 h-9 rounded-full bg-slate-200 text-slate-700 font-bold text-xs flex items-center justify-center shrink-0">
+                              {student.displayName.charAt(0).toUpperCase()}
+                            </div>
+                          )}
+                          <div className="min-w-0">
+                            <div className="flex items-center gap-1.5">
+                              <span className="text-[10px] font-mono text-slate-400">#{idx + 1}</span>
+                              <p className="font-bold text-slate-900 text-sm truncate leading-snug">
                                 {student.displayName}
                               </p>
-                              {student.leave ? (
-                                <div className="mt-1 flex items-center gap-1.5 flex-wrap">
-                                  {student.leave.status === 'APPROVED' ? (
-                                    <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-50 text-emerald-700 border border-emerald-200">
-                                      <CheckCircle2 className="w-3 h-3 text-emerald-600 shrink-0" />
-                                      <span>Approved Leave ({getCategoryInfo(student.leave.reasonCategory).label})</span>
-                                    </span>
-                                  ) : student.leave.status === 'PENDING' ? (
-                                    <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-50 text-amber-700 border border-amber-200">
-                                      <Clock className="w-3 h-3 text-amber-600 shrink-0" />
-                                      <span>Pending Leave ({getCategoryInfo(student.leave.reasonCategory).label})</span>
-                                    </span>
-                                  ) : (
-                                    <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-rose-50 text-rose-700 border border-rose-200">
-                                      <XCircle className="w-3 h-3 text-rose-600 shrink-0" />
-                                      <span>Leave Rejected</span>
-                                    </span>
-                                  )}
-                                  {student.leave.explanation && (
-                                    <span
-                                      className="text-[10px] text-slate-500 italic truncate max-w-[200px] sm:max-w-[320px]"
-                                      title={student.leave.explanation}
-                                    >
-                                      "{student.leave.explanation}"
-                                    </span>
-                                  )}
-                                </div>
-                              ) : null}
                             </div>
+                            <span className="font-mono text-blue-600 text-xs font-semibold block">
+                              {student.registerNumber || <span className="text-slate-400 italic font-sans text-[11px]">No reg no</span>}
+                            </span>
                           </div>
-                        </td>
-                        <td className="py-3 px-4 font-mono text-blue-600 text-[11px] font-semibold">
-                          {student.registerNumber || <span className="text-slate-400 italic">Not set</span>}
-                        </td>
-                        <td className="py-3 px-4 text-center">
-                          <div className="inline-flex rounded-lg border border-slate-200 p-0.5 bg-slate-50">
-                            {/* Present Button */}
-                            <button
-                              type="button"
-                              onClick={() => handleStatusChange(student.studentUid, 'PRESENT')}
-                              className={`px-2.5 py-1 rounded text-xs font-bold transition-all ${
-                                student.status === 'PRESENT'
-                                  ? 'bg-emerald-600 text-white shadow-xs'
-                                  : 'text-slate-500 hover:text-emerald-700'
-                              }`}
-                            >
-                              P
-                            </button>
-                            {/* Absent Button */}
-                            <button
-                              type="button"
-                              onClick={() => handleStatusChange(student.studentUid, 'ABSENT')}
-                              className={`px-2.5 py-1 rounded text-xs font-bold transition-all ${
-                                student.status === 'ABSENT'
-                                  ? 'bg-rose-600 text-white shadow-xs'
-                                  : 'text-slate-500 hover:text-rose-700'
-                              }`}
-                            >
-                              A
-                            </button>
-                            {/* Late Button */}
-                            <button
-                              type="button"
-                              onClick={() => handleStatusChange(student.studentUid, 'LATE')}
-                              className={`px-2.5 py-1 rounded text-xs font-bold transition-all ${
-                                student.status === 'LATE'
-                                  ? 'bg-amber-500 text-white shadow-xs'
-                                  : 'text-slate-500 hover:text-amber-700'
-                              }`}
-                            >
-                              L
-                            </button>
-                            {/* Excused Button */}
-                            <button
-                              type="button"
-                              onClick={() => handleStatusChange(student.studentUid, 'EXCUSED')}
-                              className={`px-2.5 py-1 rounded text-xs font-bold transition-all ${
-                                student.status === 'EXCUSED'
-                                  ? 'bg-blue-600 text-white shadow-xs'
-                                  : 'text-slate-500 hover:text-blue-700'
-                              }`}
-                            >
-                              E
-                            </button>
+                        </div>
+
+                        {/* Current Status Pill */}
+                        <span
+                          className={`px-2.5 py-1 rounded-full text-[11px] font-bold uppercase tracking-wider shrink-0 ${
+                            student.status === 'PRESENT'
+                              ? 'bg-emerald-50 text-emerald-700 border border-emerald-200'
+                              : student.status === 'ABSENT'
+                              ? 'bg-rose-50 text-rose-700 border border-rose-200'
+                              : student.status === 'LATE'
+                              ? 'bg-amber-50 text-amber-700 border border-amber-200'
+                              : 'bg-blue-50 text-blue-700 border border-blue-200'
+                          }`}
+                        >
+                          {student.status}
+                        </span>
+                      </div>
+
+                      {/* Leave Notice if applicable */}
+                      {student.leave && (
+                        <div className="p-2 rounded-lg bg-amber-50/80 border border-amber-200/80 text-[11px] text-amber-900 flex items-start gap-1.5">
+                          <Clock className="w-3.5 h-3.5 text-amber-700 shrink-0 mt-0.5" />
+                          <div className="min-w-0">
+                            <span className="font-semibold">
+                              {student.leave.status === 'APPROVED' ? 'Approved Leave: ' : 'Pending Leave: '}
+                            </span>
+                            <span className="italic">{student.leave.explanation || getCategoryInfo(student.leave.reasonCategory).label}</span>
                           </div>
-                        </td>
-                        <td className="py-3 px-4">
-                          <input
-                            type="text"
-                            placeholder="Optional note..."
-                            value={student.remarks || ''}
-                            onChange={(e) => handleRemarkChange(student.studentUid, e.target.value)}
-                            className="w-full text-xs px-2.5 py-1 bg-slate-50 hover:bg-white focus:bg-white border border-slate-200 rounded text-slate-700 focus:outline-none focus:border-blue-500"
-                          />
-                        </td>
+                        </div>
+                      )}
+
+                      {/* 44px Touch Targets Segmented Controls (WCAG 2.5.5 Compliant) */}
+                      <div className="grid grid-cols-4 gap-1.5 p-1 bg-slate-100 rounded-xl">
+                        <button
+                          type="button"
+                          onClick={() => handleStatusChange(student.studentUid, 'PRESENT')}
+                          className={`min-h-[44px] rounded-lg font-bold text-xs flex flex-col items-center justify-center transition-all ${
+                            student.status === 'PRESENT'
+                              ? 'bg-emerald-600 text-white shadow-xs'
+                              : 'text-slate-600 bg-white/70 hover:bg-white active:bg-slate-200'
+                          }`}
+                        >
+                          <span className="text-sm leading-none">P</span>
+                          <span className="text-[9px] font-medium opacity-90">Present</span>
+                        </button>
+
+                        <button
+                          type="button"
+                          onClick={() => handleStatusChange(student.studentUid, 'ABSENT')}
+                          className={`min-h-[44px] rounded-lg font-bold text-xs flex flex-col items-center justify-center transition-all ${
+                            student.status === 'ABSENT'
+                              ? 'bg-rose-600 text-white shadow-xs'
+                              : 'text-slate-600 bg-white/70 hover:bg-white active:bg-slate-200'
+                          }`}
+                        >
+                          <span className="text-sm leading-none">A</span>
+                          <span className="text-[9px] font-medium opacity-90">Absent</span>
+                        </button>
+
+                        <button
+                          type="button"
+                          onClick={() => handleStatusChange(student.studentUid, 'LATE')}
+                          className={`min-h-[44px] rounded-lg font-bold text-xs flex flex-col items-center justify-center transition-all ${
+                            student.status === 'LATE'
+                              ? 'bg-amber-500 text-white shadow-xs'
+                              : 'text-slate-600 bg-white/70 hover:bg-white active:bg-slate-200'
+                          }`}
+                        >
+                          <span className="text-sm leading-none">L</span>
+                          <span className="text-[9px] font-medium opacity-90">Late</span>
+                        </button>
+
+                        <button
+                          type="button"
+                          onClick={() => handleStatusChange(student.studentUid, 'EXCUSED')}
+                          className={`min-h-[44px] rounded-lg font-bold text-xs flex flex-col items-center justify-center transition-all ${
+                            student.status === 'EXCUSED'
+                              ? 'bg-blue-600 text-white shadow-xs'
+                              : 'text-slate-600 bg-white/70 hover:bg-white active:bg-slate-200'
+                          }`}
+                        >
+                          <span className="text-sm leading-none">E</span>
+                          <span className="text-[9px] font-medium opacity-90">Excused</span>
+                        </button>
+                      </div>
+
+                      {/* Optional Note / Remarks */}
+                      <input
+                        type="text"
+                        placeholder="Optional note for student..."
+                        value={student.remarks || ''}
+                        onChange={(e) => handleRemarkChange(student.studentUid, e.target.value)}
+                        className="w-full text-sm px-3 py-1.5 bg-slate-50 focus:bg-white border border-slate-200 rounded-lg text-slate-800 placeholder:text-slate-400 focus:outline-none focus:border-blue-500"
+                      />
+                    </div>
+                  ))}
+                </div>
+
+                {/* ─── DESKTOP / TABLET DATA TABLE (>= 640px) ─── */}
+                <div className="hidden sm:block overflow-x-auto">
+                  <table className="w-full text-left border-collapse">
+                    <thead>
+                      <tr className="border-b border-slate-200 bg-slate-50 text-[11px] font-bold text-slate-500 uppercase tracking-wider">
+                        <th className="py-2.5 px-4 w-12 text-center">#</th>
+                        <th className="py-2.5 px-4">Student</th>
+                        <th className="py-2.5 px-4">Register Number</th>
+                        <th className="py-2.5 px-4 text-center">Status</th>
+                        <th className="py-2.5 px-4">Remarks</th>
                       </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
+                    </thead>
+                    <tbody className="divide-y divide-slate-100 text-xs">
+                      {records.map((student, idx) => (
+                        <tr key={student.studentUid} className="hover:bg-slate-50/80 transition-colors">
+                          <td className="py-3 px-4 text-center font-mono text-slate-400">
+                            {idx + 1}
+                          </td>
+                          <td className="py-3 px-4">
+                            <div className="flex items-center space-x-3">
+                              {student.photoUrl ? (
+                                <img
+                                  src={student.photoUrl}
+                                  alt={student.displayName}
+                                  className="w-7 h-7 rounded-full object-cover border border-slate-200"
+                                />
+                              ) : (
+                                <div className="w-7 h-7 rounded-full bg-slate-200 text-slate-700 font-bold text-[10px] flex items-center justify-center">
+                                  {student.displayName.charAt(0).toUpperCase()}
+                                </div>
+                              )}
+                              <div>
+                                <p className="font-semibold text-slate-900 leading-tight">
+                                  {student.displayName}
+                                </p>
+                                {student.leave ? (
+                                  <div className="mt-1 flex items-center gap-1.5 flex-wrap">
+                                    {student.leave.status === 'APPROVED' ? (
+                                      <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-50 text-emerald-700 border border-emerald-200">
+                                        <CheckCircle2 className="w-3 h-3 text-emerald-600 shrink-0" />
+                                        <span>Approved Leave ({getCategoryInfo(student.leave.reasonCategory).label})</span>
+                                      </span>
+                                    ) : student.leave.status === 'PENDING' ? (
+                                      <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-50 text-amber-700 border border-amber-200">
+                                        <Clock className="w-3 h-3 text-amber-600 shrink-0" />
+                                        <span>Pending Leave ({getCategoryInfo(student.leave.reasonCategory).label})</span>
+                                      </span>
+                                    ) : (
+                                      <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-rose-50 text-rose-700 border border-rose-200">
+                                        <XCircle className="w-3 h-3 text-rose-600 shrink-0" />
+                                        <span>Leave Rejected</span>
+                                      </span>
+                                    )}
+                                    {student.leave.explanation && (
+                                      <span
+                                        className="text-[10px] text-slate-500 italic truncate max-w-[200px] sm:max-w-[320px]"
+                                        title={student.leave.explanation}
+                                      >
+                                        "{student.leave.explanation}"
+                                      </span>
+                                    )}
+                                  </div>
+                                ) : null}
+                              </div>
+                            </div>
+                          </td>
+                          <td className="py-3 px-4 font-mono text-blue-600 text-[11px] font-semibold">
+                            {student.registerNumber || <span className="text-slate-400 italic">Not set</span>}
+                          </td>
+                          <td className="py-3 px-4 text-center">
+                            <div className="inline-flex rounded-lg border border-slate-200 p-0.5 bg-slate-50 gap-0.5">
+                              {/* Present Button */}
+                              <button
+                                type="button"
+                                onClick={() => handleStatusChange(student.studentUid, 'PRESENT')}
+                                className={`min-w-[32px] min-h-[30px] px-2.5 py-1 rounded text-xs font-bold transition-all ${
+                                  student.status === 'PRESENT'
+                                    ? 'bg-emerald-600 text-white shadow-xs'
+                                    : 'text-slate-500 hover:text-emerald-700 hover:bg-slate-100'
+                                }`}
+                              >
+                                P
+                              </button>
+                              {/* Absent Button */}
+                              <button
+                                type="button"
+                                onClick={() => handleStatusChange(student.studentUid, 'ABSENT')}
+                                className={`min-w-[32px] min-h-[30px] px-2.5 py-1 rounded text-xs font-bold transition-all ${
+                                  student.status === 'ABSENT'
+                                    ? 'bg-rose-600 text-white shadow-xs'
+                                    : 'text-slate-500 hover:text-rose-700 hover:bg-slate-100'
+                                }`}
+                              >
+                                A
+                              </button>
+                              {/* Late Button */}
+                              <button
+                                type="button"
+                                onClick={() => handleStatusChange(student.studentUid, 'LATE')}
+                                className={`min-w-[32px] min-h-[30px] px-2.5 py-1 rounded text-xs font-bold transition-all ${
+                                  student.status === 'LATE'
+                                    ? 'bg-amber-500 text-white shadow-xs'
+                                    : 'text-slate-500 hover:text-amber-700 hover:bg-slate-100'
+                                }`}
+                              >
+                                L
+                              </button>
+                              {/* Excused Button */}
+                              <button
+                                type="button"
+                                onClick={() => handleStatusChange(student.studentUid, 'EXCUSED')}
+                                className={`min-w-[32px] min-h-[30px] px-2.5 py-1 rounded text-xs font-bold transition-all ${
+                                  student.status === 'EXCUSED'
+                                    ? 'bg-blue-600 text-white shadow-xs'
+                                    : 'text-slate-500 hover:text-blue-700 hover:bg-slate-100'
+                                }`}
+                              >
+                                E
+                              </button>
+                            </div>
+                          </td>
+                          <td className="py-3 px-4">
+                            <input
+                              type="text"
+                              placeholder="Optional note..."
+                              value={student.remarks || ''}
+                              onChange={(e) => handleRemarkChange(student.studentUid, e.target.value)}
+                              className="w-full text-xs px-2.5 py-1 bg-slate-50 hover:bg-white focus:bg-white border border-slate-200 rounded text-slate-700 focus:outline-none focus:border-blue-500"
+                            />
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </>
             )}
           </div>
 

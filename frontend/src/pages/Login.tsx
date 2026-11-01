@@ -149,7 +149,7 @@ function Login() {
   };
 
   return (
-    <main className="w-full min-h-screen flex flex-col p-6 sm:p-10 lg:p-16 xl:p-20 bg-surface">
+    <main className="w-full min-h-screen flex flex-col p-4 sm:p-10 lg:p-16 xl:p-20 bg-surface">
       <div className="flex items-center justify-between pb-8">
         <Link to="/" className="inline-flex items-center gap-2.5">
           <img src="/logo.png" alt="Aura Academia Logo" className="h-8 w-auto object-contain" />
@@ -274,7 +274,7 @@ function Login() {
                     onChange={(e) => setEmail(e.target.value)}
                     autoComplete="email"
                     placeholder="e.vance@university.edu"
-                    className="w-full h-11 px-3.5 text-sm bg-white border border-slate-300 rounded-lg text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-brand-800 focus:border-brand-800 transition-subtle shadow-xs"
+                    className="w-full h-11 px-3.5 text-base sm:text-sm bg-white border border-slate-300 rounded-lg text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-brand-800 focus:border-brand-800 transition-subtle shadow-xs"
                   />
                   <div className="absolute inset-y-0 right-0 pr-3.5 flex items-center pointer-events-none text-slate-400">
                     <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -303,7 +303,7 @@ function Login() {
                     onChange={(e) => setPassword(e.target.value)}
                     autoComplete="current-password"
                     placeholder="••••••••••••"
-                    className="w-full h-11 pl-3.5 pr-11 text-sm bg-white border border-slate-300 rounded-lg text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-brand-800 focus:border-brand-800 transition-subtle shadow-xs"
+                    className="w-full h-11 pl-3.5 pr-11 text-base sm:text-sm bg-white border border-slate-300 rounded-lg text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-brand-800 focus:border-brand-800 transition-subtle shadow-xs"
                   />
                   <button 
                     type="button" 
@@ -401,7 +401,7 @@ function Login() {
                     onChange={(e) => setDisplayName(e.target.value)}
                     autoComplete="name"
                     placeholder="e.g. Alex Johnson"
-                    className="w-full h-11 px-3.5 text-sm bg-white border border-slate-300 rounded-lg text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-brand-800 focus:border-brand-800 transition-subtle shadow-xs"
+                    className="w-full h-11 px-3.5 text-base sm:text-sm bg-white border border-slate-300 rounded-lg text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-brand-800 focus:border-brand-800 transition-subtle shadow-xs"
                   />
                   <div className="absolute inset-y-0 right-0 pr-3.5 flex items-center pointer-events-none text-slate-400">
                     <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -427,7 +427,7 @@ function Login() {
                     }}
                     autoComplete="email"
                     placeholder="student@university.edu"
-                    className="w-full h-11 px-3.5 text-sm bg-white border border-slate-300 rounded-lg text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-brand-800 focus:border-brand-800 transition-subtle shadow-xs"
+                    className="w-full h-11 px-3.5 text-base sm:text-sm bg-white border border-slate-300 rounded-lg text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-brand-800 focus:border-brand-800 transition-subtle shadow-xs"
                   />
                   <div className="absolute inset-y-0 right-0 pr-3.5 flex items-center pointer-events-none text-slate-400">
                     <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -454,7 +454,7 @@ function Login() {
                     }}
                     autoComplete="tel"
                     placeholder="+91 98765 43210"
-                    className="w-full h-11 px-3.5 text-sm bg-white border border-slate-300 rounded-lg text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-brand-800 focus:border-brand-800 transition-subtle shadow-xs"
+                    className="w-full h-11 px-3.5 text-base sm:text-sm bg-white border border-slate-300 rounded-lg text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-brand-800 focus:border-brand-800 transition-subtle shadow-xs"
                   />
                   <div className="absolute inset-y-0 right-0 pr-3.5 flex items-center pointer-events-none text-slate-400">
                     <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -482,7 +482,7 @@ function Login() {
                     }}
                     autoComplete="new-password"
                     placeholder="••••••••••••"
-                    className="w-full h-11 pl-3.5 pr-11 text-sm bg-white border border-slate-300 rounded-lg text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-brand-800 focus:border-brand-800 transition-subtle shadow-xs"
+                    className="w-full h-11 pl-3.5 pr-11 text-base sm:text-sm bg-white border border-slate-300 rounded-lg text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-brand-800 focus:border-brand-800 transition-subtle shadow-xs"
                   />
                   <button 
                     type="button" 

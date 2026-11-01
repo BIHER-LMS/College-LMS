@@ -1,0 +1,14 @@
+{
+  "dependencies": {
+    "playwright-core": "^1.64.1"
+  },
+  "name": "motion-graphics",
+  "version": "1.0.0",
+  "description": "This directory houses the code-generated motion graphics trailer (45 seconds, 1080p @ 60 FPS) for **Aura Academia**, grounded directly in the live application recording (`Screen Recording 2026-10-27 192406.mp4`) and the repository's frontend architecture.",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": [],
+  "type": "commonjs"
+}

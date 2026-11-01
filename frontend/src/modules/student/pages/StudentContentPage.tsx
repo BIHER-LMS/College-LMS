@@ -645,19 +645,19 @@ export const StudentContentPage: React.FC = () => {
       {/* IN-APP PREVIEW & VIDEO PLAYER MODAL (Fast & Telemetry Ready) */}
       {/* ========================================================= */}
       {isPreviewModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/80 backdrop-blur-md p-2 sm:p-4">
-          <div className="bg-white rounded-2xl max-w-5xl w-full h-[90vh] flex flex-col shadow-2xl border border-slate-200 overflow-hidden">
+        <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-slate-950/80 backdrop-blur-md p-0 sm:p-4">
+          <div className="bg-white rounded-t-2xl sm:rounded-2xl max-w-5xl w-full h-[94dvh] sm:h-[90vh] flex flex-col shadow-2xl border border-slate-200 overflow-hidden animate-in slide-in-from-bottom sm:zoom-in-95 duration-150">
             {/* Modal Header */}
-            <div className="p-4 bg-slate-900 text-white flex items-center justify-between border-b border-slate-800">
-              <div className="flex items-center gap-3">
-                <div className="p-2 bg-white/10 rounded-lg">
+            <div className="p-3.5 sm:p-4 bg-slate-900 text-white flex items-center justify-between border-b border-slate-800 gap-2 shrink-0">
+              <div className="flex items-center gap-2.5 sm:gap-3 min-w-0 flex-1">
+                <div className="p-2 bg-white/10 rounded-lg shrink-0">
                   {activeContent && getContentIcon(activeContent.contentType)}
                 </div>
-                <div>
-                  <h3 className="text-sm font-bold truncate max-w-md">
+                <div className="min-w-0 flex-1">
+                  <h3 className="text-xs sm:text-sm font-bold truncate">
                     {activeContent?.title || 'Loading content...'}
                   </h3>
-                  <span className="text-xs text-slate-400">
+                  <span className="text-[11px] sm:text-xs text-slate-400 truncate block">
                     {activeContent?.topic?.title} • {activeContent?.classSubject?.subjectName || 'Course'}
                   </span>
                 </div>
@@ -740,9 +740,9 @@ export const StudentContentPage: React.FC = () => {
                       />
 
                       {/* Video Player Controls Bar */}
-                      <div className="w-full max-w-xl mt-4 bg-slate-900/90 text-white p-3 rounded-xl border border-slate-800 flex items-center justify-between text-xs">
-                        <div className="flex items-center gap-2">
-                          <span className="text-slate-400 font-semibold">Speed:</span>
+                      <div className="w-full max-w-xl mt-4 bg-slate-900/90 text-white p-3 rounded-xl border border-slate-800 flex flex-wrap sm:flex-nowrap items-center justify-between gap-2.5 text-xs">
+                        <div className="flex items-center gap-1.5 overflow-x-auto">
+                          <span className="text-slate-400 font-semibold shrink-0">Speed:</span>
                           {[0.75, 1.0, 1.25, 1.5, 2.0].map((s) => (
                             <button
                               key={s}

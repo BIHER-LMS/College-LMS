@@ -10,9 +10,9 @@ interface FacultyStatsProps {
 export const FacultyStats: React.FC<FacultyStatsProps> = ({ dashboard, loading }) => {
   if (loading) {
     return (
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-2.5 sm:gap-3">
         {[1, 2, 3, 4].map((i) => (
-          <div key={i} className="bg-white border border-slate-200 rounded-lg p-5 h-24 animate-pulse" />
+          <div key={i} className="bg-white border border-slate-200 rounded-lg p-3.5 sm:p-5 h-20 sm:h-24 animate-pulse" />
         ))}
       </div>
     );
@@ -56,7 +56,7 @@ export const FacultyStats: React.FC<FacultyStatsProps> = ({ dashboard, loading }
   ];
 
   return (
-    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+    <div className="grid grid-cols-2 lg:grid-cols-4 gap-2.5 sm:gap-3">
       {stats.map((stat, idx) => {
         const Icon = stat.icon;
         return (

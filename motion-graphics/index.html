@@ -1,0 +1,293 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Aura Academia — 120-Second Cinematic Motion Graphics Experience</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600;700&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --bg: #0b1c30;
+      --surface: #0f243d;
+      --card: #132d4d;
+      --border: #1e3a5f;
+      --text-main: #f8fafc;
+      --text-muted: #94a3b8;
+      --brand-blue: #004ac6;
+      --active-blue: #2563eb;
+      --cyan: #06b6d4;
+      --green: #059669;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      background-color: var(--bg);
+      color: var(--text-main);
+      font-family: 'Plus Jakarta Sans', -apple-system, sans-serif;
+      line-height: 1.6;
+      padding: 32px 20px 80px;
+    }
+    .container {
+      max-width: 1400px;
+      margin: 0 auto;
+      display: flex;
+      flex-direction: column;
+      gap: 32px;
+    }
+    header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      border-bottom: 1px solid var(--border);
+      padding-bottom: 24px;
+    }
+    .brand-title {
+      display: flex;
+      align-items: center;
+      gap: 16px;
+    }
+    .badge {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 11px;
+      font-weight: 700;
+      padding: 4px 10px;
+      border-radius: 12px;
+      background: rgba(6, 182, 212, 0.15);
+      color: var(--cyan);
+      border: 1px solid rgba(6, 182, 212, 0.3);
+    }
+    h1 {
+      font-size: 28px;
+      font-weight: 800;
+      letter-spacing: -0.02em;
+    }
+    p.subtitle {
+      color: var(--text-muted);
+      font-size: 15px;
+    }
+    .player-wrapper {
+      position: relative;
+      width: 100%;
+      aspect-ratio: 16 / 9;
+      background: #000;
+      border-radius: 14px;
+      overflow: hidden;
+      box-shadow: 0 30px 60px -12px rgba(0, 0, 0, 0.8), 0 0 0 1px rgba(255, 255, 255, 0.1);
+    }
+    iframe {
+      width: 100%;
+      height: 100%;
+      border: none;
+      display: block;
+    }
+    .actions-bar {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      background: var(--surface);
+      padding: 16px 24px;
+      border-radius: 12px;
+      border: 1px solid var(--border);
+    }
+    .btn-group {
+      display: flex;
+      gap: 12px;
+    }
+    a.btn, button.btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      background: var(--brand-blue);
+      color: #fff;
+      padding: 10px 18px;
+      border-radius: 8px;
+      font-size: 14px;
+      font-weight: 600;
+      text-decoration: none;
+      border: 1px solid var(--active-blue);
+      cursor: pointer;
+      transition: background 0.15s ease;
+    }
+    a.btn:hover, button.btn:hover {
+      background: var(--active-blue);
+    }
+    a.btn.secondary {
+      background: rgba(255, 255, 255, 0.08);
+      border-color: rgba(255, 255, 255, 0.15);
+      color: var(--text-main);
+    }
+    a.btn.secondary:hover {
+      background: rgba(255, 255, 255, 0.15);
+    }
+    .storyboard-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+      gap: 16px;
+    }
+    .scene-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 18px;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+    .scene-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+    .scene-num {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 11px;
+      font-weight: 700;
+      color: var(--cyan);
+    }
+    .scene-duration {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 11px;
+      color: var(--text-muted);
+    }
+    .scene-title {
+      font-size: 16px;
+      font-weight: 700;
+    }
+    .scene-desc {
+      font-size: 13px;
+      color: var(--text-muted);
+    }
+  </style>
+</head>
+<body>
+
+  <div class="container">
+    <header>
+      <div class="brand-title">
+        <div>
+          <div style="display:flex; align-items:center; gap:10px; margin-bottom:4px;">
+            <h1>Aura Academia</h1>
+            <span class="badge">120.0s MASTER FILM</span>
+            <span class="badge" style="color:#34D399; background:rgba(52,211,153,0.15); border-color:rgba(52,211,153,0.3);">1080p 60 FPS</span>
+          </div>
+          <p class="subtitle">Your College. One Intelligent Platform. — 10-Scene Cinematic Architecture & Operations Walkthrough</p>
+        </div>
+      </div>
+      <div>
+        <a href="scene.html" target="_blank" class="btn">Launch Standalone Player ↗</a>
+      </div>
+    </header>
+
+    <div class="player-wrapper">
+      <iframe src="scene.html" allow="autoplay; fullscreen" id="playerFrame"></iframe>
+    </div>
+
+    <div class="actions-bar">
+      <div>
+        <span style="font-weight:700;">Deterministic Virtual Clock:</span>
+        <span style="color:var(--text-muted); margin-left:8px; font-family:'JetBrains Mono', monospace;">window.renderAt(t) • 7,200 Frames at 60 FPS</span>
+      </div>
+      <div class="btn-group">
+        <a href="aura_academia_audio.wav" download="aura_academia_120s_audio.wav" class="btn secondary">🎵 Download 120s Soundtrack (WAV)</a>
+        <a href="scene.html" class="btn">Open Full Screen Canvas</a>
+      </div>
+    </div>
+
+    <h2 style="font-size:22px; font-weight:800; margin-top:16px;">10-Scene Motion Graphics Storyboard (00:00 – 02:00 | 120.0s)</h2>
+
+    <div class="storyboard-grid">
+      <div class="scene-card">
+        <div class="scene-header">
+          <span class="scene-num">SCENE 01</span>
+          <span class="scene-duration">00:00 – 00:09 (9s)</span>
+        </div>
+        <div class="scene-title">The Brand Reveal</div>
+        <div class="scene-desc">Daylight canvas, 3D rotating orbital brand mark, universal header, and cursor click on [Explore LMS].</div>
+      </div>
+
+      <div class="scene-card">
+        <div class="scene-header">
+          <span class="scene-num">SCENE 02</span>
+          <span class="scene-duration">00:09 – 00:20 (11s)</span>
+        </div>
+        <div class="scene-title">Five Administrative Tiers</div>
+        <div class="scene-desc">Connected hierarchy bus line across Super Admin, College Admin, HOD, Faculty, and Student tiers.</div>
+      </div>
+
+      <div class="scene-card">
+        <div class="scene-header">
+          <span class="scene-num">SCENE 03</span>
+          <span class="scene-duration">00:20 – 00:33 (13s)</span>
+        </div>
+        <div class="scene-title">Admin Workspaces</div>
+        <div class="scene-desc">14 Campuses metric, click BIHER autonomous college card, setup CSE departments, batches, and user approvals.</div>
+      </div>
+
+      <div class="scene-card">
+        <div class="scene-header">
+          <span class="scene-num">SCENE 04</span>
+          <span class="scene-duration">00:33 – 00:46 (13s)</span>
+        </div>
+        <div class="scene-title">HOD Departmental Intelligence</div>
+        <div class="scene-desc">Sovereign CSE boundary, attendance surveillance, faculty workload balancing, and curriculum audit approval.</div>
+      </div>
+
+      <div class="scene-card">
+        <div class="scene-header">
+          <span class="scene-num">SCENE 05</span>
+          <span class="scene-duration">00:46 – 01:02 (16s)</span>
+        </div>
+        <div class="scene-title">Faculty Classroom Operations</div>
+        <div class="scene-desc">Period 2 CS-301 roster, rapid 1-tap attendance matrix toggling, session commit to PostgreSQL with tactile confirmation.</div>
+      </div>
+
+      <div class="scene-card">
+        <div class="scene-header">
+          <span class="scene-num">SCENE 06</span>
+          <span class="scene-duration">01:02 – 01:18 (16s)</span>
+        </div>
+        <div class="scene-title">Student Command Center</div>
+        <div class="scene-desc">86.4% attendance gauge, +5 safe margin indicator, leave application modal, and SHA-256 cryptographic assignment receipt.</div>
+      </div>
+
+      <div class="scene-card">
+        <div class="scene-header">
+          <span class="scene-num">SCENE 07</span>
+          <span class="scene-duration">01:18 – 01:36 (18s)</span>
+        </div>
+        <div class="scene-title">Grounded AI Assistant</div>
+        <div class="scene-desc">5-stage deterministic AI pipeline, dark JSON execution inspector (`get_student_attendance`), database-verified response.</div>
+      </div>
+
+      <div class="scene-card">
+        <div class="scene-header">
+          <span class="scene-num">SCENE 08</span>
+          <span class="scene-duration">01:36 – 01:48 (12s)</span>
+        </div>
+        <div class="scene-title">Engineered Connected System</div>
+        <div class="scene-desc">5-layer stack architecture (React 19 -> Node 24 -> Firebase Auth -> Prisma PgBouncer -> Vercel Edge) with animated packets.</div>
+      </div>
+
+      <div class="scene-card">
+        <div class="scene-header">
+          <span class="scene-num">SCENE 09</span>
+          <span class="scene-duration">01:48 – 01:56 (8s)</span>
+        </div>
+        <div class="scene-title">Secure Access & Experience</div>
+        <div class="scene-desc">Frosted sign-in modal, credential entry, real-time Firebase token validation, and instant student workspace routing.</div>
+      </div>
+
+      <div class="scene-card">
+        <div class="scene-header">
+          <span class="scene-num">SCENE 10</span>
+          <span class="scene-duration">01:56 – 02:00 (4s)</span>
+        </div>
+        <div class="scene-title">Final Brand Lockup</div>
+        <div class="scene-desc">Master brand mark, 5-tier ribbon, "Your College. One Intelligent Platform.", clean hold at exact 120.0s.</div>
+      </div>
+    </div>
+  </div>
+
+</body>
+</html>

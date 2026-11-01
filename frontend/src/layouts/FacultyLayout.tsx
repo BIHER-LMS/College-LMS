@@ -86,9 +86,9 @@ export const FacultyLayout: React.FC = () => {
   };
 
   return (
-    <div className="min-h-screen bg-slate-50 flex flex-col md:flex-row text-slate-800">
-      {/* Mobile Top Header */}
-      <div className="md:hidden flex items-center justify-between p-3.5 bg-[#0a1122] border-b border-slate-800 sticky top-0 z-50">
+    <div className="min-h-screen bg-slate-50 flex flex-col lg:flex-row text-slate-800">
+      {/* Mobile Top Header (< 1024px) */}
+      <div className="lg:hidden flex items-center justify-between p-3.5 bg-[#0a1122] border-b border-slate-800 sticky top-0 z-40">
         <div className="flex items-center space-x-2.5">
           <div className="w-7 h-7 rounded bg-white text-[#0a1122] font-black text-xs flex items-center justify-center tracking-wider">
             AA
@@ -101,16 +101,26 @@ export const FacultyLayout: React.FC = () => {
         <button
           onClick={() => setSidebarOpen(!sidebarOpen)}
           className="p-1.5 rounded-lg bg-slate-800 text-slate-300 hover:text-white"
+          type="button"
+          aria-label="Toggle Navigation Menu"
         >
-          {sidebarOpen ? <X className="w-4 h-4" /> : <Menu className="w-4 h-4" />}
+          {sidebarOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
         </button>
       </div>
 
+      {/* Backdrop overlay for mobile & tablet drawer */}
+      {sidebarOpen && (
+        <div
+          className="fixed inset-0 bg-slate-900/60 backdrop-blur-xs z-40 lg:hidden transition-opacity"
+          onClick={() => setSidebarOpen(false)}
+        />
+      )}
+
       {/* Sidebar - Fixed and Responsive (Never scrolls away) */}
       <aside
-        className={`fixed inset-y-0 left-0 z-40 w-60 bg-[#0B132B] border-r border-slate-800/60 flex flex-col justify-between transform transition-transform duration-200 ease-in-out md:translate-x-0 ${
+        className={`fixed inset-y-0 left-0 z-50 w-64 bg-[#0B132B] border-r border-slate-800/60 flex flex-col justify-between transform transition-transform duration-200 ease-in-out lg:translate-x-0 ${
           sidebarOpen ? 'translate-x-0' : '-translate-x-full'
-        } md:sticky md:top-0 md:h-screen md:w-60 shrink-0 select-none`}
+        } lg:sticky lg:top-0 lg:h-screen lg:w-60 shrink-0 select-none shadow-2xl lg:shadow-none`}
       >
         <div className="flex flex-col h-full justify-between overflow-y-auto">
           <div>

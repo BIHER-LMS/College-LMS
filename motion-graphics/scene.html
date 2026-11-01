@@ -1,0 +1,423 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Aura Academia — 120s Cinematic Motion Graphics Film</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600;700;800&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      background-color: #0b1c30;
+      color: #f1f5f9;
+      font-family: 'Plus Jakarta Sans', -apple-system, sans-serif;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      min-height: 100vh;
+      overflow: hidden;
+      user-select: none;
+    }
+    #viewport {
+      position: relative;
+      width: min(96vw, 1920px);
+      aspect-ratio: 16 / 9;
+      background: #000;
+      border-radius: 12px;
+      overflow: hidden;
+      box-shadow: 0 25px 60px -15px rgba(0, 0, 0, 0.7), 0 0 0 1px rgba(255, 255, 255, 0.1);
+    }
+    canvas {
+      display: block;
+      width: 100%;
+      height: 100%;
+    }
+    #controls {
+      position: absolute;
+      bottom: 0;
+      left: 0;
+      right: 0;
+      background: linear-gradient(to top, rgba(11, 28, 48, 0.94), rgba(11, 28, 48, 0.75) 70%, transparent);
+      padding: 20px 24px 16px;
+      opacity: 0;
+      transition: opacity 0.25s ease;
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+    #viewport:hover #controls, #controls:focus-within {
+      opacity: 1;
+    }
+    .scrubber-row {
+      display: flex;
+      align-items: center;
+      gap: 14px;
+    }
+    #scrubber {
+      flex: 1;
+      height: 6px;
+      border-radius: 3px;
+      background: rgba(255, 255, 255, 0.2);
+      outline: none;
+      -webkit-appearance: none;
+      cursor: pointer;
+      accent-color: #2563eb;
+    }
+    #scrubber::-webkit-slider-thumb {
+      -webkit-appearance: none;
+      width: 16px;
+      height: 16px;
+      border-radius: 50%;
+      background: #38bdf8;
+      cursor: pointer;
+      box-shadow: 0 0 8px rgba(56, 189, 248, 0.8);
+    }
+    .timecode {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 13px;
+      font-weight: 600;
+      color: #94a3b8;
+      min-width: 145px;
+      text-align: right;
+    }
+    .actions-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+    .btn-group {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    button {
+      background: rgba(255, 255, 255, 0.1);
+      border: 1px solid rgba(255, 255, 255, 0.15);
+      color: #ffffff;
+      padding: 6px 14px;
+      border-radius: 6px;
+      font-family: 'Plus Jakarta Sans', sans-serif;
+      font-size: 13px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.15s ease;
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+    }
+    button:hover {
+      background: rgba(255, 255, 255, 0.2);
+      border-color: rgba(255, 255, 255, 0.3);
+    }
+    button.primary {
+      background: #004ac6;
+      border-color: #2563eb;
+    }
+    button.primary:hover {
+      background: #2563eb;
+    }
+    .scene-badges {
+      display: flex;
+      gap: 6px;
+      overflow-x: auto;
+      max-width: 65%;
+      padding-bottom: 2px;
+    }
+    .scene-pill {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 11px;
+      font-weight: 600;
+      padding: 4px 10px;
+      background: rgba(255, 255, 255, 0.08);
+      border: 1px solid rgba(255, 255, 255, 0.12);
+      border-radius: 12px;
+      color: #94a3b8;
+      cursor: pointer;
+      white-space: nowrap;
+      transition: all 0.15s ease;
+    }
+    .scene-pill:hover, .scene-pill.active {
+      background: rgba(37, 99, 235, 0.25);
+      border-color: #38bdf8;
+      color: #ffffff;
+    }
+    /* Contact Sheet Modal */
+    #modal {
+      display: none;
+      position: fixed;
+      top: 0; left: 0; right: 0; bottom: 0;
+      background: rgba(0, 0, 0, 0.85);
+      backdrop-filter: blur(8px);
+      z-index: 100;
+      align-items: center;
+      justify-content: center;
+      padding: 24px;
+    }
+    #modal.open { display: flex; }
+    .modal-content {
+      background: #0f172a;
+      border: 1px solid rgba(255, 255, 255, 0.15);
+      border-radius: 12px;
+      max-width: 90vw;
+      max-height: 90vh;
+      padding: 20px;
+      display: flex;
+      flex-direction: column;
+      gap: 14px;
+    }
+    .modal-content img {
+      max-width: 100%;
+      max-height: 70vh;
+      border-radius: 8px;
+      object-fit: contain;
+    }
+  </style>
+</head>
+<body>
+
+  <div id="viewport">
+    <canvas id="c" width="1920" height="1080"></canvas>
+
+    <div id="controls">
+      <div class="scrubber-row">
+        <input type="range" id="scrubber" min="0" max="120" step="0.01" value="0">
+        <div class="timecode" id="timecode">00:00.00 / 02:00.00</div>
+      </div>
+
+      <div class="actions-row">
+        <div class="btn-group">
+          <button id="btnPlay" class="primary">▶ Play</button>
+          <button id="btnAudio">🔊 Sound: ON</button>
+          <button id="btnContactSheet">📸 Contact Sheet</button>
+          <a href="aura_academia_audio.wav" download="aura_academia_120s_audio.wav" style="text-decoration:none;">
+            <button id="btnWav">🎵 Audio (WAV)</button>
+          </a>
+        </div>
+
+        <div class="scene-badges">
+          <div class="scene-pill active" data-t="0">S1: Reveal</div>
+          <div class="scene-pill" data-t="9">S2: 5 Tiers</div>
+          <div class="scene-pill" data-t="20">S3: Workspaces</div>
+          <div class="scene-pill" data-t="33">S4: HOD Intel</div>
+          <div class="scene-pill" data-t="46">S5: Faculty</div>
+          <div class="scene-pill" data-t="62">S6: Student</div>
+          <div class="scene-pill" data-t="78">S7: AI RAG</div>
+          <div class="scene-pill" data-t="96">S8: Architecture</div>
+          <div class="scene-pill" data-t="108">S9: Access</div>
+          <div class="scene-pill" data-t="116">S10: Lockup</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div id="modal">
+    <div class="modal-content">
+      <div style="display:flex; justify-content:space-between; align-items:center;">
+        <h3 style="font-weight:700;">10-Scene Contact Sheet (120s Master Film)</h3>
+        <button id="btnCloseModal">✕ Close</button>
+      </div>
+      <img id="contactSheetImg" src="" alt="Contact Sheet">
+    </div>
+  </div>
+
+  <!-- Load Modules -->
+  <script src="cursor-track.js"></script>
+  <script src="audio-cues.js"></script>
+  <script src="drawing-helpers.js"></script>
+  <script src="scenes-1-to-5.js"></script>
+  <script src="scenes-6-to-10.js"></script>
+
+  <script>
+    const canvas = document.getElementById('c');
+    const ctx = canvas.getContext('2d');
+    const DURATION = 120.0;
+
+    let currentTime = 0.0;
+    let isPlaying = false;
+    let lastPerfTime = performance.now();
+    let isAudioMuted = false;
+
+    // Deterministic Virtual Clock API
+    window.renderAt = function(t) {
+      const clampedT = Math.max(0, Math.min(DURATION, Number(t)));
+
+      // Dispatch to 10 distinct scene renderers
+      if (clampedT < 9.0) {
+        window.renderScene01(ctx, clampedT);
+      } else if (clampedT < 20.0) {
+        window.renderScene02(ctx, clampedT);
+      } else if (clampedT < 33.0) {
+        window.renderScene03(ctx, clampedT);
+      } else if (clampedT < 46.0) {
+        window.renderScene04(ctx, clampedT);
+      } else if (clampedT < 62.0) {
+        window.renderScene05(ctx, clampedT);
+      } else if (clampedT < 78.0) {
+        window.renderScene06(ctx, clampedT);
+      } else if (clampedT < 96.0) {
+        window.renderScene07(ctx, clampedT);
+      } else if (clampedT < 108.0) {
+        window.renderScene08(ctx, clampedT);
+      } else if (clampedT < 116.0) {
+        window.renderScene09(ctx, clampedT);
+      } else {
+        window.renderScene10(ctx, clampedT);
+      }
+
+      // Reusable Vector Cursor
+      const cur = window.getCursorAt(clampedT);
+      window.drawCursor(ctx, cur.x, cur.y, cur.isClicking, cur.clickProgress);
+
+      // Web Audio Tick
+      window.AudioEngine.tick(clampedT, isPlaying);
+    };
+
+    function formatTime(s) {
+      const mins = Math.floor(s / 60);
+      const secs = (s % 60).toFixed(2);
+      return `${String(mins).padStart(2, '0')}:${String(secs).padStart(5, '0')}`;
+    }
+
+    function updateUI() {
+      document.getElementById('scrubber').value = currentTime;
+      document.getElementById('timecode').textContent = `${formatTime(currentTime)} / 02:00.00`;
+
+      // Update active scene pill
+      const pills = document.querySelectorAll('.scene-pill');
+      pills.forEach(pill => {
+        const pt = Number(pill.getAttribute('data-t'));
+        const nextPt = pt === 116 ? 120 : (pt === 108 ? 116 : (pt === 96 ? 108 : (pt === 78 ? 96 : (pt === 62 ? 78 : (pt === 46 ? 62 : (pt === 33 ? 46 : (pt === 20 ? 33 : (pt === 9 ? 20 : 9))))))));
+        if (currentTime >= pt && currentTime < nextPt) {
+          pill.classList.add('active');
+        } else {
+          pill.classList.remove('active');
+        }
+      });
+    }
+
+    // Interactive Preview Loop
+    function loop(now) {
+      if (isPlaying) {
+        const delta = (now - lastPerfTime) / 1000;
+        currentTime += delta;
+        if (currentTime >= DURATION) {
+          currentTime = 0; // Seamless loop
+        }
+        window.renderAt(currentTime);
+        updateUI();
+      }
+      lastPerfTime = now;
+      requestAnimationFrame(loop);
+    }
+
+    // Controls Wiring
+    const btnPlay = document.getElementById('btnPlay');
+    const scrubber = document.getElementById('scrubber');
+    const btnAudio = document.getElementById('btnAudio');
+
+    btnPlay.addEventListener('click', () => {
+      window.AudioEngine.init();
+      isPlaying = !isPlaying;
+      btnPlay.textContent = isPlaying ? '⏸ Pause' : '▶ Play';
+      btnPlay.classList.toggle('primary', !isPlaying);
+      lastPerfTime = performance.now();
+    });
+
+    scrubber.addEventListener('input', (e) => {
+      currentTime = Number(e.target.value);
+      window.renderAt(currentTime);
+      updateUI();
+    });
+
+    btnAudio.addEventListener('click', () => {
+      isAudioMuted = !isAudioMuted;
+      window.AudioEngine.setMuted(isAudioMuted);
+      btnAudio.textContent = isAudioMuted ? '🔇 Sound: OFF' : '🔊 Sound: ON';
+    });
+
+    document.querySelectorAll('.scene-pill').forEach(pill => {
+      pill.addEventListener('click', () => {
+        currentTime = Number(pill.getAttribute('data-t'));
+        window.renderAt(currentTime);
+        updateUI();
+      });
+    });
+
+    // Contact Sheet Generator
+    document.getElementById('btnContactSheet').addEventListener('click', () => {
+      const sheetCanvas = document.createElement('canvas');
+      sheetCanvas.width = 1920;
+      sheetCanvas.height = 1080;
+      const sctx = sheetCanvas.getContext('2d');
+      sctx.fillStyle = '#0B1C30';
+      sctx.fillRect(0, 0, 1920, 1080);
+
+      // Sample 10 scenes (5x2 grid)
+      const sampleTimes = [4.5, 14.5, 26.5, 39.5, 54.0, 70.0, 87.0, 102.0, 112.0, 118.0];
+      const cols = 5;
+      const rows = 2;
+      const thumbW = 360;
+      const thumbH = 202.5;
+      const padX = 20;
+      const padY = 30;
+      const startX = (1920 - (cols * thumbW + (cols - 1) * padX)) / 2;
+      const startY = (1080 - (rows * thumbH + (rows - 1) * padY)) / 2 + 20;
+
+      // Header title
+      sctx.font = '800 28px "Plus Jakarta Sans", sans-serif';
+      sctx.fillStyle = '#FFFFFF';
+      sctx.textAlign = 'center';
+      sctx.fillText('Aura Academia — 120s Master Film Contact Sheet (10 Scenes)', 960, 50);
+
+      const offCanvas = document.createElement('canvas');
+      offCanvas.width = 1920;
+      offCanvas.height = 1080;
+      const octx = offCanvas.getContext('2d');
+
+      sampleTimes.forEach((st, idx) => {
+        const c = idx % cols;
+        const r = Math.floor(idx / cols);
+        const x = startX + c * (thumbW + padX);
+        const y = startY + r * (thumbH + padY);
+
+        // Render scene to offscreen canvas
+        const origCtx = ctx;
+        window.renderAt(st);
+        sctx.drawImage(canvas, 0, 0, 1920, 1080, x, y, thumbW, thumbH);
+
+        // Border & Timecode pill
+        sctx.strokeStyle = '#38BDF8';
+        sctx.lineWidth = 2;
+        sctx.strokeRect(x, y, thumbW, thumbH);
+
+        sctx.fillStyle = 'rgba(11, 28, 48, 0.85)';
+        sctx.fillRect(x, y + thumbH - 26, thumbW, 26);
+        sctx.font = '700 11px "JetBrains Mono", monospace';
+        sctx.fillStyle = '#38BDF8';
+        sctx.textAlign = 'center';
+        sctx.fillText(`SCENE 0${idx + 1} (${formatTime(st)})`, x + thumbW / 2, y + thumbH - 8);
+      });
+
+      // Restore active frame
+      window.renderAt(currentTime);
+
+      document.getElementById('contactSheetImg').src = sheetCanvas.toDataURL('image/png');
+      document.getElementById('modal').classList.add('open');
+    });
+
+    document.getElementById('btnCloseModal').addEventListener('click', () => {
+      document.getElementById('modal').classList.remove('open');
+    });
+
+    // Initial render when fonts are ready
+    document.fonts.ready.then(() => {
+      window.renderAt(0.0);
+      updateUI();
+      requestAnimationFrame(loop);
+    });
+  </script>
+</body>
+</html>

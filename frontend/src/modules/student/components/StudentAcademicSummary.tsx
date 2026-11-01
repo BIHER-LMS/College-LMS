@@ -22,9 +22,9 @@ export const StudentAcademicSummary: React.FC<StudentAcademicSummaryProps> = ({
   const regNumber = profile?.studentId || 'Not Assigned';
 
   return (
-    <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
+    <div className="flex sm:grid sm:grid-cols-3 lg:grid-cols-6 gap-3 sm:gap-4 overflow-x-auto sm:overflow-x-visible snap-x scrollbar-none pb-2 sm:pb-0 -mx-4 px-4 sm:mx-0 sm:px-0">
       {/* 1. Register Number */}
-      <div className="bg-white border border-slate-200 rounded-lg p-5 flex flex-col justify-between shadow-xs hover:border-slate-300 transition-all">
+      <div className="min-w-[170px] sm:min-w-0 snap-start shrink-0 sm:shrink bg-white border border-slate-200 rounded-lg p-4 sm:p-5 flex flex-col justify-between shadow-xs hover:border-slate-300 transition-all">
         <div className="flex items-center justify-between text-slate-400 mb-2">
           <span className="text-[11px] font-semibold uppercase tracking-wider">
             REGISTER NO
@@ -42,7 +42,7 @@ export const StudentAcademicSummary: React.FC<StudentAcademicSummaryProps> = ({
       </div>
 
       {/* 2. Current Semester */}
-      <div className="bg-white border border-slate-200 rounded-lg p-5 flex flex-col justify-between shadow-xs hover:border-slate-300 transition-all">
+      <div className="min-w-[170px] sm:min-w-0 snap-start shrink-0 sm:shrink bg-white border border-slate-200 rounded-lg p-4 sm:p-5 flex flex-col justify-between shadow-xs hover:border-slate-300 transition-all">
         <div className="flex items-center justify-between text-slate-400 mb-2">
           <span className="text-[11px] font-semibold uppercase tracking-wider">
             SEMESTER
@@ -60,7 +60,7 @@ export const StudentAcademicSummary: React.FC<StudentAcademicSummaryProps> = ({
       </div>
 
       {/* 3. Program */}
-      <div className="bg-white border border-slate-200 rounded-lg p-5 flex flex-col justify-between shadow-xs hover:border-slate-300 transition-all">
+      <div className="min-w-[170px] sm:min-w-0 snap-start shrink-0 sm:shrink bg-white border border-slate-200 rounded-lg p-4 sm:p-5 flex flex-col justify-between shadow-xs hover:border-slate-300 transition-all">
         <div className="flex items-center justify-between text-slate-400 mb-2">
           <span className="text-[11px] font-semibold uppercase tracking-wider">
             PROGRAM
@@ -78,7 +78,7 @@ export const StudentAcademicSummary: React.FC<StudentAcademicSummaryProps> = ({
       </div>
 
       {/* 4. Batch */}
-      <div className="bg-white border border-slate-200 rounded-lg p-5 flex flex-col justify-between shadow-xs hover:border-slate-300 transition-all">
+      <div className="min-w-[170px] sm:min-w-0 snap-start shrink-0 sm:shrink bg-white border border-slate-200 rounded-lg p-4 sm:p-5 flex flex-col justify-between shadow-xs hover:border-slate-300 transition-all">
         <div className="flex items-center justify-between text-slate-400 mb-2">
           <span className="text-[11px] font-semibold uppercase tracking-wider">
             BATCH
@@ -96,7 +96,7 @@ export const StudentAcademicSummary: React.FC<StudentAcademicSummaryProps> = ({
       </div>
 
       {/* 5. Classes */}
-      <div className="bg-white border border-slate-200 rounded-lg p-5 flex flex-col justify-between shadow-xs hover:border-slate-300 transition-all">
+      <div className="min-w-[170px] sm:min-w-0 snap-start shrink-0 sm:shrink bg-white border border-slate-200 rounded-lg p-4 sm:p-5 flex flex-col justify-between shadow-xs hover:border-slate-300 transition-all">
         <div className="flex items-center justify-between text-slate-400 mb-2">
           <span className="text-[11px] font-semibold uppercase tracking-wider">
             CLASS
@@ -114,7 +114,7 @@ export const StudentAcademicSummary: React.FC<StudentAcademicSummaryProps> = ({
       </div>
 
       {/* 6. Subjects */}
-      <div className="bg-white border border-slate-200 rounded-lg p-5 flex flex-col justify-between shadow-xs hover:border-slate-300 transition-all">
+      <div className="min-w-[170px] sm:min-w-0 snap-start shrink-0 sm:shrink bg-white border border-slate-200 rounded-lg p-4 sm:p-5 flex flex-col justify-between shadow-xs hover:border-slate-300 transition-all">
         <div className="flex items-center justify-between text-slate-400 mb-2">
           <span className="text-[11px] font-semibold uppercase tracking-wider">
             SUBJECTS

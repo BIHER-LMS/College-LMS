@@ -72,10 +72,10 @@ export const StudentDashboard: React.FC = () => {
         </div>
 
         {/* Action Buttons (Right) */}
-        <div className="flex items-center gap-3">
+        <div className="flex flex-wrap sm:flex-nowrap items-center gap-2.5 sm:gap-3">
           <button
             onClick={() => navigate('/student/subjects')}
-            className="inline-flex items-center gap-2 px-4 py-2 bg-white text-slate-700 border border-slate-200 rounded-md text-sm font-medium hover:bg-slate-50 shadow-xs transition-colors"
+            className="flex-1 sm:flex-none inline-flex items-center justify-center gap-2 px-3.5 py-2 bg-white text-slate-700 border border-slate-200 rounded-md text-xs sm:text-sm font-medium hover:bg-slate-50 shadow-xs transition-colors"
             type="button"
           >
             <span className="material-symbols-outlined text-[1.125rem] text-slate-500">download</span>
@@ -83,7 +83,7 @@ export const StudentDashboard: React.FC = () => {
           </button>
           <button
             onClick={() => navigate('/student/class')}
-            className="inline-flex items-center gap-2 px-4 py-2 bg-[#0b1727] text-white rounded-md text-sm font-medium hover:bg-[#13243c] shadow-xs transition-colors"
+            className="flex-1 sm:flex-none inline-flex items-center justify-center gap-2 px-3.5 py-2 bg-[#0b1727] text-white rounded-md text-xs sm:text-sm font-medium hover:bg-[#13243c] shadow-xs transition-colors"
             type="button"
           >
             <span>Student Actions</span>

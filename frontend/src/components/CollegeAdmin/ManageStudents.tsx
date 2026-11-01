@@ -192,7 +192,7 @@ export function ManageStudents({ collegeId }: { collegeId: string }) {
             <table className="w-full text-left text-xs whitespace-nowrap">
               <thead className="bg-slate-50 border-b text-slate-500 uppercase font-semibold">
                 <tr>
-                  <th className="px-6 py-3.5">Applicant</th>
+                  <th className="px-6 py-3.5 sticky left-0 bg-slate-50 z-10 shadow-[1px_0_0_0_#e2e8f0]">Applicant</th>
                   <th className="px-6 py-3.5">Email</th>
                   <th className="px-6 py-3.5">Requested Department</th>
                   <th className="px-6 py-3.5">Requested Class</th>
@@ -204,8 +204,8 @@ export function ManageStudents({ collegeId }: { collegeId: string }) {
                   const deptName = departments.find((d) => d.id === s.department_id)?.name || 'Unassigned';
                   const reqClass = classes.find((c) => c.id === s.class_id);
                   return (
-                    <tr key={s.uid} className="hover:bg-slate-50/60 transition-colors">
-                      <td className="px-6 py-3.5 font-semibold text-slate-900">
+                    <tr key={s.uid} className="hover:bg-slate-50/60 transition-colors group">
+                      <td className="px-6 py-3.5 font-semibold text-slate-900 sticky left-0 bg-white group-hover:bg-slate-50/60 z-10 shadow-[1px_0_0_0_#e2e8f0]">
                         <div className="flex items-center gap-2.5">
                           <div className="w-7 h-7 rounded-full bg-amber-100 text-amber-800 font-bold text-xs flex items-center justify-center">
                             {(s.displayName || s.email || 'S')[0].toUpperCase()}
@@ -270,7 +270,7 @@ export function ManageStudents({ collegeId }: { collegeId: string }) {
           <table className="w-full text-left text-xs whitespace-nowrap">
             <thead className="bg-slate-50 border-b text-slate-500 uppercase font-semibold">
               <tr>
-                <th className="px-5 py-3.5">Register No.</th>
+                <th className="px-5 py-3.5 sticky left-0 bg-slate-50 z-10 shadow-[1px_0_0_0_#e2e8f0]">Register No.</th>
                 <th className="px-5 py-3.5">Student</th>
                 <th className="px-4 py-3.5">Department</th>
                 <th className="px-5 py-3.5">
@@ -321,9 +321,9 @@ export function ManageStudents({ collegeId }: { collegeId: string }) {
                     .toUpperCase();
 
                   return (
-                    <tr key={s.uid} className="hover:bg-slate-50/50 transition-colors">
+                    <tr key={s.uid} className="hover:bg-slate-50/50 transition-colors group">
                       {/* Register Number Input */}
-                      <td className="px-5 py-4">
+                      <td className="px-5 py-4 sticky left-0 bg-white group-hover:bg-slate-50/50 z-10 shadow-[1px_0_0_0_#e2e8f0]">
                         <input
                           key={`${s.uid}-${s.register_number || 'none'}`}
                           defaultValue={s.register_number || ''}

@@ -1,0 +1,1036 @@
+<!DOCTYPE html>
+
+<html class="scroll-smooth" lang="en"><head><meta charset="utf-8"/><meta content="width=device-width, initial-scale=1.0" name="viewport"/><meta content="web_standard" name="shell-type"/><link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200" rel="stylesheet"/><link href="https://fonts.googleapis.com" rel="preconnect"/><link crossorigin="" href="https://fonts.gstatic.com" rel="preconnect"/><link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&amp;family=JetBrains+Mono:wght@400;500;600&amp;family=Plus+Jakarta+Sans:wght@600;700&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/><style>
+@layer base{html,body{margin:0;padding:0;}body{overscroll-behavior:none;}main>:first-child{margin-top:0!important;}main>:last-child{margin-bottom:0!important;}}
+::-webkit-scrollbar{display:none;}
+
+/* Scroll-driven reveals and animations */
+.reveal-item {
+  opacity: 0;
+  transform: translateY(28px);
+  transition: opacity 0.85s cubic-bezier(0.16, 1, 0.3, 1), transform 0.85s cubic-bezier(0.16, 1, 0.3, 1);
+  will-change: opacity, transform;
+}
+
+.reveal-item.is-revealed {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+/* Stagger delay utility classes */
+.delay-100 { transition-delay: 100ms; }
+.delay-150 { transition-delay: 150ms; }
+.delay-200 { transition-delay: 200ms; }
+.delay-250 { transition-delay: 250ms; }
+.delay-300 { transition-delay: 300ms; }
+.delay-350 { transition-delay: 350ms; }
+.delay-400 { transition-delay: 400ms; }
+.delay-500 { transition-delay: 500ms; }
+
+/* Subtle floating keyframes for 3D stage cards */
+@keyframes floatSlow1 {
+  0%, 100% { transform: translateY(0px) rotate(0deg); }
+  50% { transform: translateY(-7px) rotate(0.4deg); }
+}
+
+@keyframes floatSlow2 {
+  0%, 100% { transform: translateY(0px) rotate(0deg); }
+  50% { transform: translateY(-9px) rotate(-0.5deg); }
+}
+
+@keyframes floatSlow3 {
+  0%, 100% { transform: translateY(0px) rotate(0deg); }
+  50% { transform: translateY(-6px) rotate(0.3deg); }
+}
+
+@keyframes floatSlow4 {
+  0%, 100% { transform: translateY(0px) rotate(0deg); }
+  50% { transform: translateY(-8px) rotate(-0.4deg); }
+}
+
+.animate-float-1 { animation: floatSlow1 7s ease-in-out infinite; }
+.animate-float-2 { animation: floatSlow2 8.5s ease-in-out infinite 0.7s; }
+.animate-float-3 { animation: floatSlow3 6.5s ease-in-out infinite 1.2s; }
+.animate-float-4 { animation: floatSlow4 7.8s ease-in-out infinite 0.3s; }
+
+/* Animated connection pulse lines & scanbeam */
+@keyframes dataScan {
+  0% { transform: translateY(-100%); opacity: 0; }
+  50% { opacity: 1; }
+  100% { transform: translateY(200%); opacity: 0; }
+}
+
+@keyframes dataStreamHorizontal {
+  0% { transform: translateX(-100%); }
+  100% { transform: translateX(200%); }
+}
+
+.data-stream-pulse {
+  background: linear-gradient(90deg, transparent, rgba(0, 74, 198, 0.4), rgba(0, 104, 122, 0.6), transparent);
+  animation: dataStreamHorizontal 3s cubic-bezier(0.4, 0, 0.2, 1) infinite;
+}
+
+.data-stream-vertical {
+  background: linear-gradient(180deg, transparent, rgba(0, 74, 198, 0.7), transparent);
+  animation: dataScan 2.4s ease-in-out infinite;
+}
+
+/* Scroll progress bar */
+#scroll-progress-indicator {
+  transform-origin: 0% 50%;
+  transform: scaleX(0);
+  transition: transform 0.08s linear;
+}
+
+/* Prefer reduced motion */
+@media (prefers-reduced-motion: reduce) {
+  .reveal-item {
+    opacity: 1 !important;
+    transform: none !important;
+    transition: none !important;
+  }
+  .animate-float-1, .animate-float-2, .animate-float-3, .animate-float-4,
+  .data-stream-pulse, .data-stream-vertical {
+    animation: none !important;
+  }
+  #scroll-progress-indicator {
+    display: none !important;
+  }
+}
+</style><script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script><script id="tailwind-config">tailwind.config={darkMode:"class",theme:{extend:{"colors":{"on-primary-fixed":"#00174b","on-background":"#131b2e","outline-variant":"#c3c6d7","on-tertiary":"#ffffff","tertiary-fixed-dim":"#bdc5e9","on-error":"#ffffff","outline":"#737686","secondary-container":"#57dffe","on-primary":"#ffffff","on-secondary":"#ffffff","on-secondary-container":"#006172","inverse-on-surface":"#eef0ff","on-tertiary-fixed":"#111a36","tertiary":"#4b5472","secondary-fixed-dim":"#4cd7f6","surface-tint":"#0053db","inverse-primary":"#b4c5ff","surface-container-high":"#e2e7ff","primary-container":"#2563eb","tertiary-container":"#636c8c","surface-variant":"#dae2fd","secondary-fixed":"#acedff","surface-container-highest":"#dae2fd","on-primary-fixed-variant":"#003ea8","on-surface-variant":"#434655","on-tertiary-fixed-variant":"#3d4664","primary-fixed":"#dbe1ff","secondary":"#00687a","surface":"#faf8ff","surface-bright":"#faf8ff","on-surface":"#131b2e","surface-container-low":"#f2f3ff","inverse-surface":"#283044","on-secondary-fixed-variant":"#004e5c","tertiary-fixed":"#dbe1ff","primary":"#004ac6","surface-container-lowest":"#ffffff","on-secondary-fixed":"#001f26","on-tertiary-container":"#eeefff","on-primary-container":"#eeefff","surface-dim":"#d2d9f4","background":"#faf8ff","error-container":"#ffdad6","surface-container":"#eaedff","on-error-container":"#93000a","error":"#ba1a1a","primary-fixed-dim":"#b4c5ff"},"borderRadius":{"DEFAULT":"0.125rem","lg":"0.25rem","xl":"0.5rem","full":"0.75rem"},"spacing":{"space-lg":"1.5rem","gutter":"1.5rem","space-xl":"2.25rem","space-xs":"0.25rem","space-md":"0.875rem","space-sm":"0.5rem","margin":"2rem"},"fontFamily":{"code-sm":["JetBrains Mono"],"headline-md":["Plus Jakarta Sans"],"body-sm":["Inter"],"label-md":["Inter"],"headline-sm":["Plus Jakarta Sans"],"headline-lg":["Plus Jakarta Sans"],"headline-xl":["Plus Jakarta Sans"],"headline-lg-mobile":["Plus Jakarta Sans"],"body-md":["Inter"],"label-sm":["Inter"],"body-lg":["Inter"],"headline-xl-mobile":["Plus Jakarta Sans"]},"fontSize":{"code-sm":["12px",{"lineHeight":"18px","letterSpacing":"0em","fontWeight":"500"}],"headline-md":["22px",{"lineHeight":"28px","letterSpacing":"-0.02em","fontWeight":"600"}],"body-sm":["13px",{"lineHeight":"18px","letterSpacing":"-0.003em","fontWeight":"400"}],"label-md":["12px",{"lineHeight":"16px","letterSpacing":"0.01em","fontWeight":"500"}],"headline-sm":["18px",{"lineHeight":"24px","letterSpacing":"-0.015em","fontWeight":"600"}],"headline-lg":["32px",{"lineHeight":"40px","letterSpacing":"-0.025em","fontWeight":"600"}],"headline-xl":["40px",{"lineHeight":"48px","letterSpacing":"-0.03em","fontWeight":"700"}],"headline-lg-mobile":["24px",{"lineHeight":"32px","letterSpacing":"-0.02em","fontWeight":"600"}],"body-md":["14px",{"lineHeight":"22px","letterSpacing":"-0.006em","fontWeight":"400"}],"label-sm":["11px",{"lineHeight":"14px","letterSpacing":"0.03em","fontWeight":"600"}],"body-lg":["16px",{"lineHeight":"26px","letterSpacing":"-0.011em","fontWeight":"400"}],"headline-xl-mobile":["30px",{"lineHeight":"38px","letterSpacing":"-0.025em","fontWeight":"700"}]}}}};</script></head><body class="bg-surface font-body-md text-body-md text-on-surface antialiased selection:bg-primary-fixed selection:text-on-primary-fixed"><header class="fixed top-0 w-full z-50 bg-surface-container-lowest/95 backdrop-blur-md border-b border-[#e2e8f0] transition-shadow duration-300" id="global-header"><div class="h-16 max-w-[1600px] mx-auto px-gutter flex items-center justify-between gap-space-lg"><div class="flex items-center gap-space-md"><img alt="College LMS Brand Mark" class="h-8 w-auto object-contain transition-transform duration-300 hover:scale-105" src="https://lh3.googleusercontent.com/aida/AEtjO1X6tI_46SIFNHsYjyD56kwKu34R1gczJtrT3IeaxNU2A6dz3N0CeuEtow-SyV0tqwTYNA9p_f-tlK--I9SUwV8Tsww8jIcHQIIxyauAf2EnbVOvEubFjerfFF12sMYa_lElPRq2VGrsRMnM3l6G7lK5yvTbysjMVYf9ljaTZ6LCvE3kpUeb5rEcjNIkqhFqJCMcPVrER5z2voN71mx3CccTALGKUxMiyPz4fopevvvyLLanDNqCGeBlxDI"/><div class="flex items-center gap-space-sm"><span class="font-headline-sm text-headline-sm tracking-tight text-on-surface">College LMS</span><span class="px-2 py-0.5 rounded-full bg-surface-container text-on-surface-variant font-label-sm text-label-sm border border-[#e2e8f0]">Academic Infrastructure</span></div></div><nav class="hidden xl:flex items-center gap-space-lg" data-active-classes="text-primary font-semibold"><a aria-current="page" class="transition-colors text-primary font-semibold relative after:absolute after:-bottom-1 after:left-0 after:right-0 after:h-0.5 after:bg-primary" data-path="platform" href="#">Platform</a><a class="font-body-md text-body-md text-on-surface-variant hover:text-on-surface transition-colors" data-path="student" href="#">Student</a><a class="font-body-md text-body-md text-on-surface-variant hover:text-on-surface transition-colors" data-path="faculty" href="#">Faculty</a><a class="font-body-md text-body-md text-on-surface-variant hover:text-on-surface transition-colors" data-path="administration" href="#">Administration</a><a class="font-body-md text-body-md text-on-surface-variant hover:text-on-surface transition-colors" data-path="intelligence" href="#">Intelligence</a><a class="font-body-md text-body-md text-on-surface-variant hover:text-on-surface transition-colors" data-path="architecture" href="#architecture">Architecture</a></nav><div class="flex items-center gap-space-sm"><a class="hidden sm:inline-flex items-center justify-center px-4 py-2 rounded-lg border border-[#e2e8f0] bg-surface-container-lowest hover:bg-surface-container-low text-on-surface font-label-md text-label-md transition-all hover:shadow-sm" data-path="documentation" href="#">Documentation</a><a class="inline-flex items-center justify-center px-4 py-2 rounded-lg bg-primary-container hover:bg-primary text-on-primary font-label-md text-label-md transition-all shadow-sm hover:shadow hover:-translate-y-0.5" data-path="explore-platform" href="#experiences">Explore Platform</a><div class="w-8 h-8 rounded-full bg-primary flex items-center justify-center ml-1 shadow-sm hover:scale-105 transition-transform"><span class="material-symbols-outlined text-on-primary text-[18px]">person</span></div></div></div><div class="h-[2px] w-full bg-transparent overflow-hidden"><div class="h-full bg-gradient-to-r from-primary via-secondary to-primary-container" id="scroll-progress-indicator"></div></div></header><main class="w-full pt-16 bg-surface min-h-[calc(100vh-280px)]"><div class="max-w-[1600px] mx-auto px-gutter py-space-xl"><div class="flex flex-col w-full">
+<!-- SECTION 1: HERO SECTION -->
+<section class="relative w-full min-h-[92vh] flex items-center justify-center overflow-hidden bg-surface-container-lowest -mt-16 pt-24 pb-16">
+<!-- WebGL Procedural Background Asset -->
+
+<!-- Subtle Radial Glow Underlay with scroll depth parallax -->
+<div class="absolute -top-32 left-1/2 -translate-x-1/2 w-[850px] h-[550px] bg-gradient-to-b from-primary-fixed/40 via-secondary-fixed/20 to-transparent blur-3xl pointer-events-none rounded-full transition-transform duration-700 ease-out" id="hero-glow"></div>
+<div class="relative z-10 w-full max-w-[1500px] mx-auto px-gutter flex flex-col items-center text-center">
+<!-- Status Badge -->
+<div class="reveal-item inline-flex items-center gap-space-sm px-3 py-1.5 rounded-full bg-surface-container border border-surface-dim mb-6 shadow-sm hover:border-primary/40 transition-colors">
+<span class="w-2 h-2 rounded-full bg-primary-container animate-pulse"></span>
+<span class="font-code-sm text-code-sm text-on-surface uppercase tracking-wider">Enterprise Academic Specification v4.2</span>
+<span class="text-on-surface-variant">•</span>
+<span class="font-label-sm text-label-sm text-primary font-semibold">Institutional Edition</span>
+</div>
+<!-- Main Headline -->
+<h1 class="reveal-item delay-100 font-headline-xl text-headline-xl tracking-tight text-on-background max-w-4xl mx-auto leading-[1.12]">
+        Your College. <span class="bg-gradient-to-r from-primary via-primary-container to-secondary bg-clip-text text-transparent">One Intelligent Platform.</span>
+</h1>
+<!-- Supporting Copy -->
+<p class="reveal-item delay-200 font-body-lg text-body-lg text-on-surface-variant max-w-2xl mx-auto mt-5 text-balance">
+        A unified learning and academic platform connecting students, faculty, and academic administration through sovereign digital infrastructure.
+      </p>
+<!-- Action Bar -->
+<div class="reveal-item delay-300 flex flex-wrap items-center justify-center gap-space-md mt-8">
+<a class="relative group inline-flex items-center gap-space-sm px-6 py-3 rounded-lg bg-primary text-on-primary font-label-md text-label-md shadow-lg shadow-primary/20 hover:bg-primary-container transition-all duration-200 hover:-translate-y-0.5 hover:shadow-xl hover:shadow-primary/30 active:translate-y-0" href="#experiences">
+<span>Explore the Platform</span>
+<span class="material-symbols-outlined text-[18px] group-hover:translate-x-1 transition-transform">arrow_forward</span>
+</a>
+<a class="inline-flex items-center gap-space-sm px-6 py-3 rounded-lg bg-surface-container-lowest text-on-surface border border-outline-variant font-label-md text-label-md hover:bg-surface-container-low transition-all duration-200 hover:border-primary/40 hover:-translate-y-0.5 hover:shadow-sm" href="#architecture">
+<span class="material-symbols-outlined text-[18px] text-tertiary">schema</span>
+<span>See How It Works</span>
+</a>
+</div>
+<!-- 3D Interactive Workbench Stage with Scroll Parallax Response -->
+<div class="reveal-item delay-400 relative w-full max-w-5xl h-[480px] sm:h-[540px] mt-12 rounded-xl bg-surface-container-lowest border border-outline-variant shadow-2xl overflow-hidden group/stage" id="hero-workbench">
+<!-- Grid Matrix Watermark Background -->
+<div class="absolute inset-0 bg-[linear-gradient(to_right,#eaedff_1px,transparent_1px),linear-gradient(to_bottom,#eaedff_1px,transparent_1px)] bg-[size:32px_32px] opacity-40"></div>
+<!-- Scanning beam across top border -->
+<div class="absolute top-0 left-0 right-0 h-[1.5px] overflow-hidden">
+<div class="w-1/2 h-full data-stream-pulse"></div>
+</div>
+<!-- ThreeJS Scene Canvas Embedding -->
+
+<!-- Floating UI Card A: Schedule Matrix -->
+<div class="absolute top-6 left-6 w-64 bg-surface-container-lowest/95 backdrop-blur-md p-4 rounded-lg border border-outline-variant shadow-lg text-left transition-all duration-300 hover:shadow-xl hover:border-primary/50 pointer-events-auto animate-float-1 z-20" data-parallax-depth="0.04">
+<div class="flex items-center justify-between pb-2 mb-3 border-b border-surface-container">
+<span class="font-label-sm text-label-sm uppercase tracking-wider text-on-surface-variant flex items-center gap-1.5">
+<span class="material-symbols-outlined text-[15px] text-primary">calendar_month</span>
+              Schedule Matrix
+            </span>
+<span class="px-1.5 py-0.5 rounded bg-primary-fixed text-on-primary-fixed font-code-sm text-[10px]">TERM 01</span>
+</div>
+<div class="space-y-2">
+<div class="p-2 rounded bg-surface-container-low border border-surface-dim hover:border-primary/30 transition-colors">
+<div class="flex justify-between items-center text-[11px] font-code-sm text-on-surface-variant">
+<span>09:00 - 10:30</span>
+<span class="text-primary font-semibold">LECTURE BLOCK</span>
+</div>
+<p class="font-label-md text-label-md text-on-surface mt-0.5 truncate">Distributed Computing Architecture</p>
+<p class="font-body-sm text-[11px] text-outline">Hall 402 • Faculty Assigned</p>
+</div>
+<div class="p-2 rounded bg-surface-container-lowest border border-surface-container hover:border-primary/30 transition-colors">
+<div class="flex justify-between items-center text-[11px] font-code-sm text-on-surface-variant">
+<span>11:00 - 12:30</span>
+<span class="text-tertiary">SEMINAR</span>
+</div>
+<p class="font-label-md text-label-md text-on-surface mt-0.5 truncate">Academic Colloquium</p>
+</div>
+</div>
+</div>
+<!-- Floating UI Card B: Attendance Verification -->
+<div class="absolute top-6 right-6 w-64 bg-surface-container-lowest/95 backdrop-blur-md p-4 rounded-lg border border-outline-variant shadow-lg text-left transition-all duration-300 hover:shadow-xl hover:border-secondary/50 pointer-events-auto animate-float-2 z-20" data-parallax-depth="-0.035">
+<div class="flex items-center justify-between pb-2 mb-3 border-b border-surface-container">
+<span class="font-label-sm text-label-sm uppercase tracking-wider text-on-surface-variant flex items-center gap-1.5">
+<span class="material-symbols-outlined text-[15px] text-secondary">verified_user</span>
+              Attendance Ledger
+            </span>
+<span class="px-1.5 py-0.5 rounded bg-secondary-container/40 text-on-secondary-container font-code-sm text-[10px]">LIVE</span>
+</div>
+<div class="flex items-center gap-3 p-2.5 rounded bg-surface-container-low border border-surface-dim mb-2 hover:border-secondary/30 transition-colors">
+<div class="w-8 h-8 rounded-full bg-secondary-container flex items-center justify-center text-on-secondary-container">
+<span class="material-symbols-outlined text-[16px]">fingerprint</span>
+</div>
+<div>
+<p class="font-label-md text-label-md text-on-surface">Cryptographic Check-in</p>
+<p class="font-code-sm text-[10px] text-secondary">HASH: 8F2A...391C</p>
+</div>
+</div>
+<div class="flex items-center justify-between text-[11px] font-code-sm text-outline px-1">
+<span>Status: Verified</span>
+<span class="text-primary font-medium">Ledger Sealed</span>
+</div>
+</div>
+<!-- Floating UI Card C: Knowledge Core Node -->
+<div class="absolute bottom-6 left-6 w-72 bg-surface-container-lowest/95 backdrop-blur-md p-4 rounded-lg border border-outline-variant shadow-lg text-left transition-all duration-300 hover:shadow-xl hover:border-primary/50 pointer-events-auto animate-float-3 z-20" data-parallax-depth="0.03">
+<div class="flex items-center justify-between pb-2 mb-2 border-b border-surface-container">
+<span class="font-label-sm text-label-sm uppercase tracking-wider text-primary flex items-center gap-1">
+<span class="material-symbols-outlined text-[14px]">psychology</span>
+              Knowledge Retrieval Core
+            </span>
+<span class="w-2 h-2 rounded-full bg-secondary-container animate-ping"></span>
+</div>
+<p class="font-body-sm text-[12px] text-on-surface-variant mb-2">Institutional RAG pipeline indexed across course syllabi &amp; lecture transcripts.</p>
+<div class="p-2 rounded bg-surface-container font-code-sm text-[11px] text-on-surface flex items-center gap-2 border border-transparent hover:border-primary/30 transition-colors">
+<span class="text-secondary font-bold">$</span>
+<span class="truncate">vector_query("syllabus_prerequisites")</span>
+</div>
+</div>
+<!-- Floating UI Card D: Academic Directive -->
+<div class="absolute bottom-6 right-6 w-60 bg-surface-container-lowest/95 backdrop-blur-md p-4 rounded-lg border border-outline-variant shadow-lg text-left transition-all duration-300 hover:shadow-xl hover:border-tertiary/50 pointer-events-auto animate-float-4 z-20" data-parallax-depth="-0.03">
+<span class="font-label-sm text-label-sm uppercase tracking-wider text-outline block mb-1">Academic Directive</span>
+<p class="font-headline-sm text-sm text-on-surface font-semibold">Course Syllabus Audit</p>
+<div class="mt-2 flex items-center gap-2">
+<div class="flex-1 h-1.5 rounded-full bg-surface-dim overflow-hidden">
+<div class="w-3/4 h-full bg-primary-container transition-all duration-1000"></div>
+</div>
+<span class="font-code-sm text-[11px] text-on-surface-variant">Validated</span>
+</div>
+</div>
+</div>
+</div>
+</section>
+<!-- SECTION 2: SCROLL TRANSITION INTO PLATFORM ARCHITECTURE -->
+<section class="relative w-full py-20 bg-gradient-to-b from-surface-container-lowest via-surface-container-low to-surface border-y border-outline-variant/60 overflow-hidden">
+<!-- Animated Section Accent Line -->
+<div class="absolute top-0 left-0 right-0 h-[2px] bg-gradient-to-r from-transparent via-primary/30 to-transparent"></div>
+<div class="max-w-[1400px] mx-auto px-gutter">
+<div class="reveal-item text-center max-w-3xl mx-auto mb-16">
+<span class="font-code-sm text-code-sm text-primary uppercase tracking-widest inline-flex items-center gap-2">
+<span class="w-1.5 h-1.5 rounded-full bg-primary"></span>
+        Platform Decoupling
+      </span>
+<h2 class="font-headline-lg text-headline-lg text-on-background mt-2 tracking-tight">Structured in Sovereign Operational Strata</h2>
+<p class="font-body-md text-body-md text-on-surface-variant mt-3">From macro institutional dashboards down to transactional micro-engines.</p>
+</div>
+<!-- Layer Breakdown Cards with Staggered Scroll Entrance -->
+<div class="grid grid-cols-1 md:grid-cols-4 gap-gutter">
+<!-- Strata 1 -->
+<div class="reveal-item delay-100 group p-6 rounded-xl bg-surface-container-lowest border border-outline-variant shadow-sm hover:border-primary/60 hover:shadow-lg hover:-translate-y-1.5 transition-all duration-300">
+<div class="w-10 h-10 rounded-lg bg-primary/10 text-primary flex items-center justify-center mb-4 group-hover:scale-110 group-hover:bg-primary group-hover:text-on-primary transition-all duration-300">
+<span class="material-symbols-outlined text-[20px]">web</span>
+</div>
+<span class="font-code-sm text-[11px] text-tertiary">STRATUM 01</span>
+<h3 class="font-headline-sm text-headline-sm text-on-surface mt-1 mb-2">Presentation Layer</h3>
+<p class="font-body-sm text-body-sm text-on-surface-variant">Clean web and localized role-tailored view interfaces for students, professors, and deans.</p>
+</div>
+<!-- Strata 2 -->
+<div class="reveal-item delay-200 group p-6 rounded-xl bg-surface-container-lowest border border-outline-variant shadow-sm hover:border-secondary/60 hover:shadow-lg hover:-translate-y-1.5 transition-all duration-300">
+<div class="w-10 h-10 rounded-lg bg-secondary/10 text-secondary flex items-center justify-center mb-4 group-hover:scale-110 group-hover:bg-secondary group-hover:text-on-secondary transition-all duration-300">
+<span class="material-symbols-outlined text-[20px]">sync_alt</span>
+</div>
+<span class="font-code-sm text-[11px] text-tertiary">STRATUM 02</span>
+<h3 class="font-headline-sm text-headline-sm text-on-surface mt-1 mb-2">Workflow Engine</h3>
+<p class="font-body-sm text-body-sm text-on-surface-variant">Automated timetable scheduling, assignment turn-in chains, and course governance pipelines.</p>
+</div>
+<!-- Strata 3 -->
+<div class="reveal-item delay-300 group p-6 rounded-xl bg-surface-container-lowest border border-outline-variant shadow-sm hover:border-primary-container/60 hover:shadow-lg hover:-translate-y-1.5 transition-all duration-300">
+<div class="w-10 h-10 rounded-lg bg-primary-container/10 text-primary-container flex items-center justify-center mb-4 group-hover:scale-110 group-hover:bg-primary-container group-hover:text-on-primary transition-all duration-300">
+<span class="material-symbols-outlined text-[20px]">account_balance</span>
+</div>
+<span class="font-code-sm text-[11px] text-tertiary">STRATUM 03</span>
+<h3 class="font-headline-sm text-headline-sm text-on-surface mt-1 mb-2">Academic Ledger</h3>
+<p class="font-body-sm text-body-sm text-on-surface-variant">Immutable institutional data integrity: transcript audits, assessment metrics, and attendance records.</p>
+</div>
+<!-- Strata 4 -->
+<div class="reveal-item delay-400 group p-6 rounded-xl bg-surface-container-lowest border border-outline-variant shadow-sm hover:border-secondary-container/80 hover:shadow-lg hover:-translate-y-1.5 transition-all duration-300">
+<div class="w-10 h-10 rounded-lg bg-secondary-container/30 text-on-secondary-container flex items-center justify-center mb-4 group-hover:scale-110 group-hover:bg-secondary-container transition-all duration-300">
+<span class="material-symbols-outlined text-[20px]">auto_awesome</span>
+</div>
+<span class="font-code-sm text-[11px] text-tertiary">STRATUM 04</span>
+<h3 class="font-headline-sm text-headline-sm text-on-surface mt-1 mb-2">Intelligence Mesh</h3>
+<p class="font-body-sm text-body-sm text-on-surface-variant">Embeddings, institutional syllabus search, and real-time academic guidance interfaces.</p>
+</div>
+</div>
+</div>
+</section>
+<!-- SECTION 3: ONE PLATFORM. THREE EXPERIENCES. -->
+<section class="relative w-full py-24 bg-surface" id="experiences">
+<div class="max-w-[1400px] mx-auto px-gutter">
+<div class="reveal-item flex flex-col md:flex-row md:items-end justify-between mb-16 gap-4">
+<div>
+<span class="font-code-sm text-code-sm text-primary uppercase tracking-widest inline-flex items-center gap-2">
+<span class="w-1.5 h-1.5 rounded-full bg-primary"></span>
+          Tri-Tier Architecture
+        </span>
+<h2 class="font-headline-xl text-headline-xl text-on-background mt-2 tracking-tight">One Platform. Three Experiences.</h2>
+<p class="font-body-lg text-body-lg text-on-surface-variant mt-2 max-w-xl">
+            Tailored operational interfaces engineered for every institutional tier. Zero clutter, absolute functional speed.
+          </p>
+</div>
+<div class="flex items-center gap-2 p-2 rounded-lg bg-surface-container-lowest border border-outline-variant">
+<img alt="College LMS Brand Mark" class="w-8 h-8 object-contain" src="https://lh3.googleusercontent.com/aida/AEtjO1X6tI_46SIFNHsYjyD56kwKu34R1gczJtrT3IeaxNU2A6dz3N0CeuEtow-SyV0tqwTYNA9p_f-tlK--I9SUwV8Tsww8jIcHQIIxyauAf2EnbVOvEubFjerfFF12sMYa_lElPRq2VGrsRMnM3l6G7lK5yvTbysjMVYf9ljaTZ6LCvE3kpUeb5rEcjNIkqhFqJCMcPVrER5z2voN71mx3CccTALGKUxMiyPz4fopevvvyLLanDNqCGeBlxDI"/>
+<span class="font-label-sm text-label-sm uppercase tracking-wider text-outline pr-1">Verified Persona Suite</span>
+</div>
+</div>
+<div class="grid grid-cols-1 lg:grid-cols-3 gap-gutter">
+<!-- 1. STUDENT EXPERIENCE CARD -->
+<div class="reveal-item delay-100 group rounded-2xl bg-surface-container-lowest border border-outline-variant hover:border-primary-container p-6 flex flex-col justify-between shadow-sm hover:shadow-2xl hover:-translate-y-2 transition-all duration-300">
+<div>
+<div class="flex items-center justify-between mb-4">
+<span class="px-2.5 py-1 rounded bg-primary-fixed text-on-primary-fixed font-code-sm text-code-sm font-semibold">STUDENT PORTAL</span>
+<span class="material-symbols-outlined text-outline group-hover:text-primary group-hover:scale-110 transition-all duration-300">school</span>
+</div>
+<h3 class="font-headline-lg text-2xl text-on-surface font-semibold mb-2">Student Experience</h3>
+<p class="font-body-md text-body-md text-on-surface-variant mb-6">
+              Everything students need to learn, manage course tracks, verify lecture attendance, and track submissions.
+            </p>
+<!-- Embedded Mockup Frame -->
+<div class="rounded-xl bg-surface-container-low border border-surface-dim p-4 space-y-3 group-hover:border-primary/30 transition-colors">
+<div class="flex items-center justify-between pb-2 border-b border-surface-dim">
+<span class="font-label-sm text-label-sm text-on-surface-variant">ACTIVE ENROLLMENTS</span>
+<span class="font-code-sm text-[11px] text-primary font-semibold">TERM COURSES</span>
+</div>
+<div class="p-2.5 rounded bg-surface-container-lowest border border-surface-dim flex items-center justify-between hover:border-primary/40 transition-colors">
+<div>
+<p class="font-label-md text-label-md text-on-surface">Data Structures &amp; Algorithms</p>
+<p class="font-body-sm text-[11px] text-outline">Department of Computer Science</p>
+</div>
+<span class="px-2 py-0.5 rounded bg-surface-container font-code-sm text-[11px]">CS-301</span>
+</div>
+<div class="p-2.5 rounded bg-surface-container-lowest border border-surface-dim flex items-center justify-between hover:border-primary/40 transition-colors">
+<div>
+<p class="font-label-md text-label-md text-on-surface">Applied Electromagnetics</p>
+<p class="font-body-sm text-[11px] text-outline">School of Physical Sciences</p>
+</div>
+<span class="px-2 py-0.5 rounded bg-surface-container font-code-sm text-[11px]">PHY-204</span>
+</div>
+<div class="pt-1 flex items-center justify-between text-[11px] font-label-md text-on-surface-variant">
+<span>Assignment Due: Lab Report 04</span>
+<span class="text-primary font-semibold">Submitted</span>
+</div>
+</div>
+</div>
+<div class="mt-8 pt-4 border-t border-surface-container flex items-center justify-between group-hover:border-primary-fixed transition-colors">
+<span class="font-label-sm text-label-sm text-on-surface-variant group-hover:text-on-surface transition-colors">Course Workspaces &amp; Repositories</span>
+<span class="material-symbols-outlined text-[18px] text-primary group-hover:translate-x-1.5 transition-transform duration-200">arrow_forward</span>
+</div>
+</div>
+<!-- 2. FACULTY EXPERIENCE CARD -->
+<div class="reveal-item delay-200 group rounded-2xl bg-surface-container-lowest border border-outline-variant hover:border-secondary p-6 flex flex-col justify-between shadow-sm hover:shadow-2xl hover:-translate-y-2 transition-all duration-300">
+<div>
+<div class="flex items-center justify-between mb-4">
+<span class="px-2.5 py-1 rounded bg-secondary-fixed text-on-secondary-fixed font-code-sm text-code-sm font-semibold">FACULTY WORKBENCH</span>
+<span class="material-symbols-outlined text-outline group-hover:text-secondary group-hover:scale-110 transition-all duration-300">history_edu</span>
+</div>
+<h3 class="font-headline-lg text-2xl text-on-surface font-semibold mb-2">Faculty Experience</h3>
+<p class="font-body-md text-body-md text-on-surface-variant mb-6">
+              Precision tools to orchestrate teaching, evaluate student work, manage consultation hours, and verify curriculum timelines.
+            </p>
+<!-- Embedded Mockup Frame -->
+<div class="rounded-xl bg-surface-container-low border border-surface-dim p-4 space-y-3 group-hover:border-secondary/30 transition-colors">
+<div class="flex items-center justify-between pb-2 border-b border-surface-dim">
+<span class="font-label-sm text-label-sm text-on-surface-variant">EVALUATION QUEUE</span>
+<span class="font-code-sm text-[11px] text-secondary font-semibold">ACTIVE REVIEW</span>
+</div>
+<div class="p-2.5 rounded bg-surface-container-lowest border border-surface-dim hover:border-secondary/40 transition-colors">
+<div class="flex items-center justify-between mb-1">
+<span class="font-label-md text-label-md text-on-surface">Midterm Assessment Paper</span>
+<span class="px-1.5 py-0.5 rounded bg-surface-container font-code-sm text-[10px]">SECTION A</span>
+</div>
+<div class="w-full bg-surface-container h-1.5 rounded-full overflow-hidden mb-1.5">
+<div class="bg-secondary h-full w-2/3 transition-all duration-700"></div>
+</div>
+<div class="flex justify-between font-code-sm text-[10px] text-outline">
+<span>Batch Evaluation</span>
+<span>Pending Sign-off</span>
+</div>
+</div>
+<div class="p-2.5 rounded bg-surface-container-lowest border border-surface-dim flex items-center justify-between hover:border-secondary/40 transition-colors">
+<div>
+<p class="font-label-md text-label-md text-on-surface">Office Hours: Office 214</p>
+<p class="font-body-sm text-[11px] text-outline">Slot Allocation Available</p>
+</div>
+<span class="material-symbols-outlined text-outline text-[18px]">event_available</span>
+</div>
+</div>
+</div>
+<div class="mt-8 pt-4 border-t border-surface-container flex items-center justify-between group-hover:border-secondary-fixed transition-colors">
+<span class="font-label-sm text-label-sm text-on-surface-variant group-hover:text-on-surface transition-colors">Curriculum &amp; Assessment Ledger</span>
+<span class="material-symbols-outlined text-[18px] text-secondary group-hover:translate-x-1.5 transition-transform duration-200">arrow_forward</span>
+</div>
+</div>
+<!-- 3. HOD / ADMINISTRATION CARD -->
+<div class="reveal-item delay-300 group rounded-2xl bg-surface-container-lowest border border-outline-variant hover:border-tertiary p-6 flex flex-col justify-between shadow-sm hover:shadow-2xl hover:-translate-y-2 transition-all duration-300">
+<div>
+<div class="flex items-center justify-between mb-4">
+<span class="px-2.5 py-1 rounded bg-tertiary-fixed text-on-tertiary-fixed font-code-sm text-code-sm font-semibold">GOVERNANCE SUITE</span>
+<span class="material-symbols-outlined text-outline group-hover:text-tertiary group-hover:scale-110 transition-all duration-300">corporate_fare</span>
+</div>
+<h3 class="font-headline-lg text-2xl text-on-surface font-semibold mb-2">HOD &amp; Administration</h3>
+<p class="font-body-md text-body-md text-on-surface-variant mb-6">
+              Institutional clarity and centralized administration. Control academic calendars, faculty allocations, and statutory compliance.
+            </p>
+<!-- Embedded Mockup Frame -->
+<div class="rounded-xl bg-surface-container-low border border-surface-dim p-4 space-y-3 group-hover:border-tertiary/30 transition-colors">
+<div class="flex items-center justify-between pb-2 border-b border-surface-dim">
+<span class="font-label-sm text-label-sm text-on-surface-variant">DEPARTMENT AUDIT</span>
+<span class="font-code-sm text-[11px] text-on-surface font-semibold">INSTITUTION WIDE</span>
+</div>
+<div class="grid grid-cols-2 gap-2">
+<div class="p-2.5 rounded bg-surface-container-lowest border border-surface-dim hover:border-tertiary/40 transition-colors">
+<span class="font-code-sm text-[10px] text-outline">FACULTY COVERAGE</span>
+<p class="font-headline-sm text-base text-on-surface font-semibold mt-1">Normal</p>
+</div>
+<div class="p-2.5 rounded bg-surface-container-lowest border border-surface-dim hover:border-tertiary/40 transition-colors">
+<span class="font-code-sm text-[10px] text-outline">ROOM OCCUPANCY</span>
+<p class="font-headline-sm text-base text-on-surface font-semibold mt-1">Balanced</p>
+</div>
+</div>
+<div class="p-2.5 rounded bg-surface-container-lowest border border-surface-dim flex items-center justify-between hover:border-tertiary/40 transition-colors">
+<div>
+<p class="font-label-md text-label-md text-on-surface">Term Accreditation Matrix</p>
+<p class="font-body-sm text-[11px] text-outline">Statutory Syllabus Registry</p>
+</div>
+<span class="px-2 py-0.5 rounded bg-surface-container font-code-sm text-[10px] text-tertiary font-semibold">Active</span>
+</div>
+</div>
+</div>
+<div class="mt-8 pt-4 border-t border-surface-container flex items-center justify-between group-hover:border-tertiary-fixed transition-colors">
+<span class="font-label-sm text-label-sm text-on-surface-variant group-hover:text-on-surface transition-colors">Statutory Compliance &amp; Allocation</span>
+<span class="material-symbols-outlined text-[18px] text-tertiary group-hover:translate-x-1.5 transition-transform duration-200">arrow_forward</span>
+</div>
+</div>
+</div>
+</div>
+</section>
+<!-- SECTION 4: CORE LMS EXPERIENCE ("EVERYTHING CONNECTED") -->
+<section class="relative w-full py-24 bg-surface-container-low border-y border-outline-variant/60 overflow-hidden">
+<!-- Animated Section Accent Line -->
+<div class="absolute top-0 left-0 right-0 h-[2px] bg-gradient-to-r from-transparent via-secondary/40 to-transparent"></div>
+<div class="max-w-[1400px] mx-auto px-gutter">
+<div class="reveal-item text-center max-w-2xl mx-auto mb-20">
+<span class="font-code-sm text-code-sm text-primary uppercase tracking-widest inline-flex items-center gap-2">
+<span class="w-1.5 h-1.5 rounded-full bg-primary"></span>
+        Integrated Ecosystem
+      </span>
+<h2 class="font-headline-xl text-headline-xl text-on-background mt-2 tracking-tight">Everything Connected.</h2>
+<p class="font-body-lg text-body-lg text-on-surface-variant mt-3">
+          A single unified academic core communicating with distributed operational modules across the institutional perimeter.
+        </p>
+</div>
+<!-- Core Convergence Grid with Staggered Scroll Entrance -->
+<div class="grid grid-cols-1 md:grid-cols-3 gap-gutter relative">
+<!-- 1. Attendance Engine -->
+<div class="reveal-item delay-100 group p-6 rounded-xl bg-surface-container-lowest border border-outline-variant shadow-sm hover:border-primary hover:shadow-lg hover:-translate-y-1 transition-all duration-300">
+<div class="flex items-center gap-3 mb-3">
+<div class="w-8 h-8 rounded bg-primary-fixed flex items-center justify-center text-primary group-hover:scale-110 transition-transform">
+<span class="material-symbols-outlined text-[18px]">how_to_reg</span>
+</div>
+<h4 class="font-headline-sm text-headline-sm text-on-surface">Attendance Engine</h4>
+</div>
+<p class="font-body-sm text-body-sm text-on-surface-variant">
+            Multi-factor verification protocol including digital session tokens, geo-fenced lecture hall validation, and verified audit logs.
+          </p>
+</div>
+<!-- 2. Timetable & Scheduling Matrix -->
+<div class="reveal-item delay-150 group p-6 rounded-xl bg-surface-container-lowest border border-outline-variant shadow-sm hover:border-secondary hover:shadow-lg hover:-translate-y-1 transition-all duration-300">
+<div class="flex items-center gap-3 mb-3">
+<div class="w-8 h-8 rounded bg-secondary-fixed flex items-center justify-center text-secondary group-hover:scale-110 transition-transform">
+<span class="material-symbols-outlined text-[18px]">table_chart</span>
+</div>
+<h4 class="font-headline-sm text-headline-sm text-on-surface">Timetable &amp; Scheduling</h4>
+</div>
+<p class="font-body-sm text-body-sm text-on-surface-variant">
+            Conflict-free room distribution algorithms accommodating multi-department laboratory slots, seminar blocks, and faculty availability.
+          </p>
+</div>
+<!-- 3. Course Notes & Curriculum Assets -->
+<div class="reveal-item delay-200 group p-6 rounded-xl bg-surface-container-lowest border border-outline-variant shadow-sm hover:border-tertiary hover:shadow-lg hover:-translate-y-1 transition-all duration-300">
+<div class="flex items-center gap-3 mb-3">
+<div class="w-8 h-8 rounded bg-tertiary-fixed flex items-center justify-center text-tertiary group-hover:scale-110 transition-transform">
+<span class="material-symbols-outlined text-[18px]">folder_special</span>
+</div>
+<h4 class="font-headline-sm text-headline-sm text-on-surface">Course Notes &amp; Assets</h4>
+</div>
+<p class="font-body-sm text-body-sm text-on-surface-variant">
+            Version-controlled repository for syllabus guidelines, reading lists, presentation slides, and verified academic references.
+          </p>
+</div>
+<!-- 4. Assignment & Assessment Pipeline -->
+<div class="reveal-item delay-250 group p-6 rounded-xl bg-surface-container-lowest border border-outline-variant shadow-sm hover:border-primary-container hover:shadow-lg hover:-translate-y-1 transition-all duration-300">
+<div class="flex items-center gap-3 mb-3">
+<div class="w-8 h-8 rounded bg-surface-container-high flex items-center justify-center text-on-surface group-hover:scale-110 transition-transform">
+<span class="material-symbols-outlined text-[18px]">assignment_turned_in</span>
+</div>
+<h4 class="font-headline-sm text-headline-sm text-on-surface">Assessment Pipeline</h4>
+</div>
+<p class="font-body-sm text-body-sm text-on-surface-variant">
+            Structured submission milestones, cryptographic timestamp verification, and faculty rubric evaluation rubrics.
+          </p>
+</div>
+<!-- Central Kernel Card -->
+<div class="reveal-item delay-300 relative group p-6 rounded-xl bg-primary text-on-primary border border-primary-container shadow-xl flex flex-col justify-center text-center overflow-hidden hover:scale-[1.02] transition-transform duration-300">
+<!-- Pulse Glow inside Kernel -->
+<div class="absolute inset-0 bg-gradient-to-r from-primary via-primary-container to-primary opacity-60 pointer-events-none"></div>
+<div class="relative z-10 mx-auto w-12 h-12 rounded-full bg-on-primary/10 flex items-center justify-center mb-3 group-hover:scale-110 transition-transform">
+<img alt="College LMS Core" class="w-7 h-7 object-contain invert" src="https://lh3.googleusercontent.com/aida/AEtjO1X6tI_46SIFNHsYjyD56kwKu34R1gczJtrT3IeaxNU2A6dz3N0CeuEtow-SyV0tqwTYNA9p_f-tlK--I9SUwV8Tsww8jIcHQIIxyauAf2EnbVOvEubFjerfFF12sMYa_lElPRq2VGrsRMnM3l6G7lK5yvTbysjMVYf9ljaTZ6LCvE3kpUeb5rEcjNIkqhFqJCMcPVrER5z2voN71mx3CccTALGKUxMiyPz4fopevvvyLLanDNqCGeBlxDI"/>
+</div>
+<span class="relative z-10 font-code-sm text-[11px] text-primary-fixed uppercase tracking-wider">Operational Core</span>
+<h4 class="relative z-10 font-headline-sm text-headline-sm mt-1 mb-1">College LMS Kernel</h4>
+<p class="relative z-10 font-body-sm text-body-sm text-primary-fixed opacity-90">Synchronizing relational records across all campus modules simultaneously.</p>
+</div>
+<!-- 5. Academic Information System -->
+<div class="reveal-item delay-350 group p-6 rounded-xl bg-surface-container-lowest border border-outline-variant shadow-sm hover:border-primary hover:shadow-lg hover:-translate-y-1 transition-all duration-300">
+<div class="flex items-center gap-3 mb-3">
+<div class="w-8 h-8 rounded bg-surface-container-high flex items-center justify-center text-on-surface group-hover:scale-110 transition-transform">
+<span class="material-symbols-outlined text-[18px]">badge</span>
+</div>
+<h4 class="font-headline-sm text-headline-sm text-on-surface">Academic Information</h4>
+</div>
+<p class="font-body-sm text-body-sm text-on-surface-variant">
+            Comprehensive profile directives including credit requirements, academic progress metrics, and official transcript generation.
+          </p>
+</div>
+<!-- 6. Student Lifecycle Records -->
+<div class="reveal-item delay-400 group p-6 rounded-xl bg-surface-container-lowest border border-outline-variant shadow-sm hover:border-primary-container hover:shadow-lg hover:-translate-y-1 transition-all duration-300">
+<div class="flex items-center gap-3 mb-3">
+<div class="w-8 h-8 rounded bg-primary-fixed flex items-center justify-center text-primary group-hover:scale-110 transition-transform">
+<span class="material-symbols-outlined text-[18px]">manage_accounts</span>
+</div>
+<h4 class="font-headline-sm text-headline-sm text-on-surface">Lifecycle &amp; Records</h4>
+</div>
+<p class="font-body-sm text-body-sm text-on-surface-variant">
+            From matriculation to graduation clearance: automated prerequisites check and institutional archival records.
+          </p>
+</div>
+<!-- 7. Faculty Workflow Suite -->
+<div class="reveal-item delay-450 group p-6 rounded-xl bg-surface-container-lowest border border-outline-variant shadow-sm hover:border-secondary hover:shadow-lg hover:-translate-y-1 transition-all duration-300">
+<div class="flex items-center gap-3 mb-3">
+<div class="w-8 h-8 rounded bg-secondary-fixed flex items-center justify-center text-secondary group-hover:scale-110 transition-transform">
+<span class="material-symbols-outlined text-[18px]">rate_review</span>
+</div>
+<h4 class="font-headline-sm text-headline-sm text-on-surface">Faculty Workflows</h4>
+</div>
+<p class="font-body-sm text-body-sm text-on-surface-variant">
+            Lecture sign-offs, assessment weight configurations, grade ledgers, and institutional committee assignments.
+          </p>
+</div>
+<!-- 8. AI Learning Assistance -->
+<div class="reveal-item delay-500 group p-6 rounded-xl bg-surface-container-lowest border border-outline-variant shadow-sm hover:border-tertiary hover:shadow-lg hover:-translate-y-1 transition-all duration-300">
+<div class="flex items-center gap-3 mb-3">
+<div class="w-8 h-8 rounded bg-tertiary-fixed flex items-center justify-center text-tertiary group-hover:scale-110 transition-transform">
+<span class="material-symbols-outlined text-[18px]">smart_toy</span>
+</div>
+<h4 class="font-headline-sm text-headline-sm text-on-surface">AI Learning Core</h4>
+</div>
+<p class="font-body-sm text-body-sm text-on-surface-variant">
+            Contextual assistance parsing departmental lecture materials, providing instant syllabus reference, and citation audits.
+          </p>
+</div>
+</div>
+</div>
+</section>
+<!-- SECTION 5: AI / INTELLIGENT LEARNING SECTION -->
+<section class="relative w-full py-24 bg-surface-container-lowest overflow-hidden">
+<!-- Neural Glow Backdrop with subtle scroll float -->
+<div class="absolute right-0 top-1/2 -translate-y-1/2 w-[600px] h-[600px] bg-secondary-container/20 rounded-full blur-3xl pointer-events-none"></div>
+<div class="max-w-[1400px] mx-auto px-gutter relative z-10">
+<div class="reveal-item max-w-2xl mb-16">
+<span class="font-code-sm text-code-sm text-secondary uppercase tracking-widest inline-flex items-center gap-2">
+<span class="w-1.5 h-1.5 rounded-full bg-secondary"></span>
+        Cognitive Infrastructure
+      </span>
+<h2 class="font-headline-xl text-headline-xl text-on-background mt-2 tracking-tight">Learning, Connected With Intelligence.</h2>
+<p class="font-body-lg text-body-lg text-on-surface-variant mt-3">
+          AI-powered capabilities designed to make institutional academic information easier to access, understand, and use without hallucinated content.
+        </p>
+</div>
+<div class="grid grid-cols-1 lg:grid-cols-12 gap-gutter items-start">
+<!-- Technical Vector Architecture Visual with scroll reveal & data scan -->
+<div class="reveal-item delay-150 lg:col-span-7 bg-surface-container-low rounded-2xl border border-outline-variant p-6 shadow-sm relative overflow-hidden">
+<div class="flex items-center justify-between pb-4 border-b border-surface-dim">
+<div class="flex items-center gap-2">
+<span class="w-3 h-3 rounded-full bg-error/70"></span>
+<span class="w-3 h-3 rounded-full bg-secondary-container"></span>
+<span class="w-3 h-3 rounded-full bg-primary-fixed"></span>
+<span class="font-code-sm text-code-sm text-on-surface font-semibold ml-2">RAG Pipeline Execution</span>
+</div>
+<span class="font-code-sm text-[11px] text-secondary font-semibold">RETRIEVAL-AUGMENTED</span>
+</div>
+<!-- Flow Diagram with Staggered Steps and Animated Connectors -->
+<div class="py-8 space-y-4 font-code-sm text-code-sm relative">
+<div class="reveal-item delay-200 p-3 rounded-lg bg-surface-container-lowest border border-outline-variant flex items-center justify-between hover:border-primary/50 transition-colors">
+<div class="flex items-center gap-3">
+<span class="material-symbols-outlined text-primary text-[20px]">menu_book</span>
+<div>
+<p class="font-label-md text-label-md text-on-surface">Institutional Knowledge Base</p>
+<p class="text-[11px] text-outline">Official syllabi, approved textbooks, research repositories</p>
+</div>
+</div>
+<span class="font-code-sm text-[11px] text-on-surface-variant bg-surface-container px-2 py-0.5 rounded">Validated Source</span>
+</div>
+<div class="flex justify-center text-primary relative">
+<div class="w-0.5 h-6 bg-surface-dim overflow-hidden relative">
+<div class="w-full h-full data-stream-vertical"></div>
+</div>
+<span class="material-symbols-outlined -mt-1 absolute top-2">arrow_downward</span>
+</div>
+<div class="reveal-item delay-300 p-3 rounded-lg bg-surface-container-lowest border border-outline-variant flex items-center justify-between hover:border-secondary/50 transition-colors">
+<div class="flex items-center gap-3">
+<span class="material-symbols-outlined text-secondary text-[20px]">hub</span>
+<div>
+<p class="font-label-md text-label-md text-on-surface">Vector Embeddings Index</p>
+<p class="text-[11px] text-outline">High-dimensional semantic mapping by course code &amp; module</p>
+</div>
+</div>
+<span class="font-code-sm text-[11px] text-secondary font-semibold bg-secondary-fixed/40 px-2 py-0.5 rounded">Indexed</span>
+</div>
+<div class="flex justify-center text-primary relative">
+<div class="w-0.5 h-6 bg-surface-dim overflow-hidden relative">
+<div class="w-full h-full data-stream-vertical"></div>
+</div>
+<span class="material-symbols-outlined -mt-1 absolute top-2">arrow_downward</span>
+</div>
+<div class="reveal-item delay-400 p-3 rounded-lg bg-surface-container-lowest border border-primary-container/40 flex items-center justify-between bg-primary-fixed/10 hover:border-primary transition-colors">
+<div class="flex items-center gap-3">
+<span class="material-symbols-outlined text-primary text-[20px]">verified</span>
+<div>
+<p class="font-label-md text-label-md text-on-surface">Verified Academic Retrieval</p>
+<p class="text-[11px] text-outline">Direct citation to page, slide, and lecture timeline</p>
+</div>
+</div>
+<span class="font-code-sm text-[11px] text-primary font-semibold bg-primary-fixed px-2 py-0.5 rounded">Zero Hallucination</span>
+</div>
+</div>
+</div>
+<!-- Feature Pillars List with scroll reveals -->
+<div class="lg:col-span-5 space-y-4">
+<div class="reveal-item delay-200 group p-5 rounded-xl bg-surface-container-lowest border border-outline-variant shadow-sm hover:border-primary hover:shadow-md hover:-translate-y-1 transition-all duration-300">
+<div class="flex items-center gap-3 mb-2">
+<span class="material-symbols-outlined text-primary group-hover:scale-110 transition-transform">school</span>
+<h4 class="font-headline-sm text-headline-sm text-on-surface">AI Academic Tutor</h4>
+</div>
+<p class="font-body-sm text-body-sm text-on-surface-variant">
+              Context-aware syllabus explanation assisting students with lecture concepts directly grounded in course notes.
+            </p>
+</div>
+<div class="reveal-item delay-300 group p-5 rounded-xl bg-surface-container-lowest border border-outline-variant shadow-sm hover:border-secondary hover:shadow-md hover:-translate-y-1 transition-all duration-300">
+<div class="flex items-center gap-3 mb-2">
+<span class="material-symbols-outlined text-secondary group-hover:scale-110 transition-transform">description</span>
+<h4 class="font-headline-sm text-headline-sm text-on-surface">Academic Assistance</h4>
+</div>
+<p class="font-body-sm text-body-sm text-on-surface-variant">
+              Automated lecture transcription summaries, citation cross-referencing, and structural reading list synthesis.
+            </p>
+</div>
+<div class="reveal-item delay-400 group p-5 rounded-xl bg-surface-container-lowest border border-outline-variant shadow-sm hover:border-tertiary hover:shadow-md hover:-translate-y-1 transition-all duration-300">
+<div class="flex items-center gap-3 mb-2">
+<span class="material-symbols-outlined text-tertiary group-hover:scale-110 transition-transform">search</span>
+<h4 class="font-headline-sm text-headline-sm text-on-surface">Intelligent Search</h4>
+</div>
+<p class="font-body-sm text-body-sm text-on-surface-variant">
+              Natural-language queries executing across multi-format institutional archives, PDF lecture slides, and institutional records.
+            </p>
+</div>
+</div>
+</div>
+</div>
+</section>
+<!-- SECTION 6: BUILT AROUND PEOPLE -->
+<section class="relative w-full py-24 bg-surface border-y border-outline-variant/60 overflow-hidden">
+<!-- Animated Section Accent Line -->
+<div class="absolute top-0 left-0 right-0 h-[2px] bg-gradient-to-r from-transparent via-primary/30 to-transparent"></div>
+<div class="max-w-[1400px] mx-auto px-gutter">
+<div class="reveal-item text-center max-w-2xl mx-auto mb-16">
+<span class="font-code-sm text-code-sm text-primary uppercase tracking-widest inline-flex items-center gap-2">
+<span class="w-1.5 h-1.5 rounded-full bg-primary"></span>
+        Collaborative Topology
+      </span>
+<h2 class="font-headline-xl text-headline-xl text-on-background mt-2 tracking-tight">Built Around People.</h2>
+<p class="font-body-lg text-body-lg text-on-surface-variant mt-3">
+          Fostering seamless collaboration between students, professors, and administrative heads through structured protocols.
+        </p>
+</div>
+<!-- Relational Network Diagram Container with animated data-flow pulses -->
+<div class="reveal-item delay-150 p-8 sm:p-12 rounded-2xl bg-surface-container-lowest border border-outline-variant shadow-sm relative overflow-hidden">
+<!-- Background animated connection line behind nodes -->
+<div class="hidden md:block absolute top-[45%] left-1/4 right-1/4 h-[2px] bg-surface-container -translate-y-1/2 overflow-hidden z-0">
+<div class="w-1/2 h-full data-stream-pulse"></div>
+</div>
+<div class="grid grid-cols-1 md:grid-cols-3 gap-8 items-center text-center relative z-10">
+<!-- Student Node -->
+<div class="group p-6 rounded-xl bg-surface-container border border-surface-dim flex flex-col items-center hover:border-primary/50 hover:shadow-md hover:-translate-y-1 transition-all duration-300">
+<div class="w-14 h-14 rounded-full bg-primary-container text-on-primary flex items-center justify-center mb-3 group-hover:scale-110 transition-transform">
+<span class="material-symbols-outlined text-[28px]">person</span>
+</div>
+<h3 class="font-headline-sm text-headline-sm text-on-surface">Students</h3>
+<p class="font-body-sm text-body-sm text-on-surface-variant mt-1">Submit assignments, receive verified grades, clarify coursework</p>
+<div class="mt-4 px-3 py-1 rounded bg-surface-container-lowest border border-surface-dim font-code-sm text-[11px] text-primary">
+              Protocol: Academic Query
+            </div>
+</div>
+<!-- Central Kernel Connector with pulsing glow -->
+<div class="flex flex-col items-center justify-center py-4">
+<div class="relative w-24 h-24 rounded-2xl bg-gradient-to-br from-primary to-secondary p-1 flex items-center justify-center shadow-lg hover:rotate-2 transition-transform duration-300">
+<div class="w-full h-full bg-surface-container-lowest rounded-xl flex flex-col items-center justify-center text-center p-2 relative overflow-hidden">
+<div class="absolute -inset-1 bg-gradient-to-r from-primary/20 to-secondary/20 animate-pulse"></div>
+<img alt="LMS Core" class="relative z-10 w-8 h-8 object-contain" src="https://lh3.googleusercontent.com/aida/AEtjO1X6tI_46SIFNHsYjyD56kwKu34R1gczJtrT3IeaxNU2A6dz3N0CeuEtow-SyV0tqwTYNA9p_f-tlK--I9SUwV8Tsww8jIcHQIIxyauAf2EnbVOvEubFjerfFF12sMYa_lElPRq2VGrsRMnM3l6G7lK5yvTbysjMVYf9ljaTZ6LCvE3kpUeb5rEcjNIkqhFqJCMcPVrER5z2voN71mx3CccTALGKUxMiyPz4fopevvvyLLanDNqCGeBlxDI"/>
+<span class="relative z-10 font-code-sm text-[9px] text-on-surface-variant mt-1 font-bold">LMS KERNEL</span>
+</div>
+</div>
+<span class="font-code-sm text-code-sm text-tertiary mt-3 flex items-center gap-1.5">
+<span class="w-2 h-2 rounded-full bg-secondary animate-ping"></span>
+            Bilateral Synchronization
+          </span>
+</div>
+<!-- Faculty Node -->
+<div class="group p-6 rounded-xl bg-surface-container border border-surface-dim flex flex-col items-center hover:border-secondary/50 hover:shadow-md hover:-translate-y-1 transition-all duration-300">
+<div class="w-14 h-14 rounded-full bg-secondary text-on-secondary flex items-center justify-center mb-3 group-hover:scale-110 transition-transform">
+<span class="material-symbols-outlined text-[28px]">co_present</span>
+</div>
+<h3 class="font-headline-sm text-headline-sm text-on-surface">Faculty</h3>
+<p class="font-body-sm text-body-sm text-on-surface-variant mt-1">Conduct courses, approve attendance, publish curricular directives</p>
+<div class="mt-4 px-3 py-1 rounded bg-surface-container-lowest border border-surface-dim font-code-sm text-[11px] text-secondary">
+              Protocol: Assessment Verification
+            </div>
+</div>
+</div>
+<!-- HOD Anchor at bottom -->
+<div class="mt-8 max-w-md mx-auto p-4 rounded-xl bg-surface-container-low border border-outline-variant flex items-center justify-between hover:border-tertiary/50 transition-colors">
+<div class="flex items-center gap-3">
+<div class="w-10 h-10 rounded-lg bg-tertiary text-on-tertiary flex items-center justify-center">
+<span class="material-symbols-outlined text-[20px]">account_balance</span>
+</div>
+<div class="text-left">
+<p class="font-label-md text-label-md text-on-surface">HOD &amp; Academic Administration</p>
+<p class="font-body-sm text-[12px] text-outline">Institutional oversight and statutory record keeping</p>
+</div>
+</div>
+<span class="font-code-sm text-[11px] text-on-surface-variant bg-surface-container px-2 py-0.5 rounded">Statutory Level</span>
+</div>
+</div>
+</div>
+</section>
+<!-- SECTION 7: PRODUCT INTERFACE SHOWCASE -->
+<section class="relative w-full py-24 bg-surface-container-lowest overflow-hidden">
+<div class="max-w-[1400px] mx-auto px-gutter">
+<div class="reveal-item text-center max-w-2xl mx-auto mb-12">
+<span class="font-code-sm text-code-sm text-primary uppercase tracking-widest inline-flex items-center gap-2">
+<span class="w-1.5 h-1.5 rounded-full bg-primary"></span>
+        Interface Specification
+      </span>
+<h2 class="font-headline-xl text-headline-xl text-on-background mt-2 tracking-tight">Instrument Precision Workspace.</h2>
+<p class="font-body-md text-body-md text-on-surface-variant mt-2">
+          Carefully calibrated layouts prioritizing information density, readable tables, and rapid keyboard navigation.
+        </p>
+</div>
+<!-- Tab Navigator Mockup with smooth hover depth -->
+<div class="reveal-item delay-150 rounded-2xl border border-outline-variant bg-surface-container-lowest shadow-xl overflow-hidden hover:shadow-2xl transition-shadow duration-300">
+<!-- Mockup Tab Bar Header -->
+<div class="bg-surface-container-low border-b border-outline-variant px-4 flex items-center justify-between overflow-x-auto">
+<div class="flex items-center space-x-1 py-2">
+<button class="px-4 py-2 rounded-md bg-surface-container-lowest text-primary font-label-md text-label-md border border-outline-variant shadow-sm flex items-center gap-2 transition-all">
+<span class="material-symbols-outlined text-[16px]">dashboard</span>
+<span>Dashboard</span>
+</button>
+<button class="px-4 py-2 rounded-md text-on-surface-variant hover:text-on-surface hover:bg-surface-container/60 font-label-md text-label-md flex items-center gap-2 transition-colors">
+<span class="material-symbols-outlined text-[16px]">how_to_reg</span>
+<span>Attendance Portal</span>
+</button>
+<button class="px-4 py-2 rounded-md text-on-surface-variant hover:text-on-surface hover:bg-surface-container/60 font-label-md text-label-md flex items-center gap-2 transition-colors">
+<span class="material-symbols-outlined text-[16px]">schedule</span>
+<span>Timetable &amp; Rooms</span>
+</button>
+<button class="px-4 py-2 rounded-md text-on-surface-variant hover:text-on-surface hover:bg-surface-container/60 font-label-md text-label-md flex items-center gap-2 transition-colors">
+<span class="material-symbols-outlined text-[16px]">assignment</span>
+<span>Assessment Pipeline</span>
+</button>
+</div>
+<div class="hidden sm:flex items-center gap-2 font-code-sm text-[11px] text-outline">
+<span class="w-2 h-2 rounded-full bg-secondary animate-pulse"></span>
+<span>SYSTEM_ONLINE</span>
+</div>
+</div>
+<!-- Workbench Body: Real UI Concept Preview -->
+<div class="p-6 lg:p-8 space-y-6 bg-surface-container-lowest">
+<!-- Top Metric Bar (Generic Academic Indicators) -->
+<div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+<div class="p-4 rounded-lg bg-surface-container-low border border-surface-dim hover:border-primary/40 hover:-translate-y-0.5 transition-all">
+<span class="font-label-sm text-label-sm uppercase tracking-wider text-outline">Current Term</span>
+<p class="font-headline-sm text-headline-sm text-on-surface mt-1">Academic Term Autumn</p>
+<p class="font-code-sm text-[11px] text-primary mt-1">Week 08 of 16</p>
+</div>
+<div class="p-4 rounded-lg bg-surface-container-low border border-surface-dim hover:border-secondary/40 hover:-translate-y-0.5 transition-all">
+<span class="font-label-sm text-label-sm uppercase tracking-wider text-outline">Syllabus Progress</span>
+<p class="font-headline-sm text-headline-sm text-on-surface mt-1">On Schedule</p>
+<p class="font-code-sm text-[11px] text-secondary mt-1">All modules populated</p>
+</div>
+<div class="p-4 rounded-lg bg-surface-container-low border border-surface-dim hover:border-tertiary/40 hover:-translate-y-0.5 transition-all">
+<span class="font-label-sm text-label-sm uppercase tracking-wider text-outline">Assessment Queue</span>
+<p class="font-headline-sm text-headline-sm text-on-surface mt-1">Milestone Active</p>
+<p class="font-code-sm text-[11px] text-tertiary mt-1">Rubric Validated</p>
+</div>
+<div class="p-4 rounded-lg bg-surface-container-low border border-surface-dim hover:border-primary/40 hover:-translate-y-0.5 transition-all">
+<span class="font-label-sm text-label-sm uppercase tracking-wider text-outline">Ledger Synchronization</span>
+<p class="font-headline-sm text-headline-sm text-on-surface mt-1">Integrity Sealed</p>
+<p class="font-code-sm text-[11px] text-on-surface-variant mt-1">Zero conflicts detected</p>
+</div>
+</div>
+<!-- Academic Ledger Table -->
+<div class="rounded-xl border border-outline-variant overflow-hidden">
+<div class="p-4 bg-surface-container-low border-b border-outline-variant flex items-center justify-between">
+<h4 class="font-headline-sm text-sm text-on-surface font-semibold">Active Course Ledgers</h4>
+<span class="font-code-sm text-[11px] text-outline">SORT: COURSE_CODE ASC</span>
+</div>
+<div class="overflow-x-auto">
+<table class="w-full text-left font-body-sm text-body-sm">
+<thead class="bg-surface-container text-on-surface-variant font-label-sm text-label-sm uppercase tracking-wider border-b border-surface-dim">
+<tr>
+<th class="py-2.5 px-4">Course Identifier</th>
+<th class="py-2.5 px-4">Curriculum Title</th>
+<th class="py-2.5 px-4">Classroom Venue</th>
+<th class="py-2.5 px-4">Term Slot</th>
+<th class="py-2.5 px-4 text-right">Verification Status</th>
+</tr>
+</thead>
+<tbody class="divide-y divide-surface-dim text-on-surface">
+<tr class="hover:bg-surface-container-low/60 transition-colors">
+<td class="py-3 px-4 font-code-sm text-primary font-semibold">CS-401</td>
+<td class="py-3 px-4 font-label-md text-label-md">Advanced Distributed Systems</td>
+<td class="py-3 px-4 text-outline">Seminar Hall A</td>
+<td class="py-3 px-4 font-code-sm text-on-surface-variant">Mon / Wed 10:00</td>
+<td class="py-3 px-4 text-right">
+<span class="inline-flex px-2 py-0.5 rounded bg-primary-fixed text-on-primary-fixed font-code-sm text-[11px]">Ledger Active</span>
+</td>
+</tr>
+<tr class="hover:bg-surface-container-low/60 transition-colors">
+<td class="py-3 px-4 font-code-sm text-primary font-semibold">MTH-202</td>
+<td class="py-3 px-4 font-label-md text-label-md">Linear Algebra &amp; Vector Spaces</td>
+<td class="py-3 px-4 text-outline">Lecture Complex 102</td>
+<td class="py-3 px-4 font-code-sm text-on-surface-variant">Tue / Thu 09:00</td>
+<td class="py-3 px-4 text-right">
+<span class="inline-flex px-2 py-0.5 rounded bg-secondary-fixed text-on-secondary-fixed font-code-sm text-[11px]">Ledger Active</span>
+</td>
+</tr>
+<tr class="hover:bg-surface-container-low/60 transition-colors">
+<td class="py-3 px-4 font-code-sm text-primary font-semibold">BIO-310</td>
+<td class="py-3 px-4 font-label-md text-label-md">Computational Genetics</td>
+<td class="py-3 px-4 text-outline">Bioinformatics Lab 04</td>
+<td class="py-3 px-4 font-code-sm text-on-surface-variant">Fri 14:00</td>
+<td class="py-3 px-4 text-right">
+<span class="inline-flex px-2 py-0.5 rounded bg-tertiary-fixed text-on-tertiary-fixed font-code-sm text-[11px]">Audit Pending</span>
+</td>
+</tr>
+</tbody>
+</table>
+</div>
+</div>
+</div>
+</div>
+</div>
+</section>
+<!-- SECTION 8: TECHNOLOGY / ARCHITECTURE VISUAL -->
+<section class="relative w-full py-24 bg-surface border-y border-outline-variant/60 overflow-hidden" id="architecture">
+<!-- Animated Section Accent Line -->
+<div class="absolute top-0 left-0 right-0 h-[2px] bg-gradient-to-r from-transparent via-primary/30 to-transparent"></div>
+<div class="max-w-[1400px] mx-auto px-gutter">
+<div class="reveal-item text-center max-w-2xl mx-auto mb-16">
+<span class="font-code-sm text-code-sm text-primary uppercase tracking-widest inline-flex items-center gap-2">
+<span class="w-1.5 h-1.5 rounded-full bg-primary"></span>
+        System Topography
+      </span>
+<h2 class="font-headline-xl text-headline-xl text-on-background mt-2 tracking-tight">Enterprise Academic Architecture.</h2>
+<p class="font-body-lg text-body-lg text-on-surface-variant mt-3">
+          A decoupled, highly available academic stack built for institutional reliability, horizontal scale, and sub-millisecond data pipelines.
+        </p>
+</div>
+<!-- Architectural Stack with Staggered Slide-up and Active Pulse Lines -->
+<div class="max-w-4xl mx-auto space-y-4 relative">
+<!-- Layer 1 -->
+<div class="reveal-item delay-100 group p-5 rounded-xl bg-surface-container-lowest border border-outline-variant flex items-center justify-between shadow-sm hover:border-primary hover:shadow-lg hover:-translate-y-1 transition-all duration-300 relative overflow-hidden">
+<div class="flex items-center gap-4">
+<span class="font-code-sm text-code-sm px-2 py-1 rounded bg-surface-container text-tertiary font-bold group-hover:bg-primary group-hover:text-on-primary transition-colors">L1</span>
+<div>
+<h4 class="font-headline-sm text-headline-sm text-on-surface">Presentation &amp; Client Edge</h4>
+<p class="font-body-sm text-body-sm text-on-surface-variant">React/Tailwind responsive client surface with offline-first PWA caching and role authentication</p>
+</div>
+</div>
+<span class="material-symbols-outlined text-outline group-hover:text-primary group-hover:scale-110 transition-all">devices</span>
+</div>
+<!-- Layer 2 -->
+<div class="reveal-item delay-200 group p-5 rounded-xl bg-surface-container-lowest border border-outline-variant flex items-center justify-between shadow-sm hover:border-primary-container hover:shadow-lg hover:-translate-y-1 transition-all duration-300 relative overflow-hidden">
+<div class="flex items-center gap-4">
+<span class="font-code-sm text-code-sm px-2 py-1 rounded bg-primary-fixed text-primary font-bold group-hover:bg-primary-container group-hover:text-on-primary transition-colors">L2</span>
+<div>
+<h4 class="font-headline-sm text-headline-sm text-on-surface">Application Gateway &amp; Zero-Trust Auth</h4>
+<p class="font-body-sm text-body-sm text-on-surface-variant">Institutional SSO (SAML 2.0 / OAuth2), cryptographic session tokens, and rate-limited API gateway</p>
+</div>
+</div>
+<span class="material-symbols-outlined text-outline group-hover:text-primary transition-all">lock</span>
+</div>
+<!-- Layer 3 -->
+<div class="reveal-item delay-300 group p-5 rounded-xl bg-surface-container-lowest border border-outline-variant flex items-center justify-between shadow-sm hover:border-secondary hover:shadow-lg hover:-translate-y-1 transition-all duration-300 relative overflow-hidden">
+<div class="flex items-center gap-4">
+<span class="font-code-sm text-code-sm px-2 py-1 rounded bg-secondary-fixed text-secondary font-bold group-hover:bg-secondary group-hover:text-on-secondary transition-colors">L3</span>
+<div>
+<h4 class="font-headline-sm text-headline-sm text-on-surface">Core Academic Microservices</h4>
+<p class="font-body-sm text-body-sm text-on-surface-variant">Attendance Engine, Timetable Matrix, Grade Ledger Service, and Curricular Workflow Orchestrator</p>
+</div>
+</div>
+<span class="material-symbols-outlined text-outline group-hover:text-secondary transition-all">settings_suggest</span>
+</div>
+<!-- Layer 4 -->
+<div class="reveal-item delay-400 group p-5 rounded-xl bg-surface-container-lowest border border-outline-variant flex items-center justify-between shadow-sm hover:border-tertiary hover:shadow-lg hover:-translate-y-1 transition-all duration-300 relative overflow-hidden">
+<div class="flex items-center gap-4">
+<span class="font-code-sm text-code-sm px-2 py-1 rounded bg-tertiary-fixed text-tertiary font-bold group-hover:bg-tertiary group-hover:text-on-tertiary transition-colors">L4</span>
+<div>
+<h4 class="font-headline-sm text-headline-sm text-on-surface">Institutional State &amp; Transactional Database</h4>
+<p class="font-body-sm text-body-sm text-on-surface-variant">High-durability relational stores with strict ACID guarantees for academic transcripts and logs</p>
+</div>
+</div>
+<span class="material-symbols-outlined text-outline group-hover:text-tertiary transition-all">database</span>
+</div>
+<!-- Layer 5 -->
+<div class="reveal-item delay-500 group p-5 rounded-xl bg-surface-container-lowest border border-outline-variant flex items-center justify-between shadow-sm hover:border-surface-tint hover:shadow-lg hover:-translate-y-1 transition-all duration-300 relative overflow-hidden">
+<div class="flex items-center gap-4">
+<span class="font-code-sm text-code-sm px-2 py-1 rounded bg-surface-variant text-on-surface-variant font-bold group-hover:bg-surface-tint group-hover:text-on-primary transition-colors">L5</span>
+<div>
+<h4 class="font-headline-sm text-headline-sm text-on-surface">Vector Index &amp; Knowledge Synthesis</h4>
+<p class="font-body-sm text-body-sm text-on-surface-variant">Dedicated institutional embeddings matrix enabling zero-hallucination semantic information retrieval</p>
+</div>
+</div>
+<span class="material-symbols-outlined text-outline group-hover:text-primary transition-all">neurology</span>
+</div>
+</div>
+</div>
+</section>
+<!-- SECTION 9: FINAL CTA SECTION -->
+<section class="relative w-full py-28 bg-surface-container-lowest overflow-hidden">
+<div class="absolute inset-0 bg-[radial-gradient(#eaedff_1px,transparent_1px)] [background-size:24px_24px] opacity-60"></div>
+<div class="max-w-[1000px] mx-auto px-gutter text-center relative z-10">
+<div class="reveal-item w-16 h-16 mx-auto mb-6 rounded-2xl bg-surface-container border border-outline-variant flex items-center justify-center shadow-md hover:scale-105 transition-transform duration-300">
+<img alt="College LMS Emblem" class="w-10 h-10 object-contain" src="https://lh3.googleusercontent.com/aida/AEtjO1X6tI_46SIFNHsYjyD56kwKu34R1gczJtrT3IeaxNU2A6dz3N0CeuEtow-SyV0tqwTYNA9p_f-tlK--I9SUwV8Tsww8jIcHQIIxyauAf2EnbVOvEubFjerfFF12sMYa_lElPRq2VGrsRMnM3l6G7lK5yvTbysjMVYf9ljaTZ6LCvE3kpUeb5rEcjNIkqhFqJCMcPVrER5z2voN71mx3CccTALGKUxMiyPz4fopevvvyLLanDNqCGeBlxDI"/>
+</div>
+<h2 class="reveal-item delay-100 font-headline-xl text-headline-xl text-on-background tracking-tight">
+        Bring Your College Experience Together.
+      </h2>
+<p class="reveal-item delay-200 font-body-lg text-body-lg text-on-surface-variant max-w-xl mx-auto mt-4 text-balance">
+        One unified academic platform for students, faculty, and academic administration. Deploy sovereign institutional infrastructure today.
+      </p>
+<div class="reveal-item delay-300 flex flex-wrap items-center justify-center gap-space-md mt-8">
+<a class="px-8 py-3.5 rounded-lg bg-primary hover:bg-primary-container text-on-primary font-label-md text-label-md shadow-lg shadow-primary/20 hover:shadow-xl hover:shadow-primary/30 transition-all hover:-translate-y-0.5 active:translate-y-0" href="#">
+          Explore College LMS
+        </a>
+<a class="px-8 py-3.5 rounded-lg bg-surface-container-lowest border border-outline-variant text-on-surface hover:bg-surface-container-low font-label-md text-label-md transition-all hover:border-primary/40 hover:-translate-y-0.5" href="#">
+          Schedule Academic Demonstration
+        </a>
+</div>
+<div class="reveal-item delay-400 mt-12 flex flex-wrap items-center justify-center gap-6 text-on-surface-variant font-code-sm text-code-sm">
+<div class="flex items-center gap-2">
+<span class="material-symbols-outlined text-[16px] text-primary">verified</span>
+<span>Zero Fabricated Metrics</span>
+</div>
+<div class="flex items-center gap-2">
+<span class="material-symbols-outlined text-[16px] text-secondary">shield</span>
+<span>Full Data Sovereignty</span>
+</div>
+<div class="flex items-center gap-2">
+<span class="material-symbols-outlined text-[16px] text-tertiary">tune</span>
+<span>Configurable Academic Directives</span>
+</div>
+</div>
+</div>
+</section>
+</div></div></main><footer class="w-full bg-surface-container-lowest border-t border-[#e2e8f0] py-space-xl"><div class="max-w-[1600px] mx-auto px-gutter"><div class="grid grid-cols-2 md:grid-cols-4 gap-gutter mb-space-xl"><div class="flex flex-col gap-space-xs"><span class="font-label-sm text-label-sm uppercase tracking-wider text-on-surface-variant mb-space-xs">Platform</span><a class="font-body-sm text-body-sm text-on-surface-variant hover:text-primary transition-colors" data-path="attendance" href="#">Attendance</a><a class="font-body-sm text-body-sm text-on-surface-variant hover:text-primary transition-colors" data-path="timetable" href="#">Timetable</a><a class="font-body-sm text-body-sm text-on-surface-variant hover:text-primary transition-colors" data-path="notes" href="#">Notes</a><a class="font-body-sm text-body-sm text-on-surface-variant hover:text-primary transition-colors" data-path="assignments" href="#">Assignments</a><a class="font-body-sm text-body-sm text-on-surface-variant hover:text-primary transition-colors" data-path="academic-information" href="#">Academic Information</a></div><div class="flex flex-col gap-space-xs"><span class="font-label-sm text-label-sm uppercase tracking-wider text-on-surface-variant mb-space-xs">Roles</span><a class="font-body-sm text-body-sm text-on-surface-variant hover:text-primary transition-colors" data-path="student-portal" href="#">Student Portal</a><a class="font-body-sm text-body-sm text-on-surface-variant hover:text-primary transition-colors" data-path="faculty-workflows" href="#">Faculty Workflows</a><a class="font-body-sm text-body-sm text-on-surface-variant hover:text-primary transition-colors" data-path="administration-hod-suite" href="#">Administration &amp; HOD Suite</a></div><div class="flex flex-col gap-space-xs"><span class="font-label-sm text-label-sm uppercase tracking-wider text-on-surface-variant mb-space-xs">Intelligence</span><a class="font-body-sm text-body-sm text-on-surface-variant hover:text-primary transition-colors" data-path="knowledge-retrieval" href="#">Knowledge Retrieval</a><a class="font-body-sm text-body-sm text-on-surface-variant hover:text-primary transition-colors" data-path="academic-assistance" href="#">Academic Assistance</a></div><div class="flex flex-col gap-space-xs"><span class="font-label-sm text-label-sm uppercase tracking-wider text-on-surface-variant mb-space-xs">Architecture</span><a class="font-body-sm text-body-sm text-on-surface-variant hover:text-primary transition-colors" data-path="api-services" href="#">API Services</a><a class="font-body-sm text-body-sm text-on-surface-variant hover:text-primary transition-colors" data-path="data-infrastructure" href="#">Data Infrastructure</a></div></div><div class="pt-space-md border-t border-[#e2e8f0] flex flex-col sm:flex-row items-center justify-between gap-space-sm"><div class="flex items-center gap-space-sm"><span class="inline-block w-2 h-2 rounded-full bg-secondary"></span><span class="font-code-sm text-code-sm text-on-surface-variant">Operational Enterprise Academic Mesh</span></div><span class="font-label-sm text-label-sm text-on-surface-variant">College LMS • Academic Infrastructure Specification</span></div></div></footer>
+<script>
+// Motion & Scroll Reveal Orchestration
+(function() {
+  const prefersReduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  
+  // 1. Intersection Observer for Scroll Reveal
+  const revealElements = document.querySelectorAll('.reveal-item');
+  if (!prefersReduced && 'IntersectionObserver' in window) {
+    const revealObserver = new IntersectionObserver((entries, observer) => {
+      entries.forEach(entry => {
+        if (entry.isIntersecting) {
+          entry.target.classList.add('is-revealed');
+          observer.unobserve(entry.target);
+        }
+      });
+    }, {
+      root: null,
+      threshold: 0.12,
+      rootMargin: '0px 0px -40px 0px'
+    });
+
+    revealElements.forEach(el => revealObserver.observe(el));
+  } else {
+    revealElements.forEach(el => el.classList.add('is-revealed'));
+  }
+
+  // 2. Scroll Progress Bar & Subtle Scroll Depth
+  const progressBar = document.getElementById('scroll-progress-indicator');
+  const heroWorkbench = document.getElementById('hero-workbench');
+  const heroGlow = document.getElementById('hero-glow');
+  const parallaxCards = heroWorkbench ? heroWorkbench.querySelectorAll('[data-parallax-depth]') : [];
+
+  let ticking = false;
+
+  function onScroll() {
+    const scrollTop = window.scrollY || document.documentElement.scrollTop;
+    const docHeight = document.documentElement.scrollHeight - window.innerHeight;
+    
+    // Top Progress Line
+    if (progressBar && docHeight > 0) {
+      const progress = Math.min(1, Math.max(0, scrollTop / docHeight));
+      progressBar.style.transform = `scaleX(${progress})`;
+    }
+
+    // Hero Section Parallax Depth
+    if (!prefersReduced && scrollTop < 1200) {
+      if (heroGlow) {
+        heroGlow.style.transform = `translate(-50%, ${scrollTop * 0.25}px)`;
+      }
+      parallaxCards.forEach(card => {
+        const depth = parseFloat(card.getAttribute('data-parallax-depth') || '0');
+        card.style.transform = `translateY(${scrollTop * depth}px)`;
+      });
+    }
+
+    ticking = false;
+  }
+
+  window.addEventListener('scroll', () => {
+    if (!ticking) {
+      window.requestAnimationFrame(onScroll);
+      ticking = true;
+    }
+  }, { passive: true });
+
+  // Initial trigger
+  onScroll();
+})();
+</script>
+</body></html>

@@ -202,7 +202,7 @@ export const FacultyChatPage: React.FC = () => {
   };
 
   return (
-    <div className="flex-1 flex flex-col h-[calc(100vh-4rem)] md:h-screen bg-slate-50 overflow-hidden">
+    <div className="flex-1 flex flex-col h-[calc(100dvh-3.5rem)] md:h-screen bg-slate-50 overflow-hidden">
       {/* Top Banner Header */}
       <div className="bg-white border-b border-slate-200/90 px-4 py-3 sm:px-6 flex items-center justify-between flex-shrink-0 z-10 shadow-2xs">
         <div className="flex items-center gap-3">
@@ -338,6 +338,24 @@ export const FacultyChatPage: React.FC = () => {
             )}
 
             <div ref={messagesEndRef} />
+          </div>
+
+          {/* Quick Prompt Pill Rail (Visible on Mobile & Tablet < 1024px) */}
+          <div className="lg:hidden px-4 py-2 bg-white/95 backdrop-blur-xs border-t border-slate-200/80 flex items-center gap-2 overflow-x-auto scrollbar-none snap-x shrink-0">
+            <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 shrink-0">
+              Topics:
+            </span>
+            {TOPIC_PRESETS.flatMap((g) => g.items).map((item, idx) => (
+              <button
+                key={idx}
+                type="button"
+                disabled={isLoading}
+                onClick={() => handleSendMessage(item.prompt)}
+                className="px-3 py-1 rounded-full text-xs font-medium bg-slate-100 hover:bg-indigo-50 hover:text-indigo-700 text-slate-700 border border-slate-200 shrink-0 snap-start transition-colors whitespace-nowrap disabled:opacity-50"
+              >
+                {item.title}
+              </button>
+            ))}
           </div>
 
           {/* Input Component */}

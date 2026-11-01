@@ -41,7 +41,9 @@ export const StudentTimetablePage: React.FC = () => {
   };
 
   const [selectedDay, setSelectedDay] = useState<DayName>(getTodayDayName);
-  const [viewMode, setViewMode] = useState<'grid' | 'day'>('grid');
+  const [viewMode, setViewMode] = useState<'grid' | 'day'>(() =>
+    typeof window !== 'undefined' && window.innerWidth < 768 ? 'day' : 'grid'
+  );
 
   useEffect(() => {
     loadTimetable();
@@ -454,7 +456,7 @@ export const StudentTimetablePage: React.FC = () => {
             <div className="bg-white border border-slate-200 rounded-lg shadow-xs overflow-hidden flex flex-col">
               {/* Day Selector Tabs */}
               <div className="p-4 border-b border-slate-200 bg-slate-50/50 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-                <div className="flex flex-wrap items-center gap-2">
+                <div className="flex items-center gap-2 overflow-x-auto pb-1.5 sm:pb-0 w-full sm:w-auto scrollbar-none snap-x">
                   {DAYS_OF_WEEK.map((day) => {
                     const count = slotsByDay[day]?.length || 0;
                     const isSelected = selectedDay === day;
@@ -463,7 +465,7 @@ export const StudentTimetablePage: React.FC = () => {
                         key={day}
                         onClick={() => setSelectedDay(day)}
                         type="button"
-                        className={`px-3 py-1.5 text-xs font-semibold rounded-md transition-all flex items-center gap-1.5 ${
+                        className={`px-3.5 py-2 sm:py-1.5 text-xs font-semibold rounded-lg sm:rounded-md transition-all flex items-center gap-1.5 shrink-0 snap-start min-h-[38px] sm:min-h-0 ${
                           isSelected
                             ? 'bg-[#0b1727] text-white shadow-xs'
                             : 'bg-white text-slate-600 border border-slate-200 hover:bg-slate-100'

@@ -8,5 +8,15 @@
     "ANTHROPIC_DEFAULT_SONNET_MODEL": "auto/best-free",
     "ANTHROPIC_DEFAULT_HAIKU_MODEL": "auto/best-free",
     "CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC": "1"
-  }
+  },
+  "permissions": {
+    "allow": [
+      "WebSearch",
+      "mcp__windows-computer-use__get_computer_info"
+    ]
+  },
+  "enableAllProjectMcpServers": true,
+  "enabledMcpjsonServers": [
+    "windows-computer-use"
+  ]
 }
