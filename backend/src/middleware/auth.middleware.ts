@@ -38,6 +38,35 @@ export interface AuthenticatedRequest extends Request {
  *
  * NEVER trust req.body.userId — identity comes from verified token.
  */
+async function executeWithDbRetry<T>(fn: () => Promise<T>, maxRetries = 2): Promise<T> {
+  let attempt = 0;
+  while (true) {
+    try {
+      return await fn();
+    } catch (err: any) {
+      const msg = err?.message || '';
+      const isTransient =
+        msg.includes('tenant/user') ||
+        msg.includes('ENOTFOUND') ||
+        msg.includes("Can't reach database server") ||
+        msg.includes('Connection terminated') ||
+        msg.includes('connection pool') ||
+        msg.includes('ETIMEDOUT') ||
+        msg.includes('ECONNRESET');
+
+      if (attempt < maxRetries && isTransient) {
+        attempt++;
+        logger.warn(`Transient database error in auth middleware. Retrying attempt ${attempt}/${maxRetries}...`, {
+          error: msg,
+        });
+        await new Promise((resolve) => setTimeout(resolve, 600 * attempt));
+      } else {
+        throw err;
+      }
+    }
+  }
+}
+
 export async function authenticateFirebaseUser(
   req: AuthenticatedRequest,
   res: Response,
@@ -73,29 +102,33 @@ export async function authenticateFirebaseUser(
     let user = memoryCache.get<any>(cacheKey);
 
     if (!user) {
-      // Find LMS user in DB
-      user = await prisma.user.findUnique({
-        where: { firebaseUid },
-        include: {
-          userRoles: {
-            include: {
-              role: {
-                include: {
-                  permissions: {
-                    include: { permission: true },
+      // Find LMS user in DB (with retry for transient pooler reconnection)
+      user = await executeWithDbRetry(() =>
+        prisma.user.findUnique({
+          where: { firebaseUid },
+          include: {
+            userRoles: {
+              include: {
+                role: {
+                  include: {
+                    permissions: {
+                      include: { permission: true },
+                    },
                   },
                 },
               },
             },
           },
-        },
-      });
+        })
+      );
 
     if (!user) {
       // Auto-provision if user exists in authed_users with an assigned role
-      const authed = await prisma.authedUser.findUnique({
-        where: { uid: firebaseUid },
-      });
+      const authed = await executeWithDbRetry(() =>
+        prisma.authedUser.findUnique({
+          where: { uid: firebaseUid },
+        })
+      );
       if (authed) {
         (req as any).authedUser = authed;
       }

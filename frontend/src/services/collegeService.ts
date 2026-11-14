@@ -326,19 +326,43 @@ export async function recordAuthedUser(user: AuthedUserRecord, token?: string): 
 
     const syncPromise = (async () => {
       // Sync via secure backend route to handle dummy student mapping and PK updates properly
-      const response = await fetch('/api/auth/sync', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`
-        },
-        body: JSON.stringify(user)
-      });
+      let response: Response | null = null;
+      let lastFetchErr: any = null;
 
-      if (!response.ok) {
-        const errJson = await response.json().catch(() => ({}));
-        console.error('Auth sync error:', errJson);
-        const errorMsg = errJson?.error?.message || errJson?.message || 'Failed to map user authentication securely.';
+      for (let attempt = 1; attempt <= 2; attempt++) {
+        try {
+          response = await fetch('/api/auth/sync', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'Authorization': `Bearer ${token}`
+            },
+            body: JSON.stringify(user)
+          });
+
+          if (response.ok) {
+            break;
+          }
+
+          // If server error or transient DB sleep, wait and retry once
+          if (attempt < 2 && (response.status >= 500 || response.status === 429)) {
+            await new Promise(res => setTimeout(res, 1200));
+            continue;
+          }
+          break;
+        } catch (fetchErr) {
+          lastFetchErr = fetchErr;
+          if (attempt < 2) {
+            await new Promise(res => setTimeout(res, 1200));
+            continue;
+          }
+        }
+      }
+
+      if (!response || !response.ok) {
+        const errJson = response ? await response.json().catch(() => ({})) : null;
+        console.error('Auth sync error:', errJson || lastFetchErr);
+        const errorMsg = errJson?.error?.message || errJson?.message || lastFetchErr?.message || 'Failed to map user authentication securely.';
         throw new Error(errorMsg);
       }
 

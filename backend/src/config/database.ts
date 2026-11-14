@@ -26,6 +26,14 @@ function getOptimizedDatabaseUrl(): string | undefined {
     url += (url.includes('?') ? '&' : '?') + 'connection_limit=1';
   }
 
+  // Connection timeout optimization for remote Supavisor/PgBouncer pooler
+  if (!url.includes('connect_timeout=')) {
+    url += (url.includes('?') ? '&' : '?') + 'connect_timeout=15';
+  }
+  if (!url.includes('pool_timeout=')) {
+    url += (url.includes('?') ? '&' : '?') + 'pool_timeout=15';
+  }
+
   return url;
 }
 

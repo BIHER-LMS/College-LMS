@@ -60,13 +60,28 @@ function Login() {
     try {
       setGoogleLoading(true);
       setAuthError(null);
-      const result = await signInWithPopup(auth, googleProvider);
-      await finishSignIn(result.user);
-    } catch (err: any) {
-      console.error('Google Sign In Error:', err);
-      setAuthError(err.code === 'auth/popup-closed-by-user'
-        ? 'Sign in popup was closed before completion.'
-        : 'Could not sign in with Google. Please check your account and try again.');
+      let result;
+      try {
+        result = await signInWithPopup(auth, googleProvider);
+      } catch (popupErr: any) {
+        console.error('Google Sign In Error:', popupErr);
+        setAuthError(popupErr.code === 'auth/popup-closed-by-user'
+          ? 'Sign in popup was closed before completion.'
+          : 'Could not sign in with Google. Please check your account and try again.');
+        return;
+      }
+
+      try {
+        await finishSignIn(result.user);
+      } catch (syncErr: any) {
+        console.error('LMS database sync failed after Google auth:', syncErr);
+        const msg = syncErr?.message || '';
+        if (msg.includes('tenant/user') || msg.includes('database') || msg.includes('ENOTFOUND')) {
+          setAuthError('The academic database is waking up from idle mode. Please wait a few seconds and try again.');
+        } else {
+          setAuthError(msg || 'Google authentication succeeded, but failed to load academic profile. Please try again.');
+        }
+      }
     } finally {
       setGoogleLoading(false);
     }
@@ -81,12 +96,42 @@ function Login() {
     if (!cleanEmail.includes('@') || password.length < 8) return;
     setIsLoading(true);
     try {
-      // Only Firebase-verified users may enter the LMS, including superadmins.
-      const result = await signInWithEmailAndPassword(auth, cleanEmail, password);
-      await finishSignIn(result.user);
-    } catch (err: any) {
-      console.error('Firebase email sign-in failed:', err);
-      setAuthError('Invalid credentials or user not found. If you are new, click "Create Account" above.');
+      // 1. Authenticate with Firebase
+      let result;
+      try {
+        result = await signInWithEmailAndPassword(auth, cleanEmail, password);
+      } catch (firebaseErr: any) {
+        console.error('Firebase email sign-in failed:', firebaseErr);
+        const code = firebaseErr?.code || '';
+        if (
+          code === 'auth/wrong-password' ||
+          code === 'auth/user-not-found' ||
+          code === 'auth/invalid-credential' ||
+          code === 'auth/invalid-login-credentials'
+        ) {
+          setAuthError('Invalid email or password. If you are new, click "Create Account" above.');
+        } else if (code === 'auth/too-many-requests') {
+          setAuthError('Access temporarily disabled due to multiple failed login attempts. Please try again later.');
+        } else if (code === 'auth/user-disabled') {
+          setAuthError('This user account has been disabled. Please contact your college administrator.');
+        } else {
+          setAuthError(firebaseErr.message || 'Authentication failed. Please check your credentials and try again.');
+        }
+        return;
+      }
+
+      // 2. Synchronize with LMS database session
+      try {
+        await finishSignIn(result.user);
+      } catch (syncErr: any) {
+        console.error('LMS database sync failed after email auth:', syncErr);
+        const msg = syncErr?.message || '';
+        if (msg.includes('tenant/user') || msg.includes('database') || msg.includes('ENOTFOUND')) {
+          setAuthError('The academic database is waking up from idle mode. Please wait a few seconds and try signing in again.');
+        } else {
+          setAuthError(msg || 'Authentication succeeded, but failed to load academic profile. Please try again.');
+        }
+      }
     } finally {
       setIsLoading(false);
     }

@@ -8,7 +8,6 @@
 **Status:** Multi-tenant security hardening (RLS Phases 1 & 2) applied live; all 24 public tables locked down; faculty + student portals fully integrated.
 
 ---
-
 ## Table of Contents
 
 1. [Project Overview](#1-project-overview)
