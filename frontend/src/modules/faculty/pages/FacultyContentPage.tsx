@@ -17,11 +17,21 @@ import {
   Eye,
   X,
   Download,
+  Shield,
+  Sparkles,
+  Play,
+  CheckCircle,
 } from 'lucide-react';
 import { facultyContentApi } from '../api/facultyContentApi';
 import { facultyApi } from '../api/facultyApi';
 import { downloadFileWithGuaranteedName } from '../../../utils/fileDownload';
 import { MarkdownViewer } from '../../../components/MarkdownViewer';
+import {
+  extractYouTubeId,
+  getYouTubeThumbnail,
+  getAdFreeYouTubeEmbedUrl,
+  fetchYouTubeMetadata,
+} from '../../../utils/youtube';
 
 const YoutubeIcon: React.FC<{ className?: string }> = ({ className = 'w-5 h-5' }) => (
   <svg className={className} viewBox="0 0 24 24" fill="currentColor">
@@ -56,6 +66,41 @@ export const FacultyContentPage: React.FC = () => {
     isPublished: true,
   });
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
+
+  // YouTube Creator State
+  const [showYtTestPlayer, setShowYtTestPlayer] = useState<boolean>(false);
+  const [isFetchingYt, setIsFetchingYt] = useState<boolean>(false);
+
+  // Auto-fetch YouTube Title when faculty pastes a valid YouTube link
+  useEffect(() => {
+    const vidId = extractYouTubeId(contentForm.youtubeUrl);
+    if (vidId && !contentForm.title && activeTab === 'youtube') {
+      fetchYouTubeMetadata(contentForm.youtubeUrl).then((meta) => {
+        if (meta?.title) {
+          setContentForm((prev) => (prev.title ? prev : { ...prev, title: meta.title! }));
+        }
+      });
+    }
+  }, [contentForm.youtubeUrl, activeTab]);
+
+  const handleFetchYtDetails = async () => {
+    const vidId = extractYouTubeId(contentForm.youtubeUrl);
+    if (!vidId) return;
+    try {
+      setIsFetchingYt(true);
+      const meta = await fetchYouTubeMetadata(contentForm.youtubeUrl);
+      if (meta && meta.title) {
+        setContentForm((prev) => ({
+          ...prev,
+          title: meta.title || prev.title,
+        }));
+      }
+    } catch (e) {
+      console.warn('Could not auto-fetch YouTube metadata:', e);
+    } finally {
+      setIsFetchingYt(false);
+    }
+  };
 
   // In-App LMS Preview State
   const [previewContent, setPreviewContent] = useState<any>(null);
@@ -512,6 +557,12 @@ export const FacultyContentPage: React.FC = () => {
                                 <span className="text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-md bg-slate-100 text-slate-600">
                                   {item.content_type}
                                 </span>
+                                {item.content_type === 'YOUTUBE' && (
+                                  <span className="flex items-center gap-1 text-[10px] font-semibold text-emerald-700 bg-emerald-50 border border-emerald-200 px-1.5 py-0.5 rounded">
+                                    <Shield className="w-2.5 h-2.5" />
+                                    Ad-Free Stream
+                                  </span>
+                                )}
                                 {!item.is_downloadable && (
                                   <span className="flex items-center gap-1 text-[10px] text-amber-700 bg-amber-50 border border-amber-200 px-1.5 py-0.5 rounded">
                                     <Lock className="w-2.5 h-2.5" />
@@ -782,20 +833,37 @@ export const FacultyContentPage: React.FC = () => {
 
               {/* Tab 2: YouTube Link */}
               {activeTab === 'youtube' && (
-                <div className="space-y-3">
+                <div className="space-y-4">
                   <div>
-                    <label className="block text-xs font-semibold text-slate-700 uppercase tracking-wider mb-1">
-                      YouTube Video URL *
-                    </label>
-                    <input
-                      type="url"
-                      required={activeTab === 'youtube'}
-                      placeholder="https://www.youtube.com/watch?v=..."
-                      value={contentForm.youtubeUrl}
-                      onChange={(e) => setContentForm({ ...contentForm, youtubeUrl: e.target.value })}
-                      className="w-full text-sm border border-slate-300 rounded-xl px-4 py-2.5 focus:ring-2 focus:ring-red-500 focus:outline-none"
-                    />
+                    <div className="flex items-center justify-between mb-1">
+                      <label className="block text-xs font-semibold text-slate-700 uppercase tracking-wider">
+                        YouTube Video URL *
+                      </label>
+                      <span className="text-[11px] text-emerald-600 font-semibold flex items-center gap-1">
+                        <Shield className="w-3 h-3" />
+                        Ad-Free Streaming Enabled
+                      </span>
+                    </div>
+                    <div className="relative">
+                      <input
+                        type="url"
+                        required={activeTab === 'youtube'}
+                        placeholder="https://www.youtube.com/watch?v=... or https://youtu.be/..."
+                        value={contentForm.youtubeUrl}
+                        onChange={(e) => setContentForm({ ...contentForm, youtubeUrl: e.target.value })}
+                        className="w-full text-sm border border-slate-300 rounded-xl pl-4 pr-10 py-2.5 focus:ring-2 focus:ring-red-500 focus:outline-none"
+                      />
+                      {extractYouTubeId(contentForm.youtubeUrl) && (
+                        <div className="absolute right-3 top-2.5 text-emerald-600">
+                          <CheckCircle className="w-5 h-5" />
+                        </div>
+                      )}
+                    </div>
+                    <p className="text-[11px] text-slate-400 mt-1">
+                      Supports standard videos, playlists, Shorts, unlisted lecture recordings, and youtu.be links.
+                    </p>
                   </div>
+
                   <div>
                     <label className="block text-xs font-semibold text-slate-700 uppercase tracking-wider mb-1">
                       Estimated Duration (Minutes)
@@ -813,6 +881,88 @@ export const FacultyContentPage: React.FC = () => {
                       className="w-32 text-sm border border-slate-300 rounded-xl px-4 py-2 focus:ring-2 focus:ring-indigo-500 focus:outline-none"
                     />
                   </div>
+
+                  {/* YouTube Live Validation & Preview Card */}
+                  {extractYouTubeId(contentForm.youtubeUrl) ? (
+                    <div className="p-4 rounded-xl border border-red-200/80 bg-red-50/30 space-y-3">
+                      <div className="flex flex-col sm:flex-row gap-4 items-start">
+                        {/* Thumbnail */}
+                        <div className="relative w-full sm:w-44 aspect-video rounded-lg overflow-hidden bg-slate-900 shrink-0 shadow-xs border border-slate-200">
+                          <img
+                            src={getYouTubeThumbnail(contentForm.youtubeUrl, 'hq')}
+                            alt="Video Thumbnail"
+                            className="w-full h-full object-cover"
+                          />
+                          <div className="absolute inset-0 bg-black/20 flex items-center justify-center">
+                            <div className="w-7 h-7 rounded-full bg-red-600 text-white flex items-center justify-center shadow">
+                              <Play className="w-3.5 h-3.5 ml-0.5 fill-current" />
+                            </div>
+                          </div>
+                        </div>
+
+                        {/* Metadata Details */}
+                        <div className="flex-1 min-w-0 space-y-1.5">
+                          <div className="flex flex-wrap items-center gap-2">
+                            <span className="text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded bg-red-100 text-red-700">
+                              YouTube Video
+                            </span>
+                            <span className="text-[10px] font-mono text-slate-600 bg-white border border-slate-200 px-1.5 py-0.5 rounded">
+                              ID: {extractYouTubeId(contentForm.youtubeUrl)}
+                            </span>
+                            <span className="text-[10px] font-semibold text-emerald-700 bg-emerald-100 px-2 py-0.5 rounded flex items-center gap-1">
+                              <Shield className="w-3 h-3" />
+                              Ad-Free Playback
+                            </span>
+                          </div>
+
+                          <p className="text-xs text-slate-700 font-medium truncate">
+                            {contentForm.title || 'Title will appear here'}
+                          </p>
+
+                          <p className="text-[11px] text-slate-500 leading-relaxed">
+                            Students will stream this video via privacy-enhanced player (<code>youtube-nocookie.com</code>). Advertisements, trackers, and external video recommendations are automatically suppressed.
+                          </p>
+
+                          <div className="pt-1 flex items-center gap-3">
+                            <button
+                              type="button"
+                              onClick={() => setShowYtTestPlayer(!showYtTestPlayer)}
+                              className="text-xs font-semibold text-indigo-600 hover:text-indigo-700 flex items-center gap-1"
+                            >
+                              <Play className="w-3 h-3" />
+                              <span>{showYtTestPlayer ? 'Hide Test Player' : 'Test Play Video'}</span>
+                            </button>
+                            <button
+                              type="button"
+                              disabled={isFetchingYt}
+                              onClick={handleFetchYtDetails}
+                              className="text-xs font-semibold text-slate-600 hover:text-slate-800 flex items-center gap-1"
+                            >
+                              {isFetchingYt ? <Loader2 className="w-3 h-3 animate-spin" /> : <Sparkles className="w-3 h-3 text-amber-500" />}
+                              <span>Auto-fill Title</span>
+                            </button>
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Interactive Test Player */}
+                      {showYtTestPlayer && (
+                        <div className="mt-3 aspect-video rounded-xl overflow-hidden shadow-lg border border-slate-800 bg-black">
+                          <iframe
+                            src={getAdFreeYouTubeEmbedUrl(contentForm.youtubeUrl, { autoplay: true })}
+                            title="YouTube Test Stream"
+                            className="w-full h-full border-0"
+                            allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                            allowFullScreen
+                          />
+                        </div>
+                      )}
+                    </div>
+                  ) : contentForm.youtubeUrl.length > 5 ? (
+                    <div className="p-3 rounded-xl bg-amber-50 border border-amber-200 text-xs text-amber-800">
+                      Please enter a valid YouTube URL (e.g. <code>https://www.youtube.com/watch?v=...</code> or <code>https://youtu.be/...</code>).
+                    </div>
+                  ) : null}
                 </div>
               )}
 
@@ -985,9 +1135,29 @@ export const FacultyContentPage: React.FC = () => {
               {/* YOUTUBE EMBED PLAYER */}
               {previewContent.content_type === 'YOUTUBE' && (
                 <div className="w-full h-full p-4 flex flex-col items-center justify-center">
+                  {/* Ad-Free Privacy Badge Banner */}
+                  <div className="w-full max-w-4xl mb-3 flex items-center justify-between px-3.5 py-2 rounded-xl bg-slate-900 border border-slate-800 text-xs text-slate-300">
+                    <div className="flex items-center gap-2">
+                      <span className="p-1 bg-emerald-500/20 text-emerald-400 rounded-lg">
+                        <Shield className="w-4 h-4" />
+                      </span>
+                      <strong className="text-white font-semibold">Ad-Free Educational Streaming (Student Preview)</strong>
+                      <span className="text-slate-600">•</span>
+                      <span className="text-slate-400 hidden sm:inline">
+                        Rendered via youtube-nocookie.com (no ads, rel=0, iv_load_policy=3)
+                      </span>
+                    </div>
+                    <span className="text-[11px] font-mono text-indigo-400 bg-indigo-950/60 px-2 py-0.5 rounded border border-indigo-800/60">
+                      ID: {extractYouTubeId(previewContent.youtube_video_id || previewContent.youtube_url)}
+                    </span>
+                  </div>
+
                   <div className="w-full max-w-4xl aspect-video rounded-xl overflow-hidden shadow-2xl bg-black">
                     <iframe
-                      src={`https://www.youtube.com/embed/${previewContent.youtube_video_id || (previewContent.youtube_url?.match(/(?:youtu\.be\/|youtube\.com\/(?:embed\/|v\/|watch\?v=|watch\?.+&v=))([\w-]{11})/)?.[1])}?autoplay=1`}
+                      src={getAdFreeYouTubeEmbedUrl(
+                        previewContent.youtube_video_id || previewContent.youtube_url,
+                        { autoplay: true }
+                      )}
                       title={previewContent.title}
                       className="w-full h-full border-0"
                       allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"

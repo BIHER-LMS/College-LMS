@@ -275,11 +275,20 @@ export class FacultyContentService {
   }
 
   /**
-   * Helper to parse YouTube video IDs
+   * Helper to parse YouTube video IDs from various formats:
+   * - https://www.youtube.com/watch?v=VIDEO_ID
+   * - https://youtu.be/VIDEO_ID
+   * - https://www.youtube.com/embed/VIDEO_ID
+   * - https://www.youtube.com/shorts/VIDEO_ID
+   * - https://www.youtube.com/live/VIDEO_ID
+   * - https://m.youtube.com/watch?v=VIDEO_ID
+   * - https://www.youtube-nocookie.com/embed/VIDEO_ID
    */
   private extractYouTubeId(url: string): string | null {
     if (!url) return null;
-    const match = url.match(/(?:youtu\.be\/|youtube\.com\/(?:embed\/|v\/|watch\?v=|watch\?.+&v=))([\w-]{11})/);
+    const match = url.match(
+      /(?:youtu\.be\/|(?:www\.|m\.)?youtube(?:-nocookie)?\.com\/(?:embed\/|v\/|shorts\/|live\/|watch\?v=|watch\?.+&v=))([\w-]{11})/i
+    );
     return match ? match[1] : null;
   }
 

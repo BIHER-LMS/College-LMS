@@ -11,10 +11,16 @@ import {
   Loader2,
   Check,
   Clock,
+  ShieldCheck,
+  Play,
 } from 'lucide-react';
 import { studentApi } from '../api/studentApi';
 import { downloadFileWithGuaranteedName } from '../../../utils/fileDownload';
 import { MarkdownViewer } from '../../../components/MarkdownViewer';
+import {
+  extractYouTubeId,
+  getYouTubeThumbnail,
+} from '../../../utils/youtube';
 
 declare global {
   interface Window {
@@ -80,9 +86,16 @@ export const StudentContentPage: React.FC = () => {
     const isMarkdown = (item.contentType || item.content_type) === 'MARKDOWN';
     const hasMarkdown = !!(item.markdownContent || item.markdown_content);
 
+    const resolvedYtId =
+      item.youtubeVideoId ||
+      item.youtube_video_id ||
+      extractYouTubeId(item.youtubeUrl || item.youtube_url);
+
     const initialContent = {
       ...item,
       contentType: item.contentType || item.content_type,
+      youtubeVideoId: resolvedYtId,
+      youtubeUrl: item.youtubeUrl || item.youtube_url,
       markdownContent: item.markdownContent || item.markdown_content || '',
       topic: item.topic || topic || { title: topic?.title || 'Learning Topic' },
       classSubject: item.classSubject || {
@@ -106,6 +119,12 @@ export const StudentContentPage: React.FC = () => {
         setActiveContent((prev: any) => ({
           ...prev,
           ...freshContent,
+          youtubeVideoId:
+            freshContent.youtubeVideoId ||
+            freshContent.youtube_video_id ||
+            prev?.youtubeVideoId ||
+            extractYouTubeId(freshContent.youtubeUrl || freshContent.youtube_url),
+          youtubeUrl: freshContent.youtubeUrl || freshContent.youtube_url || prev?.youtubeUrl,
           markdownContent: freshContent.markdownContent || freshContent.markdown_content || prev?.markdownContent || '',
           topic: freshContent.topic || prev?.topic,
           classSubject: freshContent.classSubject || prev?.classSubject,
@@ -174,7 +193,13 @@ export const StudentContentPage: React.FC = () => {
   // YOUTUBE IFRAME PLAYER API INTEGRATION (Full Telemetry Tracking)
   // -------------------------------------------------------------
   useEffect(() => {
-    if (!isPreviewModalOpen || activeContent?.contentType !== 'YOUTUBE' || !activeContent?.youtubeVideoId) {
+    const isYt = (activeContent?.contentType || activeContent?.content_type) === 'YOUTUBE';
+    const videoId =
+      activeContent?.youtubeVideoId ||
+      activeContent?.youtube_video_id ||
+      extractYouTubeId(activeContent?.youtubeUrl || activeContent?.youtube_url);
+
+    if (!isPreviewModalOpen || !isYt || !videoId) {
       return;
     }
 
@@ -194,13 +219,18 @@ export const StudentContentPage: React.FC = () => {
 
       try {
         ytPlayerRef.current = new window.YT.Player('youtube-player-container', {
-          videoId: activeContent.youtubeVideoId,
+          host: 'https://www.youtube-nocookie.com',
+          videoId: videoId,
           playerVars: {
             autoplay: 1,
             enablejsapi: 1,
             origin: window.location.origin,
             rel: 0,
             modestbranding: 1,
+            iv_load_policy: 3,
+            playsinline: 1,
+            controls: 1,
+            fs: 1,
           },
           events: {
             onReady: (event: any) => {
@@ -302,7 +332,14 @@ export const StudentContentPage: React.FC = () => {
         ytPlayerRef.current = null;
       }
     };
-  }, [isPreviewModalOpen, activeContent?.id, activeContent?.youtubeVideoId]);
+  }, [
+    isPreviewModalOpen,
+    activeContent?.id,
+    activeContent?.youtubeVideoId,
+    activeContent?.youtube_video_id,
+    activeContent?.youtubeUrl,
+    activeContent?.youtube_url,
+  ]);
 
   // -------------------------------------------------------------
   // DOCUMENT (PDF / PPT / DOC / MARKDOWN) IN-APP READING TRACKING
@@ -570,6 +607,11 @@ export const StudentContentPage: React.FC = () => {
                 {topic.contents?.map((item: any) => {
                   const isCompleted = item.progress?.isCompleted;
                   const progressPct = item.progress?.completionPercentage || 0;
+                  const isYt = (item.contentType || item.content_type) === 'YOUTUBE';
+                  const ytId =
+                    item.youtubeVideoId ||
+                    item.youtube_video_id ||
+                    extractYouTubeId(item.youtubeUrl || item.youtube_url);
 
                   return (
                     <div
@@ -578,6 +620,32 @@ export const StudentContentPage: React.FC = () => {
                       onClick={() => handleOpenContent(item, topic)}
                     >
                       <div>
+                        {/* YouTube Video Thumbnail Preview */}
+                        {isYt && ytId ? (
+                          <div className="relative aspect-video rounded-xl overflow-hidden mb-3 bg-slate-900 group/thumb">
+                            <img
+                              src={getYouTubeThumbnail(ytId, 'mq')}
+                              alt={item.title}
+                              className="w-full h-full object-cover group-hover/thumb:scale-105 transition duration-300"
+                              loading="lazy"
+                            />
+                            <div className="absolute inset-0 bg-black/25 group-hover/thumb:bg-black/10 transition flex items-center justify-center">
+                              <div className="w-10 h-10 rounded-full bg-red-600/90 text-white flex items-center justify-center shadow-lg group-hover/thumb:scale-110 transition">
+                                <Play className="w-4 h-4 ml-0.5 fill-current" />
+                              </div>
+                            </div>
+                            <div className="absolute top-2 left-2 px-2 py-0.5 rounded-md bg-black/70 backdrop-blur-xs text-[10px] font-bold text-white flex items-center gap-1">
+                              <span className="w-1.5 h-1.5 rounded-full bg-emerald-400"></span>
+                              Ad-Free Stream
+                            </div>
+                            {item.durationSeconds > 0 && (
+                              <div className="absolute bottom-2 right-2 px-1.5 py-0.5 rounded bg-black/80 text-[10px] font-medium text-white">
+                                {Math.round(item.durationSeconds / 60)}m
+                              </div>
+                            )}
+                          </div>
+                        ) : null}
+
                         <div className="flex items-center justify-between mb-3">
                           <div className="p-2.5 rounded-xl bg-slate-50 border border-slate-100 group-hover:bg-indigo-50 transition">
                             {getContentIcon(item.contentType || item.content_type)}
@@ -610,9 +678,16 @@ export const StudentContentPage: React.FC = () => {
                       </div>
 
                       <div className="mt-4 pt-3 border-t border-slate-100 flex items-center justify-between text-xs text-slate-400">
-                        <span className="uppercase font-semibold tracking-wider text-[10px] text-slate-500">
-                          {item.contentType || item.content_type}
-                        </span>
+                        <div className="flex items-center gap-1.5">
+                          <span className="uppercase font-semibold tracking-wider text-[10px] text-slate-500">
+                            {item.contentType || item.content_type}
+                          </span>
+                          {isYt && (
+                            <span className="text-[10px] font-semibold text-emerald-600 bg-emerald-50 px-1.5 py-0.5 rounded border border-emerald-200">
+                              Ad-Free
+                            </span>
+                          )}
+                        </div>
 
                         <div className="flex items-center gap-2">
                           {(item.isDownloadable || item.is_downloadable) && item.fileUrl && (
@@ -627,8 +702,9 @@ export const StudentContentPage: React.FC = () => {
                               <Download className="w-4 h-4" />
                             </button>
                           )}
-                          <span className="text-indigo-600 font-semibold group-hover:translate-x-0.5 transition">
-                            Open &rarr;
+                          <span className="text-indigo-600 font-semibold group-hover:translate-x-0.5 transition flex items-center gap-1">
+                            <span>{isYt ? 'Watch Video' : 'Open'}</span>
+                            <span>&rarr;</span>
                           </span>
                         </div>
                       </div>
@@ -772,8 +848,28 @@ export const StudentContentPage: React.FC = () => {
                   )}
 
                   {/* YOUTUBE EMBED PLAYER (Full Telemetry Tracking via YouTube IFrame API) */}
-                  {activeContent.contentType === 'YOUTUBE' && (
+                  {(activeContent.contentType === 'YOUTUBE' || activeContent.content_type === 'YOUTUBE') && (
                     <div className="w-full h-full p-4 flex flex-col items-center justify-center">
+                      {/* Privacy & Ad-Free Streaming Banner */}
+                      <div className="w-full max-w-4xl mb-3 flex items-center justify-between px-3.5 py-2 rounded-xl bg-slate-900 border border-slate-800 text-xs text-slate-300">
+                        <div className="flex items-center gap-2">
+                          <span className="p-1 bg-emerald-500/20 text-emerald-400 rounded-lg">
+                            <ShieldCheck className="w-4 h-4" />
+                          </span>
+                          <strong className="text-white font-semibold">Ad-Free Educational Streaming</strong>
+                          <span className="text-slate-600 hidden sm:inline">•</span>
+                          <span className="text-slate-400 hidden sm:inline">
+                            Suppresses 3rd-party ads & non-course distractions (youtube-nocookie.com)
+                          </span>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-emerald-950/80 border border-emerald-800 text-emerald-400 text-[11px] font-semibold">
+                            <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></span>
+                            Ad-Free Stream Active
+                          </span>
+                        </div>
+                      </div>
+
                       <div className="w-full max-w-4xl aspect-video rounded-xl overflow-hidden shadow-2xl bg-black relative">
                         <div id="youtube-player-container" className="w-full h-full" />
                       </div>
